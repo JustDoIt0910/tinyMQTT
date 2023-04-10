@@ -50,6 +50,7 @@ cmake_ninja_workdir = /home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug/
 build cmake_object_order_depends_target_mqtt: phony || CMakeFiles/mqtt.dir
 
 build CMakeFiles/mqtt.dir/mqtt_socket.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_socket.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
   DEP_FILE = CMakeFiles/mqtt.dir/mqtt_socket.c.o.d
   FLAGS = -g
   INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
@@ -57,6 +58,7 @@ build CMakeFiles/mqtt.dir/mqtt_socket.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++
   OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
 
 build CMakeFiles/mqtt.dir/mqtt_buffer.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_buffer.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
   DEP_FILE = CMakeFiles/mqtt.dir/mqtt_buffer.c.o.d
   FLAGS = -g
   INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
@@ -64,6 +66,7 @@ build CMakeFiles/mqtt.dir/mqtt_buffer.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++
   OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
 
 build CMakeFiles/mqtt.dir/mqtt_map.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_map.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
   DEP_FILE = CMakeFiles/mqtt.dir/mqtt_map.c.o.d
   FLAGS = -g
   INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
@@ -71,6 +74,7 @@ build CMakeFiles/mqtt.dir/mqtt_map.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Pr
   OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
 
 build CMakeFiles/mqtt.dir/mqtt_loop.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_loop.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
   DEP_FILE = CMakeFiles/mqtt.dir/mqtt_loop.c.o.d
   FLAGS = -g
   INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
@@ -78,6 +82,7 @@ build CMakeFiles/mqtt.dir/mqtt_loop.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/P
   OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
 
 build CMakeFiles/mqtt.dir/mqtt_broker.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_broker.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
   DEP_FILE = CMakeFiles/mqtt.dir/mqtt_broker.c.o.d
   FLAGS = -g
   INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
@@ -85,6 +90,7 @@ build CMakeFiles/mqtt.dir/mqtt_broker.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++
   OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
 
 build CMakeFiles/mqtt.dir/mqtt_client.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_client.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
   DEP_FILE = CMakeFiles/mqtt.dir/mqtt_client.c.o.d
   FLAGS = -g
   INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
@@ -92,6 +98,7 @@ build CMakeFiles/mqtt.dir/mqtt_client.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++
   OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
 
 build CMakeFiles/mqtt.dir/3rd/tinylog/tlog.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog/tlog.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
   DEP_FILE = CMakeFiles/mqtt.dir/3rd/tinylog/tlog.c.o.d
   FLAGS = -g
   INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
@@ -124,6 +131,7 @@ build libmqtt.a: C_STATIC_LIBRARY_LINKER__mqtt_Debug CMakeFiles/mqtt.dir/mqtt_so
 build cmake_object_order_depends_target_broker: phony || cmake_object_order_depends_target_mqtt
 
 build CMakeFiles/broker.dir/broker.c.o: C_COMPILER__broker_Debug /home/zr/c_c++/Projects/tinyMQTT/broker.c || cmake_object_order_depends_target_broker
+  DEFINES = -D_GNU_SOURCE
   DEP_FILE = CMakeFiles/broker.dir/broker.c.o.d
   FLAGS = -g
   INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
@@ -157,6 +165,7 @@ build broker: C_EXECUTABLE_LINKER__broker_Debug CMakeFiles/broker.dir/broker.c.o
 build cmake_object_order_depends_target_client: phony || cmake_object_order_depends_target_mqtt
 
 build CMakeFiles/client.dir/client.c.o: C_COMPILER__client_Debug /home/zr/c_c++/Projects/tinyMQTT/client.c || cmake_object_order_depends_target_client
+  DEFINES = -D_GNU_SOURCE
   DEP_FILE = CMakeFiles/client.dir/client.c.o.d
   FLAGS = -g
   INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog

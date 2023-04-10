@@ -5,10 +5,12 @@ project(tinyMQTT)
 set(TINYMQTT_LIB_SRC mqtt_socket.c
         mqtt_buffer.c
         mqtt_map.c
-        mqtt_loop.c
+        mqtt_event.c
         mqtt_broker.c
         mqtt_client.c
         3rd/tinylog/tlog.c)
+
+add_definitions(-D_GNU_SOURCE)
 
 include_directories(3rd/tinylog)
 
