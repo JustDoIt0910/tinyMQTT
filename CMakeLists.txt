@@ -9,6 +9,7 @@ set(TINYMQTT_LIB_SRC mqtt_socket.c
         mqtt_broker.c
         mqtt_client.c
         3rd/tinylog/tlog.c)
+set(CMAKE_BUILD_TYPE "Debug")
 
 add_definitions(-D_GNU_SOURCE)
 
