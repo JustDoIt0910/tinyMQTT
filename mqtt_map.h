@@ -74,6 +74,8 @@ struct                      \
 #define tmq_map_get(m, k) \
 ((m).tmp_k = (k), (m).res = tmq_map_get_((m).base, &((m).tmp_k)))
 
+#define tmq_map_clear(m) tmq_map_clear_((m).base)
+
 #define tmq_map_free(m) tmq_map_free_((m).base)
 
 tmq_map_base_t* tmq_map_new_(uint32_t cap, uint32_t factor,
@@ -81,6 +83,7 @@ tmq_map_base_t* tmq_map_new_(uint32_t cap, uint32_t factor,
                         tmq_map_hash_f hash_fn, tmq_map_equal_f equal_fn);
 int tmq_map_put_(tmq_map_base_t* m, const void* key, const void* value);
 void* tmq_map_get_(tmq_map_base_t* m, const void* key);
+void tmq_map_clear_(tmq_map_base_t* m);
 void tmq_map_free_(tmq_map_base_t* m);
 
 unsigned hash_str(const void* key);

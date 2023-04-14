@@ -250,7 +250,7 @@ void* tmq_map_get_(tmq_map_base_t* m, const void* key)
     return NULL;
 }
 
-void tmq_map_free_(tmq_map_base_t* m)
+void tmq_map_clear_(tmq_map_base_t* m)
 {
     tmq_map_entry_t* entry, *next;
     for(int i = 0; i < m->cap; i++)
@@ -263,5 +263,11 @@ void tmq_map_free_(tmq_map_base_t* m)
             entry = next;
         }
     }
+    m->size = 0;
+}
+
+void tmq_map_free_(tmq_map_base_t* m)
+{
+    tmq_map_clear_(m);
     free(m->buckets[0]);
 }

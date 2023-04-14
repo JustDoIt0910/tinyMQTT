@@ -5,6 +5,7 @@ project(tinyMQTT)
 set(TINYMQTT_LIB_SRC mqtt_socket.c
         mqtt_buffer.c
         mqtt_map.c
+        mqtt_vec.c
         mqtt_event.c
         mqtt_broker.c
         mqtt_client.c
@@ -13,11 +14,10 @@ set(CMAKE_BUILD_TYPE "Debug")
 
 add_definitions(-D_GNU_SOURCE)
 
-include_directories(3rd/tinylog)
+include_directories(${CMAKE_SOURCE_DIR} 3rd/tinylog)
 
 add_library(mqtt ${TINYMQTT_LIB_SRC})
 
-include_directories(${CMAKE_SOURCE_DIR})
 link_directories(${CMAKE_BINARY_DIR})
 link_libraries(mqtt pthread)
 
