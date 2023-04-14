@@ -17,7 +17,11 @@ include_directories(3rd/tinylog)
 
 add_library(mqtt ${TINYMQTT_LIB_SRC})
 
+include_directories(${CMAKE_SOURCE_DIR})
+link_directories(${CMAKE_BINARY_DIR})
+link_libraries(mqtt pthread)
+
+add_subdirectory(test)
 add_executable(broker broker.c)
 add_executable(client client.c)
-target_link_libraries(broker mqtt pthread)
-target_link_libraries(client mqtt pthread)
+

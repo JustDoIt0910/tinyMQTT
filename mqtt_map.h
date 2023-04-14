@@ -38,7 +38,7 @@ typedef struct tmq_map_base_s
     size_t key_size;
     /* memory required to store a value */
     size_t value_size;
-    tmq_map_entry_t** buckets;
+    tmq_map_entry_t** buckets[2];
     uint32_t cap;
     uint32_t size;
     uint32_t load_fac;
@@ -68,13 +68,13 @@ struct                      \
 {.base = tmq_map_new_(cap, f, sizeof(K), sizeof(V), KEY_TYPE_CUSTOM, hash_f, equal_f)}
 
 
-#define tmq_map_put(m, k, v) \
-    (m).tmp_k = k;           \
-    (m).tmp_v = v;           \
-    tmq_map_put_((m).base, &((m).tmp_k), &((m).tmp_v))
+#define tmq_map_put(m, k, v)    \
+((m).tmp_k = (k), (m).tmp_v = (v), tmq_map_put_((m).base, &((m).tmp_k), &((m).tmp_v)))
 
 #define tmq_map_get(m, k) \
 ((m).tmp_k = (k), (m).res = tmq_map_get_((m).base, &((m).tmp_k)))
+
+#define tmq_map_free(m) tmq_map_free_((m).base)
 
 tmq_map_base_t* tmq_map_new_(uint32_t cap, uint32_t factor,
                         size_t key_size, size_t value_size, unsigned char key_type,
