@@ -57,16 +57,21 @@ struct                      \
 
 #define tmq_map_str(V, cap, f) \
 {.base = tmq_map_new_(cap, f, 0, sizeof(V), KEY_TYPE_STR, hash_str, equal_str)}
-
-#define tmq_map_builtin32(V, cap, f) \
+#define tmq_map_32(V, cap, f) \
 {.base = tmq_map_new_(cap, f, 4, sizeof(V), KEY_TYPE_BUILTIN, hash_32, equal_32)}
-
-#define tmq_map_builtin64(V, cap, f) \
+#define tmq_map_64(V, cap, f) \
 {.base = tmq_map_new_(cap, f, 8, sizeof(V), KEY_TYPE_BUILTIN, hash_64, equal_64)}
-
 #define tmq_map_custom(K, V, cap, f, hash_f, equal_f) \
 {.base = tmq_map_new_(cap, f, sizeof(K), sizeof(V), KEY_TYPE_CUSTOM, hash_f, equal_f)}
 
+#define tmq_map_str_init(m, V, cap, f) \
+(m)->base = tmq_map_new_(cap, f, 0, sizeof(V), KEY_TYPE_STR, hash_str, equal_str)
+#define tmq_map_32_init(m, V, cap, f) \
+(m)->base = tmq_map_new_(cap, f, 4, sizeof(V), KEY_TYPE_BUILTIN, hash_32, equal_32)
+#define tmq_map_64_init(m, V, cap, f) \
+(m)->base = tmq_map_new_(cap, f, 8, sizeof(V), KEY_TYPE_BUILTIN, hash_64, equal_64)
+#define tmq_map_custom_init(K, V, cap, f, hash_f, equal_f) \
+tmq_map_new_(cap, f, sizeof(K), sizeof(V), KEY_TYPE_CUSTOM, hash_f, equal_f)
 
 #define tmq_map_put(m, k, v)    \
 ((m).tmp_k = (k), (m).tmp_v = (v), tmq_map_put_((m).base, &((m).tmp_k), &((m).tmp_v)))

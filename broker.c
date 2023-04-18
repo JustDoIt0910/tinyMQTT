@@ -3,7 +3,6 @@
 //
 #include "tlog.h"
 
-
 int main()
 {
     tlog_init("broker.log", 1024 * 1024, 10, 0, TLOG_SCREEN);

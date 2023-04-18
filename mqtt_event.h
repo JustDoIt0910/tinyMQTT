@@ -10,11 +10,18 @@
 #include <sys/epoll.h>
 #include <sys/queue.h>
 
+#define INITIAL_EVENTLIST_SIZE 16
+#define EPOLL_WAIT_TIMEOUT  10 * 1000
+
+#define atomicSet(var, value)       __atomic_store_n(&(var), (value), __ATOMIC_SEQ_CST)
+#define atomicGet(var)              __atomic_load_n (&(var), __ATOMIC_SEQ_CST)
+#define atomicExchange(var, val)    __atomic_exchange_n(&(var), val, __ATOMIC_SEQ_CST)
+
 typedef void(*tmq_event_cb)(tmq_socket_t, short, const void*);
 
 typedef struct tmq_event_handler_s
 {
-    SLIST_ENTRY(tmq_event_s) event_next;
+    SLIST_ENTRY(tmq_event_handler_s) event_next;
     tmq_socket_t fd;
     short events;
     short r_events;
@@ -22,7 +29,9 @@ typedef struct tmq_event_handler_s
     tmq_event_cb cb;
 } tmq_event_handler_t;
 
-typedef SLIST_HEAD(tmq_event_handler_queue_s, tmq_event_handler_t) tmq_event_handler_queue_t;
+tmq_event_handler_t* tmq_event_handler_create(int fd, short events, tmq_event_cb cb, void* arg);
+
+typedef SLIST_HEAD(tmq_event_handler_queue_s, tmq_event_handler_s) tmq_event_handler_queue_t;
 typedef tmq_map(int, tmq_event_handler_queue_t) tmq_handler_map;
 typedef tmq_vec(struct epoll_event) tmq_income_events;
 typedef tmq_vec(tmq_event_handler_t*) tmq_active_handlers;
@@ -33,6 +42,13 @@ typedef struct tmq_event_loop_s
     tmq_income_events epoll_events;
     tmq_active_handlers active_handlers;
     tmq_handler_map handler_map;
+    int running;
+    int quit;
 } tmq_event_loop_t;
+
+void tmq_event_loop_init(tmq_event_loop_t* loop);
+void tmq_event_loop_run(tmq_event_loop_t* loop);
+void tmq_event_loop_register(tmq_event_loop_t* loop, tmq_event_handler_t* handler);
+void tmq_event_loop_clean(tmq_event_loop_t* loop);
 
 #endif //TINYMQTT_MQTT_EVENT_H

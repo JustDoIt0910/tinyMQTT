@@ -22,8 +22,11 @@ struct                      \
     T* elem_ref;            \
 }
 
-#define tmq_vec_init(T) \
+#define tmq_vec_make(T) \
 {.base = tmq_base_init_(sizeof(T))}
+
+#define tmq_vec_init(v, T) \
+(v)->base = tmq_base_init_(sizeof(T))
 
 #define tmq_vec_push_back(v, elem) \
 ((v).tmp_elem = (elem), tmq_vec_push_back_((v).base, &(v).tmp_elem))

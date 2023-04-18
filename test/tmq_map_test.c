@@ -29,7 +29,8 @@ void get(map_str_struct* m, char* key)
 
 int main()
 {
-    map_str_struct m = tmq_map_str(struct Value, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
+    map_str_struct m;
+    tmq_map_str_init(&m, struct Value, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
 
     for(int i = 0; i < 17; i++)
         tmq_map_put(m, keys[i], values[i]);

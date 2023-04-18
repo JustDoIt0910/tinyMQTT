@@ -49,7 +49,7 @@ int main()
 //
 //    tmq_vec_free(v);
 
-    tmq_vec(struct Test) v = tmq_vec_init(struct Test);
+    tmq_vec(struct Test) v = tmq_vec_make(struct Test);
 
     tmq_vec_resize(v, 10);
     for(int i = 0; i < 6; i++)

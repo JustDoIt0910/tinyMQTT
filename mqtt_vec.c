@@ -104,6 +104,8 @@ void tmq_vec_clear_(tmq_vec_base_t* v) {v->size = 0;}
 void tmq_vec_free_(tmq_vec_base_t* v)
 {
     if(!v) return;
+    if(v->data)
+        free(v->data);
     free(v);
 }
 

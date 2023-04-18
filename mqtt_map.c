@@ -268,6 +268,9 @@ void tmq_map_clear_(tmq_map_base_t* m)
 
 void tmq_map_free_(tmq_map_base_t* m)
 {
+    if(!m) return;
     tmq_map_clear_(m);
-    free(m->buckets[0]);
+    if(m->buckets[0])
+        free(m->buckets[0]);
+    free(m);
 }
