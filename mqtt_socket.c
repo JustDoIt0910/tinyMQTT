@@ -18,7 +18,7 @@
 
 tmq_socket_t tmq_tcp_socket()
 {
-    int fd = socket(-1, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, IPPROTO_TCP);
+    int fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, IPPROTO_TCP);
     if(fd < 0)
     {
         tlog_fatal("socket() error %d: %s", errno, strerror(errno));
@@ -179,6 +179,7 @@ tmq_socket_addr_t tmq_addr_from_ip_port(const char* ip, uint16_t port)
     tmq_socket_addr_t addr;
     bzero(&addr, sizeof(addr));
     if(!ip) return addr;
+    addr.sin_family = AF_INET;
     inet_pton(AF_INET, ip, &addr.sin_addr);
     addr.sin_port = htobe16(port);
     return addr;

@@ -1,0 +1,8 @@
+//
+// Created by zr on 23-4-18.
+//
+
+#ifndef TINYMQTT_MQTT_ACCEPTOR_H
+#define TINYMQTT_MQTT_ACCEPTOR_H
+
+#endif //TINYMQTT_MQTT_ACCEPTOR_H

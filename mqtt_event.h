@@ -17,14 +17,14 @@
 #define atomicGet(var)              __atomic_load_n (&(var), __ATOMIC_SEQ_CST)
 #define atomicExchange(var, val)    __atomic_exchange_n(&(var), val, __ATOMIC_SEQ_CST)
 
-typedef void(*tmq_event_cb)(tmq_socket_t, short, const void*);
+typedef void(*tmq_event_cb)(tmq_socket_t, uint32_t, const void*);
 
 typedef struct tmq_event_handler_s
 {
     SLIST_ENTRY(tmq_event_handler_s) event_next;
     tmq_socket_t fd;
-    short events;
-    short r_events;
+    uint32_t events;
+    uint32_t r_events;
     void* arg;
     tmq_event_cb cb;
 } tmq_event_handler_t;

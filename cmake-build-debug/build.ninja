@@ -89,6 +89,30 @@ build CMakeFiles/mqtt.dir/mqtt_event.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/
   OBJECT_DIR = CMakeFiles/mqtt.dir
   OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
 
+build CMakeFiles/mqtt.dir/mqtt_acceptor.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_acceptor.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
+  DEP_FILE = CMakeFiles/mqtt.dir/mqtt_acceptor.c.o.d
+  FLAGS = -g
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  OBJECT_DIR = CMakeFiles/mqtt.dir
+  OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
+
+build CMakeFiles/mqtt.dir/mqtt_tcp_conn.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_tcp_conn.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
+  DEP_FILE = CMakeFiles/mqtt.dir/mqtt_tcp_conn.c.o.d
+  FLAGS = -g
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  OBJECT_DIR = CMakeFiles/mqtt.dir
+  OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
+
+build CMakeFiles/mqtt.dir/mqtt_timer.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_timer.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
+  DEP_FILE = CMakeFiles/mqtt.dir/mqtt_timer.c.o.d
+  FLAGS = -g
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  OBJECT_DIR = CMakeFiles/mqtt.dir
+  OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
+
 build CMakeFiles/mqtt.dir/mqtt_broker.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_broker.c || cmake_object_order_depends_target_mqtt
   DEFINES = -D_GNU_SOURCE
   DEP_FILE = CMakeFiles/mqtt.dir/mqtt_broker.c.o.d
@@ -121,7 +145,7 @@ build CMakeFiles/mqtt.dir/3rd/tinylog/tlog.c.o: C_COMPILER__mqtt_Debug /home/zr/
 #############################################
 # Link the static library libmqtt.a
 
-build libmqtt.a: C_STATIC_LIBRARY_LINKER__mqtt_Debug CMakeFiles/mqtt.dir/mqtt_socket.c.o CMakeFiles/mqtt.dir/mqtt_buffer.c.o CMakeFiles/mqtt.dir/mqtt_map.c.o CMakeFiles/mqtt.dir/mqtt_vec.c.o CMakeFiles/mqtt.dir/mqtt_event.c.o CMakeFiles/mqtt.dir/mqtt_broker.c.o CMakeFiles/mqtt.dir/mqtt_client.c.o CMakeFiles/mqtt.dir/3rd/tinylog/tlog.c.o
+build libmqtt.a: C_STATIC_LIBRARY_LINKER__mqtt_Debug CMakeFiles/mqtt.dir/mqtt_socket.c.o CMakeFiles/mqtt.dir/mqtt_buffer.c.o CMakeFiles/mqtt.dir/mqtt_map.c.o CMakeFiles/mqtt.dir/mqtt_vec.c.o CMakeFiles/mqtt.dir/mqtt_event.c.o CMakeFiles/mqtt.dir/mqtt_acceptor.c.o CMakeFiles/mqtt.dir/mqtt_tcp_conn.c.o CMakeFiles/mqtt.dir/mqtt_timer.c.o CMakeFiles/mqtt.dir/mqtt_broker.c.o CMakeFiles/mqtt.dir/mqtt_client.c.o CMakeFiles/mqtt.dir/3rd/tinylog/tlog.c.o
   LANGUAGE_COMPILE_FLAGS = -g
   OBJECT_DIR = CMakeFiles/mqtt.dir
   POST_BUILD = :

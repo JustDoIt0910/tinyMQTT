@@ -50,11 +50,30 @@ void tmq_event_loop_run(tmq_event_loop_t* loop)
         {
             if(events_num == tmq_vec_size(loop->epoll_events))
                 tmq_vec_resize(loop->epoll_events, 2 * tmq_vec_size(loop->epoll_events));
+            tmq_vec_clear(loop->active_handlers);
             for(int i = 0; i < events_num; i++)
             {
                 struct epoll_event* event = tmq_vec_at(loop->epoll_events, i);
                 assert(event != NULL);
-                
+                tmq_event_handler_queue_t* handlers = tmq_map_get(loop->handler_map, event->data.fd);
+                if(!handlers)
+                    continue;
+                tmq_event_handler_t* handler;
+                SLIST_FOREACH(handler, handlers, event_next)
+                {
+                    if(!(handler->events & event->events))
+                        continue;
+                    handler->r_events = event->events;
+                    tmq_vec_push_back(loop->active_handlers, handler);
+                }
+            }
+            tmq_event_handler_t** it;
+            for(it = tmq_vec_begin(loop->active_handlers);
+                it != tmq_vec_end(loop->active_handlers);
+                it++)
+            {
+                tmq_event_handler_t* active_handler = *it;
+                active_handler->cb(active_handler->fd, active_handler->r_events, active_handler->arg);
             }
         }
         else if(events_num < 0)

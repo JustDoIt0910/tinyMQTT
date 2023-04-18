@@ -2,11 +2,15 @@ cmake_minimum_required(VERSION 3.8)
 
 project(tinyMQTT)
 
-set(TINYMQTT_LIB_SRC mqtt_socket.c
+set(TINYMQTT_LIB_SRC
+        mqtt_socket.c
         mqtt_buffer.c
         mqtt_map.c
         mqtt_vec.c
         mqtt_event.c
+        mqtt_acceptor.c
+        mqtt_tcp_conn.c
+        mqtt_timer.c
         mqtt_broker.c
         mqtt_client.c
         3rd/tinylog/tlog.c)
