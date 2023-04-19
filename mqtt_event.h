@@ -9,6 +9,7 @@
 #include "mqtt_socket.h"
 #include <sys/epoll.h>
 #include <sys/queue.h>
+#include <pthread.h>
 
 #define INITIAL_EVENTLIST_SIZE 16
 #define EPOLL_WAIT_TIMEOUT  10 * 1000
@@ -44,11 +45,13 @@ typedef struct tmq_event_loop_s
     tmq_handler_map handler_map;
     int running;
     int quit;
+    pthread_mutex_t lk;
 } tmq_event_loop_t;
 
 void tmq_event_loop_init(tmq_event_loop_t* loop);
 void tmq_event_loop_run(tmq_event_loop_t* loop);
 void tmq_event_loop_register(tmq_event_loop_t* loop, tmq_event_handler_t* handler);
+void tmq_event_loop_quit(tmq_event_loop_t* loop);
 void tmq_event_loop_clean(tmq_event_loop_t* loop);
 
 #endif //TINYMQTT_MQTT_EVENT_H

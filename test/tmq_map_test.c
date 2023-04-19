@@ -38,6 +38,21 @@ int main()
     for(int i = 0; i < 17; i++)
         get(&m, keys[i]);
 
+    tmq_map_erase(m, "key2");
+    printf("\n");
+
+    for(int i = 0; i < 17; i++)
+        get(&m, keys[i]);
+    printf("\n");
+
+    tmq_map_iter_t it;
+    for(it = tmq_map_iter(m); tmq_map_has_next(it); tmq_map_next(m, it))
+    {
+        struct Value* res = it.entry->value;
+        char* key = it.entry->key;
+        printf("%s => {%d, %d}\n", key, res->a, res->b);
+    }
+
     tmq_map_free(m);
     return 0;
 }

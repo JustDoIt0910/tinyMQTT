@@ -55,6 +55,12 @@ struct                      \
     V* res;                 \
 }
 
+typedef struct tmq_map_iter_s
+{
+    tmq_map_entry_t* entry;
+    uint32_t bucket_idx;
+} tmq_map_iter_t;
+
 #define tmq_map_str(V, cap, f) \
 {.base = tmq_map_new_(cap, f, 0, sizeof(V), KEY_TYPE_STR, hash_str, equal_str)}
 #define tmq_map_32(V, cap, f) \
@@ -79,17 +85,27 @@ tmq_map_new_(cap, f, sizeof(K), sizeof(V), KEY_TYPE_CUSTOM, hash_f, equal_f)
 #define tmq_map_get(m, k) \
 ((m).tmp_k = (k), (m).res = tmq_map_get_((m).base, &((m).tmp_k)))
 
+#define tmq_map_erase(m, k) \
+((m).tmp_k = (k), tmq_map_erase_((m).base, &((m).tmp_k)))
+
 #define tmq_map_clear(m) tmq_map_clear_((m).base)
 
 #define tmq_map_free(m) tmq_map_free_((m).base)
+
+#define tmq_map_iter(m) tmq_map_iter_((m).base)
+#define tmq_map_next(m, iter) tmq_map_iter_next_((m).base, &(iter))
+#define tmq_map_has_next(iter)  iter.bucket_idx != UINT32_MAX
 
 tmq_map_base_t* tmq_map_new_(uint32_t cap, uint32_t factor,
                         size_t key_size, size_t value_size, unsigned char key_type,
                         tmq_map_hash_f hash_fn, tmq_map_equal_f equal_fn);
 int tmq_map_put_(tmq_map_base_t* m, const void* key, const void* value);
 void* tmq_map_get_(tmq_map_base_t* m, const void* key);
+void tmq_map_erase_(tmq_map_base_t* m, const void* key);
 void tmq_map_clear_(tmq_map_base_t* m);
 void tmq_map_free_(tmq_map_base_t* m);
+tmq_map_iter_t tmq_map_iter_(tmq_map_base_t* m);
+void tmq_map_iter_next_(tmq_map_base_t* m, tmq_map_iter_t* iter);
 
 unsigned hash_str(const void* key);
 int equal_str(const void* k1, const void* k2);

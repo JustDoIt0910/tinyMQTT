@@ -112,7 +112,7 @@ static tmq_map_entry_t* tmq_map_entry_new_(tmq_map_base_t* m, const void* key, c
 
 static tmq_map_entry_t** tmq_map_alloc_buckets(uint32_t* cap, uint32_t grow_factor)
 {
-    if(*cap > (4294967295U) / grow_factor)
+    if(*cap > UINT32_MAX / grow_factor)
         return NULL;
     uint32_t v = *cap < 8 ? 8 :  *cap * grow_factor;
     /* make sure that the real cap is power of 2,
@@ -135,18 +135,25 @@ static size_t tmq_map_bucket_index(tmq_map_base_t* m, unsigned hash)
     return hash & (m->cap - 1);
 }
 
-static tmq_map_entry_t* tmq_map_find_entry(tmq_map_base_t* m, const void* key)
+static tmq_map_entry_t* tmq_map_find_entry(tmq_map_base_t* m, const void* key,
+                                           uint32_t* bucket, tmq_map_entry_t** prev)
 {
     unsigned hash = m->hash_fn(key);
     size_t bucket_idx = tmq_map_bucket_index(m, hash);
     assert(bucket_idx < m->cap);
     tmq_map_entry_t* entry = m->buckets[0][bucket_idx];
+    tmq_map_entry_t* p = NULL;
     while(entry)
     {
         const void* entry_key = m->key_type == KEY_TYPE_STR ? &entry->key : entry->key;
         /* using hash in entry to speed up the finding */
         if(hash == entry->hash && m->equal_fn(entry_key, key))
+        {
+            if(prev) *prev = p;
+            if(bucket) *bucket = bucket_idx;
             return entry;
+        }
+        p = entry;
         entry = entry->next;
     }
     return NULL;
@@ -226,7 +233,7 @@ int tmq_map_put_(tmq_map_base_t* m, const void* key, const void* value)
 {
     if(!key || !value)
         return -1;
-    tmq_map_entry_t* entry = tmq_map_find_entry(m, key);
+    tmq_map_entry_t* entry = tmq_map_find_entry(m, key, NULL, NULL);
     if(entry)
     {
         memcpy(entry->value, value, m->value_size);
@@ -244,10 +251,25 @@ int tmq_map_put_(tmq_map_base_t* m, const void* key, const void* value)
 
 void* tmq_map_get_(tmq_map_base_t* m, const void* key)
 {
-    tmq_map_entry_t* entry = tmq_map_find_entry(m, key);
+    tmq_map_entry_t* entry = tmq_map_find_entry(m, key, NULL, NULL);
     if(entry)
         return entry->value;
     return NULL;
+}
+
+void tmq_map_erase_(tmq_map_base_t* m, const void* key)
+{
+    tmq_map_entry_t* prev = NULL;
+    uint32_t bucket_idx;
+    tmq_map_entry_t* entry = tmq_map_find_entry(m, key, &bucket_idx, &prev);
+    if(!entry) return;
+    /* this is the first element in its bucket */
+    if(!prev)
+        m->buckets[0][bucket_idx] = entry->next;
+    else
+        prev->next = entry->next;
+    free(entry);
+    m->size--;
 }
 
 void tmq_map_clear_(tmq_map_base_t* m)
@@ -273,4 +295,35 @@ void tmq_map_free_(tmq_map_base_t* m)
     if(m->buckets[0])
         free(m->buckets[0]);
     free(m);
+}
+
+uint32_t tmq_next_bucket(tmq_map_base_t* m, uint32_t cur)
+{
+    for(; cur < m->cap; cur++)
+    {
+        if(m->buckets[0][cur])
+            return cur;
+    }
+    return UINT32_MAX;
+}
+
+tmq_map_iter_t tmq_map_iter_(tmq_map_base_t* m)
+{
+    tmq_map_iter_t iter;
+    iter.bucket_idx = tmq_next_bucket(m, 0);
+    iter.entry = iter.bucket_idx == UINT32_MAX ? NULL : m->buckets[0][iter.bucket_idx];
+    return iter;
+}
+
+void tmq_map_iter_next_(tmq_map_base_t* m, tmq_map_iter_t* iter)
+{
+    if(iter->bucket_idx == UINT32_MAX)
+        return;
+    if(iter->entry->next)
+        iter->entry = iter->entry->next;
+    else
+    {
+        iter->bucket_idx = tmq_next_bucket(m, iter->bucket_idx + 1);
+        iter->entry = iter->bucket_idx == UINT32_MAX ? NULL : m->buckets[0][iter->bucket_idx];
+    }
 }

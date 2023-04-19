@@ -33,6 +33,7 @@ void tmq_event_loop_init(tmq_event_loop_t* loop)
     tmq_vec_resize(loop->epoll_events, INITIAL_EVENTLIST_SIZE);
     loop->running = 0;
     loop->quit = 0;
+    pthread_mutex_init(&loop->lk, NULL);
 }
 
 void tmq_event_loop_run(tmq_event_loop_t* loop)
@@ -40,12 +41,15 @@ void tmq_event_loop_run(tmq_event_loop_t* loop)
     if(!loop) return;
     if(atomicExchange(loop->running, 1) == 1)
         return;
-    while(!loop->quit)
+    pthread_mutex_lock(&loop->lk);
+    while(!atomicGet(loop->quit))
     {
+        pthread_mutex_unlock(&loop->lk);
         int events_num = epoll_wait(loop->epoll_fd,
                                     tmq_vec_begin(loop->epoll_events),
                                     tmq_vec_size(loop->epoll_events),
                                     EPOLL_WAIT_TIMEOUT);
+        pthread_mutex_lock(&loop->lk);
         if(events_num > 0)
         {
             if(events_num == tmq_vec_size(loop->epoll_events))
@@ -79,6 +83,8 @@ void tmq_event_loop_run(tmq_event_loop_t* loop)
         else if(events_num < 0)
             tlog_error("epoll_wait() error %d: %s", errno, strerror(errno));
     }
+    atomicSet(loop->running, 0);
+    pthread_mutex_unlock(&loop->lk);
 }
 
 void tmq_event_loop_register(tmq_event_loop_t* loop, tmq_event_handler_t* handler)
@@ -87,6 +93,8 @@ void tmq_event_loop_register(tmq_event_loop_t* loop, tmq_event_handler_t* handle
     bzero(&event, sizeof(struct epoll_event));
     event.data.fd = handler->fd;
     event.events = handler->events;
+
+    pthread_mutex_lock(&loop->lk);
     if(epoll_ctl(loop->epoll_fd, EPOLL_CTL_ADD, handler->fd, &event) < 0)
     {
         tlog_fatal("epoll_ctl() error %d: %s", errno, strerror(errno));
@@ -103,12 +111,33 @@ void tmq_event_loop_register(tmq_event_loop_t* loop, tmq_event_handler_t* handle
     handler_queue = tmq_map_get(loop->handler_map, handler->fd);
     assert(handler_queue != NULL);
     SLIST_INSERT_HEAD(handler_queue, handler, event_next);
+    pthread_mutex_unlock(&loop->lk);
+}
+
+void tmq_event_loop_quit(tmq_event_loop_t* loop)
+{
+    atomicSet(loop->quit, 1);
 }
 
 void tmq_event_loop_clean(tmq_event_loop_t* loop)
 {
+    if(atomicGet(loop->running))
+        return;
     tmq_vec_free(loop->epoll_events);
     tmq_vec_free(loop->active_handlers);
+    tmq_map_iter_t it;
+    for(it = tmq_map_iter(loop->handler_map); tmq_map_has_next(it); tmq_map_next(loop->handler_map, it))
+    {
+        tmq_event_handler_queue_t* handler_queue = it.entry->value;
+        tmq_event_handler_t* handler, *next;
+        handler = handler_queue->slh_first;
+        while(handler)
+        {
+            next = handler->event_next.sle_next;
+            free(handler);
+            handler = next;
+        }
+    }
     tmq_map_free(loop->handler_map);
     close(loop->epoll_fd);
 }
