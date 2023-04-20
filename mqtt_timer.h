@@ -17,7 +17,7 @@ typedef void(*tmq_timer_cb)(void* arg);
 
 typedef struct tmq_timer_s
 {
-    uint64_t expire;
+    int64_t expire;
     int repeat;
     tmq_timer_cb cb;
     void* arg;
@@ -37,7 +37,9 @@ typedef struct tmq_timer_heap_s
 } tmq_timer_heap_t;
 
 void tmq_timer_heap_init(tmq_timer_heap_t* timer_heap, tmq_event_loop_t* loop);
-void timer_heap_insert(tmq_timer_heap_t* timer_heap, tmq_timer_t* timer);
-tmq_timer_t* tmq_timer_new(double timeout_ms, int repeat, tmq_timer_cb);
+void tmq_timer_heap_insert(tmq_timer_heap_t* timer_heap, tmq_timer_t* timer);
+/* for debug */
+void tmq_timer_heap_print(tmq_timer_heap_t* timer_heap);
+tmq_timer_t* tmq_timer_new(double timeout_ms, int repeat, tmq_timer_cb cb, void* arg);
 
 #endif //TINYMQTT_MQTT_TIMER_H

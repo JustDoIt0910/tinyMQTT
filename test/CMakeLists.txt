@@ -1,3 +1,4 @@
 add_executable(tmq_map_test tmq_map_test.c)
 add_executable(tmq_vec_test tmq_vec_test.c)
 add_executable(tmq_event_test tmq_event_test.c)
+add_executable(tmq_timer_test tmq_timer_test.c)

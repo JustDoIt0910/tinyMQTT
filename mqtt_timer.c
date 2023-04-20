@@ -8,6 +8,36 @@
 #include <sys/timerfd.h>
 #include <errno.h>
 #include <string.h>
+#include <stdio.h>
+#include <sys/time.h>
+
+static int64_t now()
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec * 1000000 + tv.tv_usec;
+}
+
+tmq_timer_t* tmq_timer_new(double timeout_ms, int repeat, tmq_timer_cb cb, void* arg)
+{
+    if(timeout_ms < 0)
+    {
+        tlog_error("timeout or interval can't be nagetive");
+        return NULL;
+    }
+    tmq_timer_t* timer = (tmq_timer_t*) malloc(sizeof(tmq_timer_t));
+    if(!timer)
+    {
+        tlog_fatal("realloc() error: out of memory");
+        tlog_exit();
+        abort();
+    }
+    timer->expire = now() + (int64_t) (timeout_ms * 1000);
+    timer->repeat = repeat;
+    timer->arg = arg;
+    timer->cb = cb;
+    return timer;
+}
 
 static void timer_swim(tmq_timer_heap_t* timer_heap, size_t idx)
 {
@@ -36,7 +66,7 @@ static void timer_sink(tmq_timer_heap_t* timer_heap, size_t idx)
     timer_heap->heap[idx] = timer;
 }
 
-void timer_heap_insert(tmq_timer_heap_t* timer_heap, tmq_timer_t* timer)
+void tmq_timer_heap_insert(tmq_timer_heap_t* timer_heap, tmq_timer_t* timer)
 {
     if(!timer_heap || !timer) return;
     if(timer_heap->size == timer_heap->cap)
@@ -74,7 +104,7 @@ static void timer_heap_timeout(int timer_fd, uint32_t event, const void* arg)
 
 void tmq_timer_heap_init(tmq_timer_heap_t* timer_heap, tmq_event_loop_t* loop)
 {
-    if(!timer_heap) return;
+    if(!timer_heap || !loop) return;
     timer_heap->timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
     if(timer_heap->timer_fd < 0)
     {
@@ -94,4 +124,20 @@ void tmq_timer_heap_init(tmq_timer_heap_t* timer_heap, tmq_event_loop_t* loop)
     tmq_event_handler_t* handler = tmq_event_handler_create(timer_heap->timer_fd, EPOLLIN,
                                                             timer_heap_timeout, timer_heap);
     tmq_event_loop_register(loop, handler);
+}
+
+/* for debug */
+static void tmq_timer_print(const tmq_timer_t* timer)
+{
+    printf("timer{exp=%lu, repeat=%d, cb=%p}\n", timer->expire, timer->repeat, timer->cb);
+}
+
+void tmq_timer_heap_print(tmq_timer_heap_t* timer_heap)
+{
+    if(!timer_heap) return;
+    while(timer_heap->size > 0)
+    {
+        tmq_timer_t* timer = timer_heap_pop(timer_heap);
+        tmq_timer_print(timer);
+    }
 }
