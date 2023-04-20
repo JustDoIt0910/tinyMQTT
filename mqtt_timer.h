@@ -19,6 +19,7 @@ typedef struct tmq_timer_s
 {
     int64_t expire;
     int repeat;
+    int done;
     tmq_timer_cb cb;
     void* arg;
 } tmq_timer_t;

@@ -10,12 +10,19 @@
 #include <string.h>
 #include <stdio.h>
 #include <sys/time.h>
+#include <unistd.h>
 
-static int64_t now()
+static int64_t time_now()
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
     return tv.tv_sec * 1000000 + tv.tv_usec;
+}
+
+static void timerfd_set_timeout(int64_t when)
+{
+    int64_t now = time_now();
+    
 }
 
 tmq_timer_t* tmq_timer_new(double timeout_ms, int repeat, tmq_timer_cb cb, void* arg)
@@ -32,8 +39,9 @@ tmq_timer_t* tmq_timer_new(double timeout_ms, int repeat, tmq_timer_cb cb, void*
         tlog_exit();
         abort();
     }
-    timer->expire = now() + (int64_t) (timeout_ms * 1000);
+    timer->expire = time_now() + (int64_t) (timeout_ms * 1000);
     timer->repeat = repeat;
+    timer->done = 0;
     timer->arg = arg;
     timer->cb = cb;
     return timer;
@@ -99,6 +107,11 @@ static tmq_timer_t* timer_heap_pop(tmq_timer_heap_t* timer_heap)
 
 static void timer_heap_timeout(int timer_fd, uint32_t event, const void* arg)
 {
+    int64_t now = time_now();
+    int timeout_cnt;
+    ssize_t n = read(timer_fd, &timeout_cnt, sizeof(timeout_cnt));
+    if(n != sizeof(timeout_cnt))
+        tlog_error("error reading timer_fd");
 
 }
 
