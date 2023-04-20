@@ -8,6 +8,11 @@
 #include <stddef.h>
 #include "mqtt_vec.h"
 
+#define TIMER_HEAP_INITIAL_SIZE     16
+#define LEFT_CHILD_IDX(i)           ((i) << 1)
+#define RIGHT_CHILD_IDX(i)          (((i) << 1) + 1)
+#define PARENT_IDX(i)               ((i) >> 1)
+
 typedef void(*tmq_timer_cb)(void* arg);
 
 typedef struct tmq_timer_s
@@ -32,7 +37,7 @@ typedef struct tmq_timer_heap_s
 } tmq_timer_heap_t;
 
 void tmq_timer_heap_init(tmq_timer_heap_t* timer_heap, tmq_event_loop_t* loop);
-void tmq_timer_heap_add_timer(tmq_timer_heap_t* timer_heap, tmq_timer_t* timer);
+void timer_heap_insert(tmq_timer_heap_t* timer_heap, tmq_timer_t* timer);
 tmq_timer_t* tmq_timer_new(double timeout_ms, int repeat, tmq_timer_cb);
 
 #endif //TINYMQTT_MQTT_TIMER_H
