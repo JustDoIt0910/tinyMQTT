@@ -11,6 +11,7 @@ set(TINYMQTT_LIB_SRC
         mqtt_acceptor.c
         mqtt_tcp_conn.c
         mqtt_timer.c
+        mqtt_session.c
         mqtt_broker.c
         mqtt_client.c
         3rd/tinylog/tlog.c)

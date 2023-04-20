@@ -7,6 +7,7 @@
 #include "mqtt_map.h"
 #include "mqtt_vec.h"
 #include "mqtt_socket.h"
+#include "mqtt_timer.h"
 #include <sys/epoll.h>
 #include <sys/queue.h>
 #include <pthread.h>
@@ -43,6 +44,7 @@ typedef struct tmq_event_loop_s
     tmq_income_events epoll_events;
     tmq_active_handlers active_handlers;
     tmq_handler_map handler_map;
+    tmq_timer_heap_t timer_heap;
     int running;
     int quit;
     pthread_mutex_t lk;

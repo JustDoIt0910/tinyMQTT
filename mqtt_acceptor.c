@@ -18,7 +18,7 @@ static void acceptor_cb(tmq_socket_t fd, uint32_t event, const void* arg)
         close(acceptor->idle_socket);
         acceptor->idle_socket = open("/dev/null", O_RDONLY | O_CLOEXEC);
     }
-    else
+    else if(acceptor->connection_cb)
         acceptor->connection_cb(conn, &peer_addr, acceptor->arg);
 }
 

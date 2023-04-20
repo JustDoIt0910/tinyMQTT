@@ -33,7 +33,20 @@ void tmq_event_loop_init(tmq_event_loop_t* loop)
     tmq_vec_resize(loop->epoll_events, INITIAL_EVENTLIST_SIZE);
     loop->running = 0;
     loop->quit = 0;
-    pthread_mutex_init(&loop->lk, NULL);
+    pthread_mutexattr_t attr;
+    if(pthread_mutexattr_init(&attr))
+    {
+        tlog_fatal("pthread_mutexattr_init() error %d: %s", errno, strerror(errno));
+        tlog_exit();
+        abort();
+    }
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+    if(pthread_mutex_init(&loop->lk, &attr))
+    {
+        tlog_fatal("pthread_mutex_init() error %d: %s", errno, strerror(errno));
+        tlog_exit();
+        abort();
+    }
 }
 
 void tmq_event_loop_run(tmq_event_loop_t* loop)
