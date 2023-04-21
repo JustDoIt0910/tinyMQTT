@@ -34,19 +34,21 @@ void tmq_event_loop_init(tmq_event_loop_t* loop)
     loop->running = 0;
     loop->quit = 0;
     pthread_mutexattr_t attr;
+    memset(&attr, 0, sizeof(pthread_mutexattr_t));
     if(pthread_mutexattr_init(&attr))
     {
         tlog_fatal("pthread_mutexattr_init() error %d: %s", errno, strerror(errno));
         tlog_exit();
         abort();
     }
-    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE_NP);
     if(pthread_mutex_init(&loop->lk, &attr))
     {
         tlog_fatal("pthread_mutex_init() error %d: %s", errno, strerror(errno));
         tlog_exit();
         abort();
     }
+    tmq_timer_heap_init(&loop->timer_heap, loop);
 }
 
 void tmq_event_loop_run(tmq_event_loop_t* loop)
@@ -127,10 +129,23 @@ void tmq_event_loop_register(tmq_event_loop_t* loop, tmq_event_handler_t* handle
     pthread_mutex_unlock(&loop->lk);
 }
 
-void tmq_event_loop_quit(tmq_event_loop_t* loop)
+void tmq_event_loop_add_timer(tmq_event_loop_t* loop, tmq_timer_t* timer)
 {
-    atomicSet(loop->quit, 1);
+    if(!loop || !timer) return;
+    pthread_mutex_lock(&loop->lk);
+    tmq_timer_heap_add(&loop->timer_heap, timer);
+    pthread_mutex_unlock(&loop->lk);
 }
+
+void tmq_event_loop_cancel_timer(tmq_event_loop_t* loop, tmq_timer_t* timer)
+{
+    if(!loop || !timer) return;
+    pthread_mutex_lock(&loop->lk);
+    tmq_cancel_timer(timer);
+    pthread_mutex_unlock(&loop->lk);
+}
+
+void tmq_event_loop_quit(tmq_event_loop_t* loop) {atomicSet(loop->quit, 1);}
 
 void tmq_event_loop_clean(tmq_event_loop_t* loop)
 {
@@ -153,4 +168,5 @@ void tmq_event_loop_clean(tmq_event_loop_t* loop)
     }
     tmq_map_free(loop->handler_map);
     close(loop->epoll_fd);
+    tmq_timer_heap_free(&loop->timer_heap);
 }

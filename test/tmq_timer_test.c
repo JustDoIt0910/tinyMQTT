@@ -3,24 +3,40 @@
 //
 #include "mqtt_timer.h"
 #include "mqtt_event.h"
+#include "tlog.h"
+#include <stdio.h>
 
-double timeout[] = {2.0, 2.8, 1.2, 8.7, 3.4, 7.2, 21.9, 0.04, 0.8, 0.2, 0, 0.09, 87.3};
+void timeout1(void* arg)
+{
+    tlog_info("timeout1");
+}
+
+void timeout2(void* arg)
+{
+    tlog_info("timeout2");
+}
+
+void timeout3(void* arg)
+{
+    tlog_info("timeout3");
+}
 
 int main()
 {
+    tlog_init("broker.log", 1024 * 1024, 10, 0, TLOG_SCREEN);
+
     tmq_event_loop_t loop;
     tmq_event_loop_init(&loop);
 
-    tmq_timer_heap_t heap;
-    tmq_timer_heap_init(&heap, &loop);
+    tmq_timer_t* timer1 = tmq_timer_new(2000, 1, timeout1, NULL);
+    tmq_timer_t* timer2 = tmq_timer_new(1000, 1, timeout2, NULL);
+    tmq_timer_t* timer3 = tmq_timer_new(500, 1, timeout3, NULL);
+    tmq_event_loop_add_timer(&loop, timer1);
+    tmq_event_loop_add_timer(&loop, timer2);
+    tmq_event_loop_add_timer(&loop, timer3);
 
-    for(int i = 0; i < 13; i++)
-    {
-        tmq_timer_t* timer = tmq_timer_new(timeout[i], 0, NULL, NULL);
-        tmq_timer_heap_insert(&heap, timer);
-    }
-
-    tmq_timer_heap_print(&heap);
-
+    tmq_event_loop_run(&loop);
+    tmq_event_loop_clean(&loop);
+    tlog_exit();
     return 0;
 }

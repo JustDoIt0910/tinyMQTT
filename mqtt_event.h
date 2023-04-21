@@ -53,6 +53,8 @@ typedef struct tmq_event_loop_s
 void tmq_event_loop_init(tmq_event_loop_t* loop);
 void tmq_event_loop_run(tmq_event_loop_t* loop);
 void tmq_event_loop_register(tmq_event_loop_t* loop, tmq_event_handler_t* handler);
+void tmq_event_loop_add_timer(tmq_event_loop_t* loop, tmq_timer_t* timer);
+void tmq_event_loop_cancel_timer(tmq_event_loop_t* loop, tmq_timer_t* timer);
 void tmq_event_loop_quit(tmq_event_loop_t* loop);
 void tmq_event_loop_clean(tmq_event_loop_t* loop);
 
