@@ -208,6 +208,7 @@ void tmq_timer_heap_free(tmq_timer_heap_t* timer_heap)
     if(!timer_heap) return;
     if(timer_heap->heap)
         free(timer_heap->heap);
+    tmq_vec_free(timer_heap->expired_timers);
     close(timer_heap->timer_fd);
 }
 
