@@ -7,6 +7,7 @@
 #include <stddef.h>
 
 #define BUFFER_CHUNK_MIN            512
+#define CHUNK_DATA_LEN(chunk)       ((chunk)->write_idx - (chunk)->read_idx)
 #define CHUNK_WRITEABLE(chunk)      ((chunk)->chunk_size - (chunk)->write_idx)
 #define CHUNK_AVAL_SPACE(chunk)     ((chunk)->chunk_size - ((chunk)->write_idx - (chunk)->read_idx))
 
@@ -28,5 +29,6 @@ typedef struct tmq_buffer_s
 
 void tmq_buffer_init(tmq_buffer_t* buffer);
 void tmq_buffer_append(tmq_buffer_t* buffer, const char* data, size_t size);
+size_t tmq_buffer_peek(tmq_buffer_t* buffer, char* buf, size_t size);
 
 #endif //TINYMQTT_MQTT_BUFFER_H
