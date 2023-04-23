@@ -416,6 +416,41 @@ build test/tmq_timer_test: C_EXECUTABLE_LINKER__tmq_timer_test_Debug test/CMakeF
   TARGET_FILE = test/tmq_timer_test
   TARGET_PDB = tmq_timer_test.dbg
 
+# =============================================================================
+# Object build statements for EXECUTABLE target tmq_buffer_test
+
+
+#############################################
+# Order-only phony target for tmq_buffer_test
+
+build cmake_object_order_depends_target_tmq_buffer_test: phony || cmake_object_order_depends_target_mqtt
+
+build test/CMakeFiles/tmq_buffer_test.dir/tmq_buffer_test.c.o: C_COMPILER__tmq_buffer_test_Debug /home/zr/c_c++/Projects/tinyMQTT/test/tmq_buffer_test.c || cmake_object_order_depends_target_tmq_buffer_test
+  DEFINES = -D_GNU_SOURCE
+  DEP_FILE = test/CMakeFiles/tmq_buffer_test.dir/tmq_buffer_test.c.o.d
+  FLAGS = -g
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  OBJECT_DIR = test/CMakeFiles/tmq_buffer_test.dir
+  OBJECT_FILE_DIR = test/CMakeFiles/tmq_buffer_test.dir
+
+
+# =============================================================================
+# Link build statements for EXECUTABLE target tmq_buffer_test
+
+
+#############################################
+# Link the executable test/tmq_buffer_test
+
+build test/tmq_buffer_test: C_EXECUTABLE_LINKER__tmq_buffer_test_Debug test/CMakeFiles/tmq_buffer_test.dir/tmq_buffer_test.c.o | libmqtt.a || libmqtt.a
+  FLAGS = -g
+  LINK_LIBRARIES = -Wl,-rpath,/home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug  libmqtt.a  -lpthread
+  LINK_PATH = -L/home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug
+  OBJECT_DIR = test/CMakeFiles/tmq_buffer_test.dir
+  POST_BUILD = :
+  PRE_LINK = :
+  TARGET_FILE = test/tmq_buffer_test
+  TARGET_PDB = tmq_buffer_test.dbg
+
 
 #############################################
 # Utility command for edit_cache
@@ -445,6 +480,8 @@ build test/rebuild_cache: phony test/CMakeFiles/rebuild_cache.util
 
 build mqtt: phony libmqtt.a
 
+build tmq_buffer_test: phony test/tmq_buffer_test
+
 build tmq_event_test: phony test/tmq_event_test
 
 build tmq_map_test: phony test/tmq_map_test
@@ -468,7 +505,7 @@ build all: phony libmqtt.a broker client test/all
 #############################################
 # Folder: /home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug/test
 
-build test/all: phony test/tmq_map_test test/tmq_vec_test test/tmq_event_test test/tmq_timer_test
+build test/all: phony test/tmq_map_test test/tmq_vec_test test/tmq_event_test test/tmq_timer_test test/tmq_buffer_test
 
 # =============================================================================
 # Built-in targets
