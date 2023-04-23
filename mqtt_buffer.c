@@ -225,9 +225,12 @@ static size_t buffer_read_internal(tmq_buffer_t* buffer, char* buf, size_t size,
         if(remove)
             chunk->read_idx += size;
     }
-    buffer->first = chunk;
-    if(!chunk)
-        buffer->last = NULL;
+    if(remove)
+    {
+        buffer->first = chunk;
+        if(!chunk)
+            buffer->last = NULL;
+    }
     return cnt;
 }
 
