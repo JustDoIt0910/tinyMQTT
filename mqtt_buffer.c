@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/uio.h>
+#include <stdio.h>
 
 void tmq_buffer_init(tmq_buffer_t* buffer)
 {
@@ -89,13 +90,14 @@ void tmq_buffer_append(tmq_buffer_t* buffer, const char* data, size_t size)
     tmq_buffer_chunk_t* chunk = buffer->last;
     if(!chunk)
     {
-        chunk = buffer_chunk_new(size);
+        chunk = find_free_chunk(buffer, size);
+        if(!chunk)
+            chunk = buffer_chunk_new(size);
         memcpy(chunk->buf, data, size);
         chunk->write_idx += size;
         buffer->first = buffer->last = chunk;
-        return;
     }
-    if(CHUNK_WRITEABLE(chunk) >= size)
+    else if(CHUNK_WRITEABLE(chunk) >= size)
     {
         memcpy(chunk->buf + chunk->write_idx, data, size);
         chunk->write_idx += size;
@@ -131,11 +133,12 @@ void tmq_buffer_prepend(tmq_buffer_t* buffer, const char* data, size_t size)
     tmq_buffer_chunk_t* chunk = buffer->first;
     if(!chunk)
     {
-        chunk = buffer_chunk_new(size);
+        chunk = find_free_chunk(buffer, size);
+        if(!chunk)
+            chunk = buffer_chunk_new(size);
         memcpy(chunk->buf, data, size);
         chunk->write_idx += size;
         buffer->first = buffer->last = chunk;
-        return;
     }
     else if(chunk->read_idx >= size)
     {
@@ -222,6 +225,9 @@ static size_t buffer_read_internal(tmq_buffer_t* buffer, char* buf, size_t size,
         if(remove)
             chunk->read_idx += size;
     }
+    buffer->first = chunk;
+    if(!chunk)
+        buffer->last = NULL;
     return cnt;
 }
 
@@ -256,6 +262,9 @@ void tmq_buffer_remove(tmq_buffer_t* buffer, size_t size)
     }
     if(chunk && size)
         chunk->read_idx += size;
+    buffer->first = chunk;
+    if(!chunk)
+        buffer->last = NULL;
     buffer->readable_bytes -= size;
 }
 
@@ -326,4 +335,46 @@ ssize_t tmq_buffer_write_fd(tmq_buffer_t* buffer, tmq_socket_t fd)
         return n;
     tmq_buffer_remove(buffer, n);
     return n;
+}
+
+void tmq_buffer_debug(const tmq_buffer_t* buffer)
+{
+    if(!buffer) return;
+    printf("buffer %p: readable bytes=[%lu]\n", buffer, buffer->readable_bytes);
+    printf("---------------------------------------\n");
+    printf("chunks in use:\n");
+    tmq_buffer_chunk_t* chunk = buffer->first;
+    int used_chunks = 0;
+    size_t used_chunk_size = 0;
+    while (chunk)
+    {
+        used_chunks++;
+        printf("chunk %d: chunk size=[%lu] read_idx=[%lu] write_idx=[%lu] data len=[%lu] writable space=[%lu]\n",
+               used_chunks, chunk->chunk_size,
+               chunk->read_idx, chunk->write_idx,
+               CHUNK_DATA_LEN(chunk), CHUNK_WRITEABLE(chunk));
+        used_chunk_size += chunk->chunk_size;
+        chunk = chunk->next;
+    }
+    printf("total %d chunk in use, total size=[%lu]\n", used_chunks, used_chunk_size);
+    printf("---------------------------------------\n");
+    printf("chunks in free list:\n");
+    for(int i = 0; i < 5; i++)
+    {
+        switch (i)
+        {
+            case 0: printf("[512]:\n"); break;
+            case 1: printf("(512, 1204]:\n"); break;
+            case 2: printf("(1024, 2048]:\n"); break;
+            case 3: printf("(2048, 4096]:\n"); break;
+            case 4: printf("(4096, ):\n"); break;
+            default: break;
+        }
+        chunk = buffer->free_chunk_list[i];
+        while(chunk)
+        {
+            printf("free chunk: chunk size=[%lu]\n", chunk->chunk_size);
+            chunk = chunk->next;
+        }
+    }
 }
