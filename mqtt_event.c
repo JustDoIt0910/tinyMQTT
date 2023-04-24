@@ -104,6 +104,7 @@ void tmq_event_loop_run(tmq_event_loop_t* loop)
 
 void tmq_event_loop_register(tmq_event_loop_t* loop, tmq_event_handler_t* handler)
 {
+    if(!loop || !handler) return;
     struct epoll_event event;
     bzero(&event, sizeof(struct epoll_event));
     event.data.fd = handler->fd;
@@ -126,6 +127,32 @@ void tmq_event_loop_register(tmq_event_loop_t* loop, tmq_event_handler_t* handle
     handler_queue = tmq_map_get(loop->handler_map, handler->fd);
     assert(handler_queue != NULL);
     SLIST_INSERT_HEAD(handler_queue, handler, event_next);
+    pthread_mutex_unlock(&loop->lk);
+}
+
+void tmq_event_loop_unregister(tmq_event_loop_t* loop, tmq_event_handler_t* handler)
+{
+    if(!loop || !handler) return;
+    pthread_mutex_lock(&loop->lk);
+    tmq_event_handler_queue_t* handler_queue = tmq_map_get(loop->handler_map, handler->fd);
+    if(!handler_queue)
+        goto unlock;
+    tmq_event_handler_t** next = &handler_queue->slh_first;
+    while(*next && *next != handler)
+        next = &(*next)->event_next.sle_next;
+    if(*next)
+    {
+        *next = (*next)->event_next.sle_next;
+        handler->event_next.sle_next = NULL;
+        /* Since Linux 2.6.9, event can be specified as NULL when using EPOLL_CTL_DEL. */
+        if(epoll_ctl(loop->epoll_fd, EPOLL_CTL_ADD, handler->fd, NULL) < 0)
+        {
+            tlog_fatal("epoll_ctl() error %d: %s", errno, strerror(errno));
+            tlog_exit();
+            abort();
+        }
+    }
+    unlock:
     pthread_mutex_unlock(&loop->lk);
 }
 
