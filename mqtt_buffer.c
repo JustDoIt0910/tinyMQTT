@@ -57,6 +57,7 @@ static tmq_buffer_chunk_t* find_free_chunk(tmq_buffer_t* buffer, size_t req_size
         chunk = *next;
         *next = (*next)->next;
         chunk->next = NULL;
+        break;
     }
     return chunk;
 }
@@ -292,8 +293,10 @@ ssize_t tmq_buffer_read_fd(tmq_buffer_t* buffer, tmq_socket_t fd, size_t max)
     if(chunk && CHUNK_WRITEABLE(chunk) > 0)
     {
         vecs[0].iov_base = chunk->buf + chunk->write_idx;
-        vecs[0].iov_len = CHUNK_WRITEABLE(chunk);
+        size_t len = CHUNK_WRITEABLE(chunk) <= size ? CHUNK_WRITEABLE(chunk) : size;
+        vecs[0].iov_len = len;
         iovec_cnt++;
+        chunk->write_idx += len;
         space_aval += CHUNK_WRITEABLE(chunk);
     }
     for(int i = iovec_cnt; space_aval < size && i < MAX_IOVEC_NUM; i++)
@@ -304,12 +307,19 @@ ssize_t tmq_buffer_read_fd(tmq_buffer_t* buffer, tmq_socket_t fd, size_t max)
         if(!chunk)
             chunk = buffer_chunk_new(size - space_aval);
         assert(chunk && chunk->chunk_size > 0);
-        buffer->last->next = chunk;
-        buffer->last = chunk;
+        if(!buffer->last)
+            buffer->first = buffer->last = chunk;
+        else
+        {
+            buffer->last->next = chunk;
+            buffer->last = chunk;
+        }
+        size_t len = space_aval + chunk->chunk_size <= size ? chunk->chunk_size : size - space_aval;
         space_aval += chunk->chunk_size;
         vecs[i].iov_base = chunk->buf;
-        vecs[i].iov_len = chunk->chunk_size;
+        vecs[i].iov_len = len;
         iovec_cnt++;
+        chunk->write_idx += len;
     }
     ssize_t n = readv(fd, vecs, iovec_cnt);
     if(n > 0)
