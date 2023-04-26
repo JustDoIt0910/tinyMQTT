@@ -32,5 +32,6 @@ typedef struct tmq_tcp_conn_s
 
 tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_event_loop_t* loop, tmq_socket_t fd,
                                  tcp_message_cb message_cb, tcp_close_cb close_cb);
+int tmq_tcp_conn_id(tmq_tcp_conn_t* conn, char* buf, size_t buf_size);
 
 #endif //TINYMQTT_MQTT_TCP_CONN_H

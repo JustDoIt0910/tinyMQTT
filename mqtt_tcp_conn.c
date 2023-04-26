@@ -55,3 +55,11 @@ tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_event_loop_t* loop, tmq_socket_t fd,
     tmq_event_loop_register(conn->loop, conn->read_event_handler);
     return getRef(conn);
 }
+
+int tmq_tcp_conn_id(tmq_tcp_conn_t* conn, char* buf, size_t buf_size)
+{
+    if(!conn) return -1;
+    if(tmq_addr_to_string(&conn->peer_addr, buf, buf_size) < 0)
+        return -1;
+    return 0;
+}
