@@ -18,7 +18,21 @@
 #define atomicSet(var, value)       __atomic_store_n(&(var), (value), __ATOMIC_SEQ_CST)
 #define atomicGet(var)              __atomic_load_n (&(var), __ATOMIC_SEQ_CST)
 #define atomicExchange(var, val)    __atomic_exchange_n(&(var), val, __ATOMIC_SEQ_CST)
+#define decrementAndGet(var, val)   __atomic_sub_fetch(&(var), val, __ATOMIC_SEQ_CST)
+#define incrementAndGet(var, val)   __atomic_add_fetch(&(var), val, __ATOMIC_SEQ_CST)
 
+#define getRef(obj)                 (incrementAndGet(obj->ref_cnt, 1), obj)
+#define releaseRef(obj)             do                                              \
+                                    {                                               \
+                                        int n = decrementAndGet(obj->ref_cnt, 1);\
+                                        if(!n)                                      \
+                                        {                                           \
+                                            obj->destroy_cb(obj);                   \
+                                            free(obj);                              \
+                                        }                                           \
+                                    } while(0)
+
+typedef void(*tmq_destroy_cb)(void* obj);
 typedef void(*tmq_event_cb)(tmq_socket_t, uint32_t, const void*);
 
 typedef struct tmq_event_handler_s
