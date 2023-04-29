@@ -22,7 +22,7 @@ static void acceptor_cb(tmq_socket_t fd, uint32_t event, const void* arg)
         acceptor->connection_cb(conn, &peer_addr, acceptor->arg);
 }
 
-void tmq_acceptor_init(tmq_acceptor_t* acceptor, tmq_event_loop_t* loop, const void* arg, uint16_t port)
+void tmq_acceptor_init(tmq_acceptor_t* acceptor, tmq_event_loop_t* loop, uint16_t port)
 {
     if(!acceptor) return;
     acceptor->listening = 0;
@@ -30,7 +30,6 @@ void tmq_acceptor_init(tmq_acceptor_t* acceptor, tmq_event_loop_t* loop, const v
     tmq_socket_reuse_addr(acceptor->lis_socket, 1);
     tmq_socket_bind(acceptor->lis_socket, NULL, port);
     acceptor->idle_socket = open("/dev/null", O_RDONLY | O_CLOEXEC);
-    acceptor->arg = arg;
     tmq_event_handler_t* handler = tmq_event_handler_create(acceptor->lis_socket, EPOLLIN,
                                                             acceptor_cb, acceptor);
     tmq_event_loop_register(loop, handler);
@@ -43,7 +42,8 @@ void tmq_acceptor_listen(tmq_acceptor_t* acceptor)
     tmq_socket_listen(acceptor->lis_socket);
 }
 
-void tmq_acceptor_set_cb(tmq_acceptor_t* acceptor, tmq_new_connection_cb cb)
+void tmq_acceptor_set_cb(tmq_acceptor_t* acceptor, tmq_new_connection_cb cb, const void* arg)
 {
+    acceptor->arg = arg;
     acceptor->connection_cb = cb;
 }

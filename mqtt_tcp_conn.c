@@ -14,13 +14,17 @@ static void destroy_cb_(void* arg)
     assert(arg != NULL);
     tmq_tcp_conn_t* conn = (tmq_tcp_conn_t*) arg;
     assert(conn->ref_cnt == 0);
+
     free(conn->read_event_handler);
     free(conn->read_event_handler);
     if(conn->write_event_handler)
         free(conn->write_event_handler);
+
     tmq_buffer_free(&conn->in_buffer);
     tmq_buffer_free(&conn->out_buffer);
+
     tmq_socket_close(conn->fd);
+    pthread_mutex_destroy(&conn->lk);
 }
 
 static void tmq_tcp_conn_close(tmq_tcp_conn_t* conn)
@@ -66,7 +70,13 @@ static void write_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
 
 static void close_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
 {
-
+    if(!arg) return;
+    tmq_tcp_conn_t* conn = getRef((tmq_tcp_conn_t*) arg);
+    if(event & EPOLLERR && conn->error_cb)
+        conn->error_cb(getRef(conn));
+    else if(event & EPOLLHUP && !(event & EPOLLIN))
+        tmq_tcp_conn_close(getRef(conn));
+    releaseRef(conn);
 }
 
 tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_event_loop_t* loop, tmq_socket_t fd,

@@ -18,8 +18,8 @@ typedef struct tmq_acceptor_s
     int listening;
 } tmq_acceptor_t;
 
-void tmq_acceptor_init(tmq_acceptor_t* acceptor, tmq_event_loop_t* loop, const void* arg, uint16_t port);
-void tmq_acceptor_set_cb(tmq_acceptor_t* acceptor, tmq_new_connection_cb cb);
+void tmq_acceptor_init(tmq_acceptor_t* acceptor, tmq_event_loop_t* loop, uint16_t port);
+void tmq_acceptor_set_cb(tmq_acceptor_t* acceptor, tmq_new_connection_cb cb, const void* arg);
 void tmq_acceptor_listen(tmq_acceptor_t* acceptor);
 
 #endif //TINYMQTT_MQTT_ACCEPTOR_H
