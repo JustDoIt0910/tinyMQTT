@@ -43,6 +43,7 @@ size_t tmq_buffer_read(tmq_buffer_t* buffer, char* buf, size_t size);
 void tmq_buffer_remove(tmq_buffer_t* buffer, size_t size);
 ssize_t tmq_buffer_read_fd(tmq_buffer_t* buffer, tmq_socket_t fd, size_t max);
 ssize_t tmq_buffer_write_fd(tmq_buffer_t* buffer, tmq_socket_t fd);
+void tmq_buffer_free(tmq_buffer_t* buffer);
 void tmq_buffer_debug(const tmq_buffer_t* buffer);
 
 #endif //TINYMQTT_MQTT_BUFFER_H

@@ -56,17 +56,15 @@ void tmq_event_loop_run(tmq_event_loop_t* loop)
     if(!loop) return;
     if(atomicExchange(loop->running, 1) == 1)
         return;
-    pthread_mutex_lock(&loop->lk);
     while(!atomicGet(loop->quit))
     {
-        pthread_mutex_unlock(&loop->lk);
         int events_num = epoll_wait(loop->epoll_fd,
                                     tmq_vec_begin(loop->epoll_events),
                                     tmq_vec_size(loop->epoll_events),
                                     EPOLL_WAIT_TIMEOUT);
-        pthread_mutex_lock(&loop->lk);
         if(events_num > 0)
         {
+            pthread_mutex_lock(&loop->lk);
             if(events_num == tmq_vec_size(loop->epoll_events))
                 tmq_vec_resize(loop->epoll_events, 2 * tmq_vec_size(loop->epoll_events));
             tmq_vec_clear(loop->active_handlers);
@@ -86,6 +84,7 @@ void tmq_event_loop_run(tmq_event_loop_t* loop)
                     tmq_vec_push_back(loop->active_handlers, handler);
                 }
             }
+            pthread_mutex_unlock(&loop->lk);
             tmq_event_handler_t** it;
             for(it = tmq_vec_begin(loop->active_handlers);
                 it != tmq_vec_end(loop->active_handlers);
@@ -99,7 +98,6 @@ void tmq_event_loop_run(tmq_event_loop_t* loop)
             tlog_error("epoll_wait() error %d: %s", errno, strerror(errno));
     }
     atomicSet(loop->running, 0);
-    pthread_mutex_unlock(&loop->lk);
 }
 
 void tmq_event_loop_register(tmq_event_loop_t* loop, tmq_event_handler_t* handler)

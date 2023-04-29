@@ -14,39 +14,22 @@ void new_conn(tmq_socket_t conn, tmq_socket_addr_t* addr, const void* arg)
     tmq_event_loop_quit(loop);
 }
 
-void* f(void* arg)
-{
-    sleep(1);
-    int n = decrementAndGet(*(int*)arg, 1);
-    printf("%d\n", n);
-    if(!n)
-        printf("free()\n");
-}
-
-pthread_t threads[100];
-
 int main()
 {
     tlog_init("broker.log", 1024 * 1024, 10, 0, TLOG_SCREEN);
 
-//    tmq_event_loop_t loop;
-//    tmq_event_loop_init(&loop);
-//
-//    tmq_acceptor_t acceptor;
-//    tmq_acceptor_init(&acceptor, &loop, &loop, 9999);
-//    tmq_acceptor_set_cb(&acceptor, new_conn);
-//    tmq_acceptor_listen(&acceptor);
-//
-//    tmq_event_loop_run(&loop);
-//
-//    tmq_event_loop_clean(&loop);
+    tmq_event_loop_t loop;
+    tmq_event_loop_init(&loop);
 
-    int cnt = 100;
+    tmq_acceptor_t acceptor;
+    tmq_acceptor_init(&acceptor, &loop, &loop, 9999);
+    tmq_acceptor_set_cb(&acceptor, new_conn);
+    tmq_acceptor_listen(&acceptor);
 
-    for(int i = 0; i < 100; i++)
-        pthread_create(&threads[i], NULL, f, &cnt);
+    tmq_event_loop_run(&loop);
 
-    sleep(2);
+    tmq_event_loop_clean(&loop);
+
     tlog_exit();
     return 0;
 }

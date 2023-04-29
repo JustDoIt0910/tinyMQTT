@@ -350,6 +350,29 @@ ssize_t tmq_buffer_write_fd(tmq_buffer_t* buffer, tmq_socket_t fd)
     return n;
 }
 
+void tmq_buffer_free(tmq_buffer_t* buffer)
+{
+    if(!buffer) return;
+    tmq_buffer_chunk_t* chunk, *next;
+    for(int i = 0; i < 5; i++)
+    {
+        chunk = buffer->free_chunk_list[i];
+        while(chunk)
+        {
+            next = chunk->next;
+            free(chunk);
+            chunk = next;
+        }
+    }
+    chunk = buffer->first;
+    while(chunk)
+    {
+        next = chunk->next;
+        free(chunk);
+        chunk = next;
+    }
+}
+
 void tmq_buffer_debug(const tmq_buffer_t* buffer)
 {
     if(!buffer) return;

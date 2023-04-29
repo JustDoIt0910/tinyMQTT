@@ -21,15 +21,15 @@
 #define decrementAndGet(var, val)   __atomic_sub_fetch(&(var), val, __ATOMIC_SEQ_CST)
 #define incrementAndGet(var, val)   __atomic_add_fetch(&(var), val, __ATOMIC_SEQ_CST)
 
-#define getRef(obj)                 (incrementAndGet(obj->ref_cnt, 1), obj)
-#define releaseRef(obj)             do                                              \
-                                    {                                               \
-                                        int n = decrementAndGet(obj->ref_cnt, 1);\
-                                        if(!n)                                      \
-                                        {                                           \
-                                            obj->destroy_cb(obj);                   \
-                                            free(obj);                              \
-                                        }                                           \
+#define getRef(obj)                 (incrementAndGet((obj)->ref_cnt, 1), (obj))
+#define releaseRef(obj)             do                                                  \
+                                    {                                                   \
+                                        int __n = decrementAndGet((obj)->ref_cnt, 1);   \
+                                        if(!__n)                                        \
+                                        {                                               \
+                                            obj->destroy_cb(obj);                       \
+                                            free(obj);                                  \
+                                        }                                               \
                                     } while(0)
 
 typedef void(*tmq_destroy_cb)(void* obj);
