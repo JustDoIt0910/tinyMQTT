@@ -50,51 +50,122 @@ cmake_ninja_workdir = /home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug/
 build cmake_object_order_depends_target_mqtt: phony || CMakeFiles/mqtt.dir
 
 build CMakeFiles/mqtt.dir/mqtt_socket.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_socket.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
   DEP_FILE = CMakeFiles/mqtt.dir/mqtt_socket.c.o.d
   FLAGS = -g
-  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
   OBJECT_DIR = CMakeFiles/mqtt.dir
   OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
 
 build CMakeFiles/mqtt.dir/mqtt_buffer.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_buffer.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
   DEP_FILE = CMakeFiles/mqtt.dir/mqtt_buffer.c.o.d
   FLAGS = -g
-  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
   OBJECT_DIR = CMakeFiles/mqtt.dir
   OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
 
 build CMakeFiles/mqtt.dir/mqtt_map.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_map.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
   DEP_FILE = CMakeFiles/mqtt.dir/mqtt_map.c.o.d
   FLAGS = -g
-  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
   OBJECT_DIR = CMakeFiles/mqtt.dir
   OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
 
-build CMakeFiles/mqtt.dir/mqtt_loop.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_loop.c || cmake_object_order_depends_target_mqtt
-  DEP_FILE = CMakeFiles/mqtt.dir/mqtt_loop.c.o.d
+build CMakeFiles/mqtt.dir/mqtt_vec.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_vec.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
+  DEP_FILE = CMakeFiles/mqtt.dir/mqtt_vec.c.o.d
   FLAGS = -g
-  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  OBJECT_DIR = CMakeFiles/mqtt.dir
+  OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
+
+build CMakeFiles/mqtt.dir/mqtt_event.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_event.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
+  DEP_FILE = CMakeFiles/mqtt.dir/mqtt_event.c.o.d
+  FLAGS = -g
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  OBJECT_DIR = CMakeFiles/mqtt.dir
+  OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
+
+build CMakeFiles/mqtt.dir/mqtt_acceptor.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_acceptor.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
+  DEP_FILE = CMakeFiles/mqtt.dir/mqtt_acceptor.c.o.d
+  FLAGS = -g
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  OBJECT_DIR = CMakeFiles/mqtt.dir
+  OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
+
+build CMakeFiles/mqtt.dir/mqtt_tcp_conn.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_tcp_conn.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
+  DEP_FILE = CMakeFiles/mqtt.dir/mqtt_tcp_conn.c.o.d
+  FLAGS = -g
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  OBJECT_DIR = CMakeFiles/mqtt.dir
+  OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
+
+build CMakeFiles/mqtt.dir/mqtt_timer.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_timer.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
+  DEP_FILE = CMakeFiles/mqtt.dir/mqtt_timer.c.o.d
+  FLAGS = -g
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  OBJECT_DIR = CMakeFiles/mqtt.dir
+  OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
+
+build CMakeFiles/mqtt.dir/mqtt_packet.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_packet.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
+  DEP_FILE = CMakeFiles/mqtt.dir/mqtt_packet.c.o.d
+  FLAGS = -g
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  OBJECT_DIR = CMakeFiles/mqtt.dir
+  OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
+
+build CMakeFiles/mqtt.dir/mqtt_session.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_session.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
+  DEP_FILE = CMakeFiles/mqtt.dir/mqtt_session.c.o.d
+  FLAGS = -g
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  OBJECT_DIR = CMakeFiles/mqtt.dir
+  OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
+
+build CMakeFiles/mqtt.dir/mqtt_codec.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_codec.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
+  DEP_FILE = CMakeFiles/mqtt.dir/mqtt_codec.c.o.d
+  FLAGS = -g
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
   OBJECT_DIR = CMakeFiles/mqtt.dir
   OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
 
 build CMakeFiles/mqtt.dir/mqtt_broker.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_broker.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
   DEP_FILE = CMakeFiles/mqtt.dir/mqtt_broker.c.o.d
   FLAGS = -g
-  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
   OBJECT_DIR = CMakeFiles/mqtt.dir
   OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
 
 build CMakeFiles/mqtt.dir/mqtt_client.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_client.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
   DEP_FILE = CMakeFiles/mqtt.dir/mqtt_client.c.o.d
   FLAGS = -g
-  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  OBJECT_DIR = CMakeFiles/mqtt.dir
+  OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
+
+build CMakeFiles/mqtt.dir/mqtt_config.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/mqtt_config.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
+  DEP_FILE = CMakeFiles/mqtt.dir/mqtt_config.c.o.d
+  FLAGS = -g
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
   OBJECT_DIR = CMakeFiles/mqtt.dir
   OBJECT_FILE_DIR = CMakeFiles/mqtt.dir
 
 build CMakeFiles/mqtt.dir/3rd/tinylog/tlog.c.o: C_COMPILER__mqtt_Debug /home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog/tlog.c || cmake_object_order_depends_target_mqtt
+  DEFINES = -D_GNU_SOURCE
   DEP_FILE = CMakeFiles/mqtt.dir/3rd/tinylog/tlog.c.o.d
   FLAGS = -g
-  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
   OBJECT_DIR = CMakeFiles/mqtt.dir
   OBJECT_FILE_DIR = CMakeFiles/mqtt.dir/3rd/tinylog
 
@@ -106,7 +177,7 @@ build CMakeFiles/mqtt.dir/3rd/tinylog/tlog.c.o: C_COMPILER__mqtt_Debug /home/zr/
 #############################################
 # Link the static library libmqtt.a
 
-build libmqtt.a: C_STATIC_LIBRARY_LINKER__mqtt_Debug CMakeFiles/mqtt.dir/mqtt_socket.c.o CMakeFiles/mqtt.dir/mqtt_buffer.c.o CMakeFiles/mqtt.dir/mqtt_map.c.o CMakeFiles/mqtt.dir/mqtt_loop.c.o CMakeFiles/mqtt.dir/mqtt_broker.c.o CMakeFiles/mqtt.dir/mqtt_client.c.o CMakeFiles/mqtt.dir/3rd/tinylog/tlog.c.o
+build libmqtt.a: C_STATIC_LIBRARY_LINKER__mqtt_Debug CMakeFiles/mqtt.dir/mqtt_socket.c.o CMakeFiles/mqtt.dir/mqtt_buffer.c.o CMakeFiles/mqtt.dir/mqtt_map.c.o CMakeFiles/mqtt.dir/mqtt_vec.c.o CMakeFiles/mqtt.dir/mqtt_event.c.o CMakeFiles/mqtt.dir/mqtt_acceptor.c.o CMakeFiles/mqtt.dir/mqtt_tcp_conn.c.o CMakeFiles/mqtt.dir/mqtt_timer.c.o CMakeFiles/mqtt.dir/mqtt_packet.c.o CMakeFiles/mqtt.dir/mqtt_session.c.o CMakeFiles/mqtt.dir/mqtt_codec.c.o CMakeFiles/mqtt.dir/mqtt_broker.c.o CMakeFiles/mqtt.dir/mqtt_client.c.o CMakeFiles/mqtt.dir/mqtt_config.c.o CMakeFiles/mqtt.dir/3rd/tinylog/tlog.c.o
   LANGUAGE_COMPILE_FLAGS = -g
   OBJECT_DIR = CMakeFiles/mqtt.dir
   POST_BUILD = :
@@ -124,9 +195,10 @@ build libmqtt.a: C_STATIC_LIBRARY_LINKER__mqtt_Debug CMakeFiles/mqtt.dir/mqtt_so
 build cmake_object_order_depends_target_broker: phony || cmake_object_order_depends_target_mqtt
 
 build CMakeFiles/broker.dir/broker.c.o: C_COMPILER__broker_Debug /home/zr/c_c++/Projects/tinyMQTT/broker.c || cmake_object_order_depends_target_broker
+  DEFINES = -D_GNU_SOURCE
   DEP_FILE = CMakeFiles/broker.dir/broker.c.o.d
   FLAGS = -g
-  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
   OBJECT_DIR = CMakeFiles/broker.dir
   OBJECT_FILE_DIR = CMakeFiles/broker.dir
 
@@ -140,7 +212,8 @@ build CMakeFiles/broker.dir/broker.c.o: C_COMPILER__broker_Debug /home/zr/c_c++/
 
 build broker: C_EXECUTABLE_LINKER__broker_Debug CMakeFiles/broker.dir/broker.c.o | libmqtt.a || libmqtt.a
   FLAGS = -g
-  LINK_LIBRARIES = libmqtt.a  -lpthread
+  LINK_LIBRARIES = -Wl,-rpath,/home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug  libmqtt.a  -lpthread
+  LINK_PATH = -L/home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug
   OBJECT_DIR = CMakeFiles/broker.dir
   POST_BUILD = :
   PRE_LINK = :
@@ -157,9 +230,10 @@ build broker: C_EXECUTABLE_LINKER__broker_Debug CMakeFiles/broker.dir/broker.c.o
 build cmake_object_order_depends_target_client: phony || cmake_object_order_depends_target_mqtt
 
 build CMakeFiles/client.dir/client.c.o: C_COMPILER__client_Debug /home/zr/c_c++/Projects/tinyMQTT/client.c || cmake_object_order_depends_target_client
+  DEFINES = -D_GNU_SOURCE
   DEP_FILE = CMakeFiles/client.dir/client.c.o.d
   FLAGS = -g
-  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
   OBJECT_DIR = CMakeFiles/client.dir
   OBJECT_FILE_DIR = CMakeFiles/client.dir
 
@@ -173,7 +247,8 @@ build CMakeFiles/client.dir/client.c.o: C_COMPILER__client_Debug /home/zr/c_c++/
 
 build client: C_EXECUTABLE_LINKER__client_Debug CMakeFiles/client.dir/client.c.o | libmqtt.a || libmqtt.a
   FLAGS = -g
-  LINK_LIBRARIES = libmqtt.a  -lpthread
+  LINK_LIBRARIES = -Wl,-rpath,/home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug  libmqtt.a  -lpthread
+  LINK_PATH = -L/home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug
   OBJECT_DIR = CMakeFiles/client.dir
   POST_BUILD = :
   PRE_LINK = :
@@ -205,9 +280,223 @@ build CMakeFiles/rebuild_cache.util: CUSTOM_COMMAND
 build rebuild_cache: phony CMakeFiles/rebuild_cache.util
 
 # =============================================================================
+# Write statements declared in CMakeLists.txt:
+# /home/zr/c_c++/Projects/tinyMQTT/CMakeLists.txt
+# =============================================================================
+
+# =============================================================================
+# Object build statements for EXECUTABLE target tmq_map_test
+
+
+#############################################
+# Order-only phony target for tmq_map_test
+
+build cmake_object_order_depends_target_tmq_map_test: phony || cmake_object_order_depends_target_mqtt
+
+build test/CMakeFiles/tmq_map_test.dir/tmq_map_test.c.o: C_COMPILER__tmq_map_test_Debug /home/zr/c_c++/Projects/tinyMQTT/test/tmq_map_test.c || cmake_object_order_depends_target_tmq_map_test
+  DEFINES = -D_GNU_SOURCE
+  DEP_FILE = test/CMakeFiles/tmq_map_test.dir/tmq_map_test.c.o.d
+  FLAGS = -g
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  OBJECT_DIR = test/CMakeFiles/tmq_map_test.dir
+  OBJECT_FILE_DIR = test/CMakeFiles/tmq_map_test.dir
+
+
+# =============================================================================
+# Link build statements for EXECUTABLE target tmq_map_test
+
+
+#############################################
+# Link the executable test/tmq_map_test
+
+build test/tmq_map_test: C_EXECUTABLE_LINKER__tmq_map_test_Debug test/CMakeFiles/tmq_map_test.dir/tmq_map_test.c.o | libmqtt.a || libmqtt.a
+  FLAGS = -g
+  LINK_LIBRARIES = -Wl,-rpath,/home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug  libmqtt.a  -lpthread
+  LINK_PATH = -L/home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug
+  OBJECT_DIR = test/CMakeFiles/tmq_map_test.dir
+  POST_BUILD = :
+  PRE_LINK = :
+  TARGET_FILE = test/tmq_map_test
+  TARGET_PDB = tmq_map_test.dbg
+
+# =============================================================================
+# Object build statements for EXECUTABLE target tmq_vec_test
+
+
+#############################################
+# Order-only phony target for tmq_vec_test
+
+build cmake_object_order_depends_target_tmq_vec_test: phony || cmake_object_order_depends_target_mqtt
+
+build test/CMakeFiles/tmq_vec_test.dir/tmq_vec_test.c.o: C_COMPILER__tmq_vec_test_Debug /home/zr/c_c++/Projects/tinyMQTT/test/tmq_vec_test.c || cmake_object_order_depends_target_tmq_vec_test
+  DEFINES = -D_GNU_SOURCE
+  DEP_FILE = test/CMakeFiles/tmq_vec_test.dir/tmq_vec_test.c.o.d
+  FLAGS = -g
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  OBJECT_DIR = test/CMakeFiles/tmq_vec_test.dir
+  OBJECT_FILE_DIR = test/CMakeFiles/tmq_vec_test.dir
+
+
+# =============================================================================
+# Link build statements for EXECUTABLE target tmq_vec_test
+
+
+#############################################
+# Link the executable test/tmq_vec_test
+
+build test/tmq_vec_test: C_EXECUTABLE_LINKER__tmq_vec_test_Debug test/CMakeFiles/tmq_vec_test.dir/tmq_vec_test.c.o | libmqtt.a || libmqtt.a
+  FLAGS = -g
+  LINK_LIBRARIES = -Wl,-rpath,/home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug  libmqtt.a  -lpthread
+  LINK_PATH = -L/home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug
+  OBJECT_DIR = test/CMakeFiles/tmq_vec_test.dir
+  POST_BUILD = :
+  PRE_LINK = :
+  TARGET_FILE = test/tmq_vec_test
+  TARGET_PDB = tmq_vec_test.dbg
+
+# =============================================================================
+# Object build statements for EXECUTABLE target tmq_event_test
+
+
+#############################################
+# Order-only phony target for tmq_event_test
+
+build cmake_object_order_depends_target_tmq_event_test: phony || cmake_object_order_depends_target_mqtt
+
+build test/CMakeFiles/tmq_event_test.dir/tmq_event_test.c.o: C_COMPILER__tmq_event_test_Debug /home/zr/c_c++/Projects/tinyMQTT/test/tmq_event_test.c || cmake_object_order_depends_target_tmq_event_test
+  DEFINES = -D_GNU_SOURCE
+  DEP_FILE = test/CMakeFiles/tmq_event_test.dir/tmq_event_test.c.o.d
+  FLAGS = -g
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  OBJECT_DIR = test/CMakeFiles/tmq_event_test.dir
+  OBJECT_FILE_DIR = test/CMakeFiles/tmq_event_test.dir
+
+
+# =============================================================================
+# Link build statements for EXECUTABLE target tmq_event_test
+
+
+#############################################
+# Link the executable test/tmq_event_test
+
+build test/tmq_event_test: C_EXECUTABLE_LINKER__tmq_event_test_Debug test/CMakeFiles/tmq_event_test.dir/tmq_event_test.c.o | libmqtt.a || libmqtt.a
+  FLAGS = -g
+  LINK_LIBRARIES = -Wl,-rpath,/home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug  libmqtt.a  -lpthread
+  LINK_PATH = -L/home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug
+  OBJECT_DIR = test/CMakeFiles/tmq_event_test.dir
+  POST_BUILD = :
+  PRE_LINK = :
+  TARGET_FILE = test/tmq_event_test
+  TARGET_PDB = tmq_event_test.dbg
+
+# =============================================================================
+# Object build statements for EXECUTABLE target tmq_timer_test
+
+
+#############################################
+# Order-only phony target for tmq_timer_test
+
+build cmake_object_order_depends_target_tmq_timer_test: phony || cmake_object_order_depends_target_mqtt
+
+build test/CMakeFiles/tmq_timer_test.dir/tmq_timer_test.c.o: C_COMPILER__tmq_timer_test_Debug /home/zr/c_c++/Projects/tinyMQTT/test/tmq_timer_test.c || cmake_object_order_depends_target_tmq_timer_test
+  DEFINES = -D_GNU_SOURCE
+  DEP_FILE = test/CMakeFiles/tmq_timer_test.dir/tmq_timer_test.c.o.d
+  FLAGS = -g
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  OBJECT_DIR = test/CMakeFiles/tmq_timer_test.dir
+  OBJECT_FILE_DIR = test/CMakeFiles/tmq_timer_test.dir
+
+
+# =============================================================================
+# Link build statements for EXECUTABLE target tmq_timer_test
+
+
+#############################################
+# Link the executable test/tmq_timer_test
+
+build test/tmq_timer_test: C_EXECUTABLE_LINKER__tmq_timer_test_Debug test/CMakeFiles/tmq_timer_test.dir/tmq_timer_test.c.o | libmqtt.a || libmqtt.a
+  FLAGS = -g
+  LINK_LIBRARIES = -Wl,-rpath,/home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug  libmqtt.a  -lpthread
+  LINK_PATH = -L/home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug
+  OBJECT_DIR = test/CMakeFiles/tmq_timer_test.dir
+  POST_BUILD = :
+  PRE_LINK = :
+  TARGET_FILE = test/tmq_timer_test
+  TARGET_PDB = tmq_timer_test.dbg
+
+# =============================================================================
+# Object build statements for EXECUTABLE target tmq_buffer_test
+
+
+#############################################
+# Order-only phony target for tmq_buffer_test
+
+build cmake_object_order_depends_target_tmq_buffer_test: phony || cmake_object_order_depends_target_mqtt
+
+build test/CMakeFiles/tmq_buffer_test.dir/tmq_buffer_test.c.o: C_COMPILER__tmq_buffer_test_Debug /home/zr/c_c++/Projects/tinyMQTT/test/tmq_buffer_test.c || cmake_object_order_depends_target_tmq_buffer_test
+  DEFINES = -D_GNU_SOURCE
+  DEP_FILE = test/CMakeFiles/tmq_buffer_test.dir/tmq_buffer_test.c.o.d
+  FLAGS = -g
+  INCLUDES = -I/home/zr/c_c++/Projects/tinyMQTT -I/home/zr/c_c++/Projects/tinyMQTT/3rd/tinylog
+  OBJECT_DIR = test/CMakeFiles/tmq_buffer_test.dir
+  OBJECT_FILE_DIR = test/CMakeFiles/tmq_buffer_test.dir
+
+
+# =============================================================================
+# Link build statements for EXECUTABLE target tmq_buffer_test
+
+
+#############################################
+# Link the executable test/tmq_buffer_test
+
+build test/tmq_buffer_test: C_EXECUTABLE_LINKER__tmq_buffer_test_Debug test/CMakeFiles/tmq_buffer_test.dir/tmq_buffer_test.c.o | libmqtt.a || libmqtt.a
+  FLAGS = -g
+  LINK_LIBRARIES = -Wl,-rpath,/home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug  libmqtt.a  -lpthread
+  LINK_PATH = -L/home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug
+  OBJECT_DIR = test/CMakeFiles/tmq_buffer_test.dir
+  POST_BUILD = :
+  PRE_LINK = :
+  TARGET_FILE = test/tmq_buffer_test
+  TARGET_PDB = tmq_buffer_test.dbg
+
+
+#############################################
+# Utility command for edit_cache
+
+build test/CMakeFiles/edit_cache.util: CUSTOM_COMMAND
+  COMMAND = cd /home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug/test && /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/bin/ccmake -S/home/zr/c_c++/Projects/tinyMQTT -B/home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug
+  DESC = Running CMake cache editor...
+  pool = console
+  restat = 1
+
+build test/edit_cache: phony test/CMakeFiles/edit_cache.util
+
+
+#############################################
+# Utility command for rebuild_cache
+
+build test/CMakeFiles/rebuild_cache.util: CUSTOM_COMMAND
+  COMMAND = cd /home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug/test && /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/bin/cmake --regenerate-during-build -S/home/zr/c_c++/Projects/tinyMQTT -B/home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug
+  DESC = Running CMake to regenerate build system...
+  pool = console
+  restat = 1
+
+build test/rebuild_cache: phony test/CMakeFiles/rebuild_cache.util
+
+# =============================================================================
 # Target aliases.
 
 build mqtt: phony libmqtt.a
+
+build tmq_buffer_test: phony test/tmq_buffer_test
+
+build tmq_event_test: phony test/tmq_event_test
+
+build tmq_map_test: phony test/tmq_map_test
+
+build tmq_timer_test: phony test/tmq_timer_test
+
+build tmq_vec_test: phony test/tmq_vec_test
 
 # =============================================================================
 # Folder targets.
@@ -217,7 +506,14 @@ build mqtt: phony libmqtt.a
 #############################################
 # Folder: /home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug
 
-build all: phony libmqtt.a broker client
+build all: phony libmqtt.a broker client test/all
+
+# =============================================================================
+
+#############################################
+# Folder: /home/zr/c_c++/Projects/tinyMQTT/cmake-build-debug/test
+
+build test/all: phony test/tmq_map_test test/tmq_vec_test test/tmq_event_test test/tmq_timer_test test/tmq_buffer_test
 
 # =============================================================================
 # Built-in targets
@@ -226,14 +522,14 @@ build all: phony libmqtt.a broker client
 #############################################
 # Re-run CMake if any of its inputs changed.
 
-build build.ninja: RERUN_CMAKE | ../CMakeLists.txt /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeCInformation.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeCXXInformation.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeCommonLanguageInclude.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeGenericSystem.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeInitializeConfigs.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeLanguageInformation.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeSystemSpecificInformation.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeSystemSpecificInitialize.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Compiler/CMakeCommonCompilerMacros.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Compiler/GNU-C.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Compiler/GNU-CXX.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Compiler/GNU.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Platform/Linux-GNU-C.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Platform/Linux-GNU-CXX.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Platform/Linux-GNU.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Platform/Linux.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Platform/UnixPaths.cmake CMakeCache.txt CMakeFiles/3.23.2/CMakeCCompiler.cmake CMakeFiles/3.23.2/CMakeCXXCompiler.cmake CMakeFiles/3.23.2/CMakeSystem.cmake
+build build.ninja: RERUN_CMAKE | ../CMakeLists.txt ../test/CMakeLists.txt /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeCInformation.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeCXXInformation.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeCommonLanguageInclude.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeGenericSystem.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeInitializeConfigs.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeLanguageInformation.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeSystemSpecificInformation.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeSystemSpecificInitialize.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Compiler/CMakeCommonCompilerMacros.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Compiler/GNU-C.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Compiler/GNU-CXX.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Compiler/GNU.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Platform/Linux-GNU-C.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Platform/Linux-GNU-CXX.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Platform/Linux-GNU.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Platform/Linux.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Platform/UnixPaths.cmake CMakeCache.txt CMakeFiles/3.23.2/CMakeCCompiler.cmake CMakeFiles/3.23.2/CMakeCXXCompiler.cmake CMakeFiles/3.23.2/CMakeSystem.cmake
   pool = console
 
 
 #############################################
 # A missing CMake input file is not an error.
 
-build ../CMakeLists.txt /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeCInformation.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeCXXInformation.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeCommonLanguageInclude.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeGenericSystem.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeInitializeConfigs.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeLanguageInformation.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeSystemSpecificInformation.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeSystemSpecificInitialize.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Compiler/CMakeCommonCompilerMacros.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Compiler/GNU-C.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Compiler/GNU-CXX.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Compiler/GNU.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Platform/Linux-GNU-C.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Platform/Linux-GNU-CXX.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Platform/Linux-GNU.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Platform/Linux.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Platform/UnixPaths.cmake CMakeCache.txt CMakeFiles/3.23.2/CMakeCCompiler.cmake CMakeFiles/3.23.2/CMakeCXXCompiler.cmake CMakeFiles/3.23.2/CMakeSystem.cmake: phony
+build ../CMakeLists.txt ../test/CMakeLists.txt /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeCInformation.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeCXXInformation.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeCommonLanguageInclude.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeGenericSystem.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeInitializeConfigs.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeLanguageInformation.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeSystemSpecificInformation.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/CMakeSystemSpecificInitialize.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Compiler/CMakeCommonCompilerMacros.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Compiler/GNU-C.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Compiler/GNU-CXX.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Compiler/GNU.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Platform/Linux-GNU-C.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Platform/Linux-GNU-CXX.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Platform/Linux-GNU.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Platform/Linux.cmake /opt/CLion-2022.2.1/clion-2022.2.1/bin/cmake/linux/share/cmake-3.23/Modules/Platform/UnixPaths.cmake CMakeCache.txt CMakeFiles/3.23.2/CMakeCCompiler.cmake CMakeFiles/3.23.2/CMakeCXXCompiler.cmake CMakeFiles/3.23.2/CMakeSystem.cmake: phony
 
 
 #############################################

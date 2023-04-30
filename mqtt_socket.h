@@ -4,12 +4,29 @@
 
 #ifndef TINYMQTT_MQTT_SOCKET_H
 #define TINYMQTT_MQTT_SOCKET_H
+#include <netinet/in.h>
 
 typedef int tmq_socket_t;
+typedef struct sockaddr_in tmq_socket_addr_t;
+#define tmq_addr_is_valid(addr) !((addr).sin_addr.s_addr == 0 && (addr).sin_port == 0)
 
 tmq_socket_t tmq_tcp_socket();
 int tmq_socket_nonblocking(tmq_socket_t fd);
 void tmq_socket_close(tmq_socket_t fd);
 int tmq_socket_reuse_addr(tmq_socket_t fd, int enable);
+int tmq_socket_reuse_port(tmq_socket_t fd, int enable);
+int tmq_socket_keepalive(tmq_socket_t fd, int enable);
+int tmq_socket_tcp_no_delay(tmq_socket_t fd, int enable);
+int tmq_socket_local_addr(tmq_socket_t fd, tmq_socket_addr_t* addr);
+int tmq_socket_peer_addr(tmq_socket_t fd, tmq_socket_addr_t* addr);
+void tmq_socket_bind(tmq_socket_t fd, const char* ip, int port);
+void tmq_socket_listen(tmq_socket_t fd);
+tmq_socket_t tmq_socket_accept(tmq_socket_t fd, tmq_socket_addr_t* clientAddr);
+ssize_t tmq_socket_read(tmq_socket_t fd, char* buf, size_t len);
+ssize_t tmq_socket_write(tmq_socket_t fd, const char* buf, size_t len);
+
+tmq_socket_addr_t tmq_addr_from_ip_port(const char* ip, uint16_t port);
+tmq_socket_addr_t tmq_addr_from_port(uint16_t port, int loop_back);
+int tmq_addr_to_string(tmq_socket_addr_t* addr, char* buf, size_t bufLen);
 
 #endif //TINYMQTT_MQTT_SOCKET_H

@@ -2,19 +2,34 @@ cmake_minimum_required(VERSION 3.8)
 
 project(tinyMQTT)
 
-set(TINYMQTT_LIB_SRC mqtt_socket.c
+set(TINYMQTT_LIB_SRC
+        mqtt_socket.c
         mqtt_buffer.c
         mqtt_map.c
-        mqtt_loop.c
+        mqtt_vec.c
+        mqtt_event.c
+        mqtt_acceptor.c
+        mqtt_tcp_conn.c
+        mqtt_timer.c
+        mqtt_packet.c
+        mqtt_session.c
+        mqtt_codec.c
         mqtt_broker.c
         mqtt_client.c
+        mqtt_config.c
         3rd/tinylog/tlog.c)
+set(CMAKE_BUILD_TYPE "Debug")
 
-include_directories(3rd/tinylog)
+add_definitions(-D_GNU_SOURCE)
+
+include_directories(${CMAKE_SOURCE_DIR} 3rd/tinylog)
 
 add_library(mqtt ${TINYMQTT_LIB_SRC})
 
+link_directories(${CMAKE_BINARY_DIR})
+link_libraries(mqtt pthread)
+
+add_subdirectory(test)
 add_executable(broker broker.c)
 add_executable(client client.c)
-target_link_libraries(broker mqtt pthread)
-target_link_libraries(client mqtt pthread)
+
