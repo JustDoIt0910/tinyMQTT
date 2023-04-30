@@ -11,11 +11,12 @@ set(TINYMQTT_LIB_SRC
         mqtt_acceptor.c
         mqtt_tcp_conn.c
         mqtt_timer.c
+        mqtt_packet.c
         mqtt_session.c
-        mqtt_messages.c
         mqtt_codec.c
         mqtt_broker.c
         mqtt_client.c
+        mqtt_config.c
         3rd/tinylog/tlog.c)
 set(CMAKE_BUILD_TYPE "Debug")
 

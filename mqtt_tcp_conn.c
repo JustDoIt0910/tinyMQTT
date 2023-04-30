@@ -33,7 +33,7 @@ static void tmq_tcp_conn_close(tmq_tcp_conn_t* conn)
     tmq_event_loop_unregister(conn->loop, conn->write_event_handler);
     tmq_event_loop_unregister(conn->loop, conn->error_close_handler);
     if(conn->close_cb)
-        conn->close_cb(getRef(conn));
+        conn->close_cb(getRef(conn), conn->close_cb_arg);
     releaseRef(conn);
 }
 
@@ -52,13 +52,13 @@ static void read_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
     {
         pthread_mutex_unlock(&conn->lk);
         if(conn->error_cb)
-            conn->error_cb(getRef(conn));
+            conn->error_cb(getRef(conn), conn->error_cb_arg);
     }
     else
     {
         pthread_mutex_unlock(&conn->lk);
-        if(conn->message_cb)
-            conn->message_cb(getRef(conn), &conn->in_buffer);
+        if(conn->message_codec)
+            conn->message_codec->on_message(conn->message_codec, getRef(conn), &conn->in_buffer);
     }
     releaseRef(conn);
 }
@@ -73,14 +73,13 @@ static void close_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
     if(!arg) return;
     tmq_tcp_conn_t* conn = getRef((tmq_tcp_conn_t*) arg);
     if(event & EPOLLERR && conn->error_cb)
-        conn->error_cb(getRef(conn));
+        conn->error_cb(getRef(conn), conn->error_cb_arg);
     else if(event & EPOLLHUP && !(event & EPOLLIN))
         tmq_tcp_conn_close(getRef(conn));
     releaseRef(conn);
 }
 
-tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_event_loop_t* loop, tmq_socket_t fd,
-                                 tcp_message_cb message_cb, tcp_close_cb close_cb, tcp_error_cb error_cb)
+tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_event_loop_t* loop, tmq_socket_t fd, tmq_codec_interface_t* codec)
 {
     if(fd < 0) return NULL;
     tmq_tcp_conn_t* conn = (tmq_tcp_conn_t*) malloc(sizeof(tmq_tcp_conn_t));
@@ -95,9 +94,7 @@ tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_event_loop_t* loop, tmq_socket_t fd,
     conn->fd = fd;
     tmq_socket_local_addr(conn->fd, &conn->local_addr);
     tmq_socket_peer_addr(conn->fd, &conn->peer_addr);
-    conn->message_cb = message_cb;
-    conn->close_cb = close_cb;
-    conn->error_cb = error_cb;
+    conn->message_codec = codec;
     conn->destroy_cb = destroy_cb_;
     tmq_buffer_init(&conn->in_buffer);
     tmq_buffer_init(&conn->out_buffer);
@@ -119,6 +116,18 @@ tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_event_loop_t* loop, tmq_socket_t fd,
     pthread_mutex_destroy(&conn->lk);
     free(conn);
     return NULL;
+}
+
+void tmq_tcp_conn_set_close_cb(tmq_tcp_conn_t* conn, tcp_close_cb cb, void* arg)
+{
+    conn->close_cb = cb;
+    conn->close_cb_arg = arg;
+}
+
+void tmq_tcp_conn_set_error_cb(tmq_tcp_conn_t* conn, tcp_error_cb cb, void* arg)
+{
+    conn->error_cb = cb;
+    conn->error_cb_arg = arg;
 }
 
 int tmq_tcp_conn_id(tmq_tcp_conn_t* conn, char* buf, size_t buf_size)

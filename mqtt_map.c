@@ -90,11 +90,13 @@ static tmq_map_entry_t* tmq_map_entry_new_(tmq_map_base_t* m, const void* key, c
 {
     assert(!(m->key_type != KEY_TYPE_STR && m->key_size == 0));
     assert(m->value_size != 0);
+
     size_t key_size = m->key_type == KEY_TYPE_STR ? strlen(*(const char**)key) + 1: m->key_size;
     size_t s1 = sizeof(tmq_map_entry_t) + key_size;
     size_t s1_aligned = (s1 + m->value_size - 1) & ~(m->value_size - 1);
     size_t v_offset = s1_aligned - s1;
     size_t total = s1_aligned + m->value_size;
+
     tmq_map_entry_t* entry = (tmq_map_entry_t*) malloc(total);
     if(!entry)
         return NULL;
@@ -210,6 +212,7 @@ tmq_map_base_t* tmq_map_new_(uint32_t cap, uint32_t factor,
     assert(!(key_type != KEY_TYPE_STR && key_size == 0));
     tmq_map_base_t* m = (tmq_map_base_t*) malloc(sizeof(tmq_map_base_t));
     if(!m) return NULL;
+
     m->load_fac = factor;
     m->hash_fn = hash_fn;
     m->equal_fn = equal_fn;

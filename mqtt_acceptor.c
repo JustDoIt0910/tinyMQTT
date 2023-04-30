@@ -19,7 +19,7 @@ static void acceptor_cb(tmq_socket_t fd, uint32_t event, const void* arg)
         acceptor->idle_socket = open("/dev/null", O_RDONLY | O_CLOEXEC);
     }
     else if(acceptor->connection_cb)
-        acceptor->connection_cb(conn, &peer_addr, acceptor->arg);
+        acceptor->connection_cb(conn, acceptor->arg);
 }
 
 void tmq_acceptor_init(tmq_acceptor_t* acceptor, tmq_event_loop_t* loop, uint16_t port)
@@ -42,7 +42,7 @@ void tmq_acceptor_listen(tmq_acceptor_t* acceptor)
     tmq_socket_listen(acceptor->lis_socket);
 }
 
-void tmq_acceptor_set_cb(tmq_acceptor_t* acceptor, tmq_new_connection_cb cb, const void* arg)
+void tmq_acceptor_set_cb(tmq_acceptor_t* acceptor, tmq_new_connection_cb cb, void* arg)
 {
     acceptor->arg = arg;
     acceptor->connection_cb = cb;

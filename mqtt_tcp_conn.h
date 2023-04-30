@@ -7,12 +7,12 @@
 #include "mqtt_socket.h"
 #include "mqtt_buffer.h"
 #include "mqtt_event.h"
+#include "mqtt_codec.h"
 #include <pthread.h>
 
 typedef struct tmq_tcp_conn_s tmq_tcp_conn_t;
-typedef void(*tcp_message_cb)(tmq_tcp_conn_t* conn, tmq_buffer_t* buffer);
-typedef void(*tcp_close_cb)(tmq_tcp_conn_t* conn);
-typedef void(*tcp_error_cb)(tmq_tcp_conn_t* conn);
+typedef void(*tcp_close_cb)(tmq_tcp_conn_t* conn, void* arg);
+typedef void(*tcp_error_cb)(tmq_tcp_conn_t* conn, void* arg);
 
 typedef struct tmq_tcp_conn_s
 {
@@ -26,15 +26,18 @@ typedef struct tmq_tcp_conn_s
     tmq_event_handler_t* read_event_handler;
     tmq_event_handler_t* write_event_handler;
     tmq_event_handler_t* error_close_handler;
-    tcp_message_cb message_cb;
+    tmq_codec_interface_t* message_codec;
     tcp_close_cb close_cb;
     tcp_error_cb error_cb;
+    void* close_cb_arg;
+    void* error_cb_arg;
     tmq_destroy_cb destroy_cb;
     pthread_mutex_t lk;
 } tmq_tcp_conn_t;
 
-tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_event_loop_t* loop, tmq_socket_t fd,
-                                 tcp_message_cb message_cb, tcp_close_cb close_cb, tcp_error_cb error_cb);
+tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_event_loop_t* loop, tmq_socket_t fd, tmq_codec_interface_t* message_codec);
+void tmq_tcp_conn_set_close_cb(tmq_tcp_conn_t* conn, tcp_close_cb cb, void* arg);
+void tmq_tcp_conn_set_error_cb(tmq_tcp_conn_t* conn, tcp_error_cb cb, void* arg);
 int tmq_tcp_conn_id(tmq_tcp_conn_t* conn, char* buf, size_t buf_size);
 
 #endif //TINYMQTT_MQTT_TCP_CONN_H
