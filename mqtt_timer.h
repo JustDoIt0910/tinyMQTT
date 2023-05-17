@@ -6,6 +6,7 @@
 #define TINYMQTT_MQTT_TIMER_H
 #include <stdint.h>
 #include <stddef.h>
+#include <pthread.h>
 #include "mqtt_vec.h"
 
 #define TIMER_HEAP_INITIAL_SIZE     16
@@ -31,6 +32,7 @@ typedef struct tmq_event_loop_s tmq_event_loop_t;
 typedef struct tmq_timer_heap_s
 {
     int timer_fd;
+    pthread_mutex_t lk;
     tmq_timer_t** heap;
     size_t size;
     size_t cap;

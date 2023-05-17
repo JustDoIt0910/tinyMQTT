@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <stdio.h>
 
-void new_conn(tmq_socket_t conn, tmq_socket_addr_t* addr, const void* arg)
+void new_conn(tmq_socket_t conn, void* arg)
 {
     printf("new_conn\n");
     tmq_event_loop_t* loop = (tmq_event_loop_t*)arg;
@@ -22,8 +22,8 @@ int main()
     tmq_event_loop_init(&loop);
 
     tmq_acceptor_t acceptor;
-    tmq_acceptor_init(&acceptor, &loop, &loop, 9999);
-    tmq_acceptor_set_cb(&acceptor, new_conn);
+    tmq_acceptor_init(&acceptor, &loop, 9999);
+    tmq_acceptor_set_cb(&acceptor, new_conn, &loop);
     tmq_acceptor_listen(&acceptor);
 
     tmq_event_loop_run(&loop);

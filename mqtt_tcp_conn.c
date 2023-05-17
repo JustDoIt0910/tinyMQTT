@@ -27,8 +27,13 @@ static void destroy_cb_(void* arg)
     pthread_mutex_destroy(&conn->lk);
 }
 
-static void tmq_tcp_conn_close(tmq_tcp_conn_t* conn)
+void tmq_tcp_conn_close(tmq_tcp_conn_t* conn)
 {
+    if(atomicExchange(conn->state, DISCONNECTED) == DISCONNECTED)
+    {
+        releaseRef(conn);
+        return;
+    }
     tmq_event_loop_unregister(conn->loop, conn->read_event_handler);
     tmq_event_loop_unregister(conn->loop, conn->write_event_handler);
     tmq_event_loop_unregister(conn->loop, conn->error_close_handler);
@@ -108,8 +113,6 @@ tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_event_loop_t* loop, tmq_socket_t fd, tmq_co
         free(conn->read_event_handler);
         goto cleanup;
     }
-
-    tmq_event_loop_register(conn->loop, conn->read_event_handler);
     return getRef(conn);
 
     cleanup:
@@ -122,18 +125,27 @@ void tmq_tcp_conn_set_close_cb(tmq_tcp_conn_t* conn, tcp_close_cb cb, void* arg)
 {
     conn->close_cb = cb;
     conn->close_cb_arg = arg;
+    releaseRef(conn);
 }
 
 void tmq_tcp_conn_set_error_cb(tmq_tcp_conn_t* conn, tcp_error_cb cb, void* arg)
 {
     conn->error_cb = cb;
     conn->error_cb_arg = arg;
+    releaseRef(conn);
+}
+
+void tmq_tcp_conn_start(tmq_tcp_conn_t* conn)
+{
+    tmq_event_loop_register(conn->loop, conn->read_event_handler);
+    tmq_event_loop_register(conn->loop, conn->error_close_handler);
+    releaseRef(conn);
 }
 
 int tmq_tcp_conn_id(tmq_tcp_conn_t* conn, char* buf, size_t buf_size)
 {
     if(!conn) return -1;
-    if(tmq_addr_to_string(&conn->peer_addr, buf, buf_size) < 0)
-        return -1;
-    return 0;
+    int ret = tmq_addr_to_string(&conn->peer_addr, buf, buf_size);
+    releaseRef(conn);
+    return ret;
 }

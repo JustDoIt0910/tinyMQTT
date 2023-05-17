@@ -157,17 +157,13 @@ void tmq_event_loop_unregister(tmq_event_loop_t* loop, tmq_event_handler_t* hand
 void tmq_event_loop_add_timer(tmq_event_loop_t* loop, tmq_timer_t* timer)
 {
     if(!loop || !timer) return;
-    pthread_mutex_lock(&loop->lk);
     tmq_timer_heap_add(&loop->timer_heap, timer);
-    pthread_mutex_unlock(&loop->lk);
 }
 
 void tmq_event_loop_cancel_timer(tmq_event_loop_t* loop, tmq_timer_t* timer)
 {
     if(!loop || !timer) return;
-    pthread_mutex_lock(&loop->lk);
     tmq_cancel_timer(timer);
-    pthread_mutex_unlock(&loop->lk);
 }
 
 void tmq_event_loop_quit(tmq_event_loop_t* loop) {atomicSet(loop->quit, 1);}

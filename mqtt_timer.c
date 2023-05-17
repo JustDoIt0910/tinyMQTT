@@ -99,7 +99,7 @@ static void timer_sink(tmq_timer_heap_t* timer_heap, size_t idx)
 
 static int timer_heap_insert(tmq_timer_heap_t* timer_heap, tmq_timer_t* timer)
 {
-    if(!timer_heap || !timer) return 0;
+    if(!timer) return 0;
     if(timer_heap->size == timer_heap->cap)
     {
        tmq_timer_t** heap = (tmq_timer_t**) realloc(timer_heap->heap, timer_heap->cap * 2 + 1);
@@ -122,8 +122,10 @@ static int timer_heap_insert(tmq_timer_heap_t* timer_heap, tmq_timer_t* timer)
 
 void tmq_timer_heap_add(tmq_timer_heap_t* timer_heap, tmq_timer_t* timer)
 {
+    pthread_mutex_lock(&timer_heap->lk);
     if(timer_heap_insert(timer_heap, timer))
         timerfd_set_timeout(timer_heap->timer_fd, timer_heap->heap[1]->expire);
+    pthread_mutex_unlock(&timer_heap->lk);
 }
 
 static tmq_timer_t* timer_heap_pop(tmq_timer_heap_t* timer_heap)
@@ -146,8 +148,14 @@ static void timer_heap_timeout(int timer_fd, uint32_t event, const void* arg)
     if(n != sizeof(timeout_cnt))
         tlog_error("error reading timer_fd");
     tmq_timer_heap_t* timer_heap = (tmq_timer_heap_t*) arg;
-    if(!timer_heap || timer_heap->size < 1)
+    if(!timer_heap)
         return;
+    pthread_mutex_lock(&timer_heap->lk);
+    if(timer_heap->size < 1)
+    {
+        pthread_mutex_unlock(&timer_heap->lk);
+        return;
+    }
     tmq_timer_t* top = timer_heap->heap[1];
     tmq_vec_clear(timer_heap->expired_timers);
     while(top->expire <= now)
@@ -158,24 +166,28 @@ static void timer_heap_timeout(int timer_fd, uint32_t event, const void* arg)
             break;
         top = timer_heap->heap[1];
     }
+    pthread_mutex_unlock(&timer_heap->lk);
     tmq_timer_t** timer = tmq_vec_begin(timer_heap->expired_timers);
     for(; timer != tmq_vec_end(timer_heap->expired_timers); timer++)
     {
-        if((*timer)->canceled)
+        if(atomicGet((*timer)->canceled) == 1)
             continue;
         (*timer)->cb((*timer)->arg);
     }
+    pthread_mutex_lock(&timer_heap->lk);
     timer = tmq_vec_begin(timer_heap->expired_timers);
     for(; timer != tmq_vec_end(timer_heap->expired_timers); timer++)
     {
-        if((*timer)->repeat && !(*timer)->canceled)
+        if((*timer)->repeat && !atomicGet((*timer)->canceled))
         {
             (*timer)->expire = now + (int64_t) ((*timer)->timeout_ms * 1000);
             timer_heap_insert(timer_heap, *timer);
         }
+        else free(timer);
     }
     if(timer_heap->size > 0)
         timerfd_set_timeout(timer_heap->timer_fd, timer_heap->heap[1]->expire);
+    pthread_mutex_unlock(&timer_heap->lk);
 }
 
 void tmq_timer_heap_init(tmq_timer_heap_t* timer_heap, tmq_event_loop_t* loop)
@@ -200,6 +212,7 @@ void tmq_timer_heap_init(tmq_timer_heap_t* timer_heap, tmq_event_loop_t* loop)
     tmq_vec_init(&timer_heap->expired_timers, tmq_timer_t*);
     tmq_event_handler_t* handler = tmq_event_handler_create(timer_heap->timer_fd, EPOLLIN,
                                                             timer_heap_timeout, timer_heap);
+    pthread_mutex_init(&timer_heap->lk, NULL);
     tmq_event_loop_register(loop, handler);
 }
 
@@ -212,7 +225,10 @@ void tmq_timer_heap_free(tmq_timer_heap_t* timer_heap)
     close(timer_heap->timer_fd);
 }
 
-void tmq_cancel_timer(tmq_timer_t* timer) {timer->canceled = 1;}
+void tmq_cancel_timer(tmq_timer_t* timer)
+{
+    atomicSet(timer->canceled, 1);
+}
 
 /* for debug */
 static void tmq_timer_print(const tmq_timer_t* timer)
