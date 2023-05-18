@@ -3,7 +3,7 @@
 //
 #include "mqtt_broker.h"
 #include "mqtt_tcp_conn.h"
-#include "tlog.h"
+#include "mqtt_util.h"
 #include <fcntl.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -37,21 +37,17 @@ static void handle_timeout(void* arg)
         char conn_name[50];
         tmq_tcp_conn_id(conn, conn_name, sizeof(conn_name));
         tlog_info("connection timeout [%s]", conn_name);
-        close_conn(conn);
+        tmq_tcp_conn_destroy(conn);
     }
 }
 
 static void handle_new_connection(int fd, uint32_t event, const void* arg)
 {
     tmq_io_group_t* group = (tmq_io_group_t*) arg;
-    int buf[100];
+    int buf[128];
     ssize_t n = read(fd, buf, sizeof(buf));
     if(n < 0)
-    {
-        tlog_fatal("read() error %d: %s", errno, strerror(errno));
-        tlog_exit();
-        abort();
-    }
+        fatal_error("read() error %d: %s", errno, strerror(errno));
 
     pthread_mutex_lock(&group->pending_conns_lk);
     tmq_vec(tmq_socket_t) conns = tmq_vec_make(tmq_socket_t);
@@ -60,8 +56,11 @@ static void handle_new_connection(int fd, uint32_t event, const void* arg)
 
     for(tmq_socket_t* it = tmq_vec_begin(conns); it != tmq_vec_end(conns); it++)
     {
-        tmq_tcp_conn_t* conn = tmq_tcp_conn_new(group, *it, (tmq_codec_interface_t*) &group->broker->codec);
+        tmq_tcp_conn_t* conn = tmq_tcp_conn_new(group, *it, &group->broker->codec);
+        tcp_conn_ctx* conn_ctx = malloc(sizeof(tcp_conn_ctx));
+        tmq_tcp_conn_set_context(conn, conn_ctx);
         conn->close_cb = remove_tcp_conn;
+
         tmq_timer_t* timer = tmq_timer_new(MQTT_ALIVE_TIMER_INTERVAL, 1, handle_timeout, conn);
         active_ctx ctx = {
             .timer = timer,
@@ -72,7 +71,7 @@ static void handle_new_connection(int fd, uint32_t event, const void* arg)
 
         char conn_name[50];
         tmq_tcp_conn_id(conn, conn_name, sizeof(conn_name));
-        tlog_info("new connection [%s]", conn_name);
+        tlog_info("new connection [%s] group=%p thread=%lu", conn_name, group, mqtt_tid);
     }
     tmq_vec_free(conns);
 }
@@ -86,11 +85,8 @@ static void tmq_io_group_init(tmq_io_group_t* group, tmq_broker_t* broker)
     pthread_mutex_init(&group->pending_conns_lk, NULL);
 
     if(pipe2(group->wakeup_pipe, O_CLOEXEC | O_NONBLOCK) < 0)
-    {
-        tlog_fatal("pipe2() error %d: %s", errno, strerror(errno));
-        tlog_exit();
-        abort();
-    }
+        fatal_error("pipe2() error %d: %s", errno, strerror(errno));
+
     group->wakeup_handler = tmq_event_handler_create(group->wakeup_pipe[0], EPOLLIN,
                                                      handle_new_connection, group);
     tmq_event_loop_register(&group->loop, group->wakeup_handler);
@@ -106,16 +102,7 @@ static void* io_group_thread_func(void* arg)
 static void tmq_io_group_run(tmq_io_group_t* group)
 {
     if(pthread_create(&group->io_thread, NULL, io_group_thread_func, group) != 0)
-    {
-        tlog_fatal("pthread_create() error %d: %s", errno, strerror(errno));
-        tlog_exit();
-        abort();
-    }
-}
-
-static void on_connect_pkt(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt pkt)
-{
-
+        fatal_error("pthread_create() error %d: %s", errno, strerror(errno));
 }
 
 static void dispatch_new_connection(tmq_socket_t conn, void* arg)
@@ -140,7 +127,8 @@ void tmq_broker_init(tmq_broker_t* broker, uint16_t port)
 
     tmq_acceptor_init(&broker->acceptor, &broker->event_loop, port);
     tmq_acceptor_set_cb(&broker->acceptor, dispatch_new_connection, broker);
-    connect_msg_codec_init(&broker->codec, broker, on_connect_pkt);
+
+    tmq_codec_init(&broker->codec);
 
     for(int i = 0; i < MQTT_IO_THREAD; i++)
         tmq_io_group_init(&broker->io_groups[i], broker);

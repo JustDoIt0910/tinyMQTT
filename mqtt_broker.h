@@ -10,7 +10,7 @@
 #include "mqtt_codec.h"
 
 #define MQTT_ALIVE_TIMER_INTERVAL   10 * 1000
-#define MQTT_CONNECT_PENDING        3
+#define MQTT_CONNECT_PENDING        30
 #define MQTT_IO_THREAD              4
 
 typedef struct
@@ -20,6 +20,12 @@ typedef struct
 } active_ctx;
 typedef tmq_map(tmq_tcp_conn_t*, active_ctx) tcp_conn_list;
 typedef struct tmq_broker_s tmq_broker_t;
+
+typedef struct
+{
+    void* context;
+    int in_session;
+} tcp_conn_ctx;
 
 typedef struct tmq_io_group_s
 {
@@ -38,9 +44,9 @@ typedef struct tmq_broker_s
 {
     tmq_event_loop_t event_loop;
     tmq_acceptor_t acceptor;
+    tmq_codec_t codec;
     int next_io_group;
     tmq_io_group_t io_groups[MQTT_IO_THREAD];
-    connect_pkt_codec codec;
 } tmq_broker_t;
 
 void tmq_broker_init(tmq_broker_t* broker, uint16_t port);

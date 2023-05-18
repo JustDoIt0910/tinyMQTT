@@ -23,7 +23,7 @@ void tmq_buffer_init(tmq_buffer_t* buffer)
 static tmq_buffer_chunk_t* buffer_chunk_new(size_t size)
 {
     size = size < BUFFER_CHUNK_MIN ? BUFFER_CHUNK_MIN : size;
-    tmq_buffer_chunk_t* chunk = (tmq_buffer_chunk_t*) malloc(sizeof(tmq_buffer_chunk_t) + size);
+    tmq_buffer_chunk_t* chunk = malloc(sizeof(tmq_buffer_chunk_t) + size);
     if(!chunk)
     {
         tlog_error("buffer_chunk_new(): out of memory");
@@ -286,6 +286,7 @@ ssize_t tmq_buffer_read_fd(tmq_buffer_t* buffer, tmq_socket_t fd, size_t max)
         size = min(fd_readable, FD_MAX_READ_BYTES);
     else
         size = min(fd_readable, min(max, FD_MAX_READ_BYTES));
+    tlog_info("read %lu bytes", size);
     int iovec_cnt = 0;
     size_t space_aval = 0;
     struct iovec vecs[MAX_IOVEC_NUM];

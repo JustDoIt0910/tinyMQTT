@@ -3,6 +3,7 @@
 //
 #include "mqtt_socket.h"
 #include "tlog.h"
+#include "mqtt_util.h"
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/tcp.h>
@@ -20,11 +21,7 @@ tmq_socket_t tmq_tcp_socket()
 {
     int fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, IPPROTO_TCP);
     if(fd < 0)
-    {
-        tlog_fatal("socket() error %d: %s", errno, strerror(errno));
-        tlog_exit();
-        abort();
-    }
+        fatal_error("socket() error %d: %s", errno, strerror(errno));
     return fd;
 }
 
@@ -32,15 +29,11 @@ int tmq_socket_nonblocking(tmq_socket_t fd)
 {
     int ops = fcntl(fd, F_GETFL);
     if(ops < 0)
-    {
-        tlog_fatal("fcntl() error %d: %s", errno, strerror(errno));
-        tlog_exit();
-        abort();
-    }
+        fatal_error("fcntl() error %d: %s", errno, strerror(errno));
     ops |= O_NONBLOCK;
     if(fcntl(fd, F_SETFL, ops) < 0)
     {
-        tlog_fatal("fcntl() error %d: %s", errno, strerror(errno));
+        fatal_error("fcntl() error %d: %s", errno, strerror(errno));
         tlog_exit();
         abort();
     }
@@ -53,11 +46,7 @@ int tmq_socket_reuse_addr(tmq_socket_t fd, int enable)
 {
     assert(enable == 0 || enable == 1);
     if(setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &enable, (socklen_t) sizeof(enable)) < 0)
-    {
-        tlog_fatal("setsockopt() error %d: %s", errno, strerror(errno));
-        tlog_exit();
-        abort();
-    }
+        fatal_error("setsockopt() error %d: %s", errno, strerror(errno));
     return 0;
 }
 
@@ -65,11 +54,7 @@ int tmq_socket_reuse_port(tmq_socket_t fd, int enable)
 {
     assert(enable == 0 || enable == 1);
     if(setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &enable, (socklen_t) sizeof(enable)) < 0)
-    {
-        tlog_fatal("setsockopt() error %d: %s", errno, strerror(errno));
-        tlog_exit();
-        abort();
-    }
+        fatal_error("setsockopt() error %d: %s", errno, strerror(errno));
     return 0;
 }
 
@@ -77,11 +62,7 @@ int tmq_socket_keepalive(tmq_socket_t fd, int enable)
 {
     assert(enable == 0 || enable == 1);
     if(setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &enable, (socklen_t) sizeof(enable)) < 0)
-    {
-        tlog_fatal("setsockopt() error %d: %s", errno, strerror(errno));
-        tlog_exit();
-        abort();
-    }
+        fatal_error("setsockopt() error %d: %s", errno, strerror(errno));
     return 0;
 }
 
@@ -89,11 +70,7 @@ int tmq_socket_tcp_no_delay(tmq_socket_t fd, int enable)
 {
     assert(enable == 0 || enable == 1);
     if(setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &enable, (socklen_t) sizeof(enable)) < 0)
-    {
-        tlog_fatal("setsockopt() error %d: %s", errno, strerror(errno));
-        tlog_exit();
-        abort();
-    }
+        fatal_error("setsockopt() error %d: %s", errno, strerror(errno));
     return 0;
 }
 
@@ -127,21 +104,13 @@ void tmq_socket_bind(tmq_socket_t fd, const char* ip, int port)
     else
         addr = tmq_addr_from_port(port, 0);
     if(bind(fd, (struct sockaddr*)(&addr), sizeof(addr)) < 0)
-    {
-        tlog_fatal("bind() error %d: %s", errno, strerror(errno));
-        tlog_exit();
-        abort();
-    }
+        fatal_error("bind() error %d: %s", errno, strerror(errno));
 }
 
 void tmq_socket_listen(tmq_socket_t fd)
 {
     if(listen(fd, 128) < 0)
-    {
-        tlog_fatal("listen() error %d: %s", errno, strerror(errno));
-        tlog_exit();
-        abort();
-    }
+        fatal_error("listen() error %d: %s", errno, strerror(errno));
 }
 
 tmq_socket_t tmq_socket_accept(tmq_socket_t fd, tmq_socket_addr_t* clientAddr)
@@ -162,9 +131,7 @@ tmq_socket_t tmq_socket_accept(tmq_socket_t fd, tmq_socket_addr_t* clientAddr)
                 errno = savedErrno;
                 break;
             default:
-                tlog_fatal("accept4() error %d: %s", errno, strerror(errno));
-                tlog_exit();
-                abort();
+                fatal_error("accept4() error %d: %s", errno, strerror(errno));
         }
     }
     return clientFd;

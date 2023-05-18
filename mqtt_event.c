@@ -3,6 +3,7 @@
 //
 #include "mqtt_event.h"
 #include "tlog.h"
+#include "mqtt_util.h"
 #include <stdlib.h>
 #include <unistd.h>
 #include <strings.h>
@@ -12,7 +13,7 @@
 
 tmq_event_handler_t* tmq_event_handler_create(int fd, short events, tmq_event_cb cb, void* arg)
 {
-    tmq_event_handler_t* handler = (tmq_event_handler_t*) malloc(sizeof(tmq_event_handler_t));
+    tmq_event_handler_t* handler = malloc(sizeof(tmq_event_handler_t));
     if(!handler)
         return NULL;
     bzero(handler, sizeof(tmq_event_handler_t));
@@ -37,18 +38,12 @@ void tmq_event_loop_init(tmq_event_loop_t* loop)
     pthread_mutexattr_t attr;
     memset(&attr, 0, sizeof(pthread_mutexattr_t));
     if(pthread_mutexattr_init(&attr))
-    {
-        tlog_fatal("pthread_mutexattr_init() error %d: %s", errno, strerror(errno));
-        tlog_exit();
-        abort();
-    }
+        fatal_error("pthread_mutexattr_init() error %d: %s", errno, strerror(errno));
+
     pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE_NP);
     if(pthread_mutex_init(&loop->lk, &attr))
-    {
-        tlog_fatal("pthread_mutex_init() error %d: %s", errno, strerror(errno));
-        tlog_exit();
-        abort();
-    }
+        fatal_error("pthread_mutex_init() error %d: %s", errno, strerror(errno));
+
     tmq_timer_heap_init(&loop->timer_heap, loop);
 }
 
@@ -129,12 +124,10 @@ void tmq_event_loop_register(tmq_event_loop_t* loop, tmq_event_handler_t* handle
     assert(handler_ctx != NULL);
     SLIST_INSERT_HEAD(&handler_ctx->handler_queue, handler, event_next);
     handler_ctx->all_events = event.events;
+
     if(epoll_ctl(loop->epoll_fd, op, handler->fd, &event) < 0)
-    {
-        tlog_fatal("epoll_ctl() error %d: %s", errno, strerror(errno));
-        tlog_exit();
-        abort();
-    }
+        fatal_error("epoll_ctl() error %d: %s", errno, strerror(errno));
+
     handler->registered = 1;
     pthread_mutex_unlock(&loop->lk);
 }
@@ -172,11 +165,8 @@ void tmq_event_loop_unregister(tmq_event_loop_t* loop, tmq_event_handler_t* hand
             *next = (*next)->event_next.sle_next;
         }
         if(epoll_ctl(loop->epoll_fd, op, handler->fd, event_p) < 0)
-        {
-            tlog_fatal("epoll_ctl() error %d: %s", errno, strerror(errno));
-            tlog_exit();
-            abort();
-        }
+            fatal_error("epoll_ctl() error %d: %s", errno, strerror(errno));
+
         handler->event_next.sle_next = NULL;
         handler->registered = 0;
     }

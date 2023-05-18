@@ -3,7 +3,7 @@
 //
 #include "mqtt_timer.h"
 #include "mqtt_event.h"
-#include "tlog.h"
+#include "mqtt_util.h"
 #include <stdlib.h>
 #include <sys/timerfd.h>
 #include <errno.h>
@@ -32,11 +32,7 @@ static void timerfd_set_timeout(int timer_fd, int64_t when)
     bzero(&it, sizeof(it));
     it.it_value = spec;
     if(timerfd_settime(timer_fd, 0, &it, NULL) < 0)
-    {
-        tlog_fatal("timerfd_settime() error: %d: %s", errno, strerror(errno));
-        tlog_exit();
-        abort();
-    }
+        fatal_error("timerfd_settime() error: %d: %s", errno, strerror(errno));
 }
 
 tmq_timer_t* tmq_timer_new(double timeout_ms, int repeat, tmq_timer_cb cb, void* arg)
@@ -46,13 +42,10 @@ tmq_timer_t* tmq_timer_new(double timeout_ms, int repeat, tmq_timer_cb cb, void*
         tlog_error("timeout or interval can't be nagetive");
         return NULL;
     }
-    tmq_timer_t* timer = (tmq_timer_t*) malloc(sizeof(tmq_timer_t));
+    tmq_timer_t* timer = malloc(sizeof(tmq_timer_t));
     if(!timer)
-    {
-        tlog_fatal("realloc() error: out of memory");
-        tlog_exit();
-        abort();
-    }
+        fatal_error("realloc() error: out of memory");
+
     timer->timeout_ms = timeout_ms;
     timer->expire = time_now() + (int64_t) (timeout_ms * 1000);
     timer->repeat = repeat;
@@ -104,11 +97,8 @@ static int timer_heap_insert(tmq_timer_heap_t* timer_heap, tmq_timer_t* timer)
     {
        tmq_timer_t** heap = (tmq_timer_t**) realloc(timer_heap->heap, timer_heap->cap * 2 + 1);
        if(!heap)
-       {
-           tlog_fatal("realloc() error: out of memory");
-           tlog_exit();
-           abort();
-       }
+           fatal_error("realloc() error: out of memory");
+
        timer_heap->heap = heap;
        timer_heap->cap = timer_heap->cap * 2;
     }
@@ -195,18 +185,12 @@ void tmq_timer_heap_init(tmq_timer_heap_t* timer_heap, tmq_event_loop_t* loop)
     if(!timer_heap || !loop) return;
     timer_heap->timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
     if(timer_heap->timer_fd < 0)
-    {
-        tlog_fatal("timerfd_create() error %d: %s", errno, strerror(errno));
-        tlog_exit();
-        abort();
-    }
-    timer_heap->heap = (tmq_timer_t**) malloc(sizeof(tmq_timer_t*) * TIMER_HEAP_INITIAL_SIZE + 1);
+        fatal_error("timerfd_create() error %d: %s", errno, strerror(errno));
+
+    timer_heap->heap = malloc(sizeof(tmq_timer_t*) * TIMER_HEAP_INITIAL_SIZE + 1);
     if(!timer_heap->heap)
-    {
-        tlog_fatal("malloc() error: out of memory");
-        tlog_exit();
-        abort();
-    }
+        fatal_error("malloc() error: out of memory");
+
     timer_heap->size = 0;
     timer_heap->cap = TIMER_HEAP_INITIAL_SIZE;
     tmq_vec_init(&timer_heap->expired_timers, tmq_timer_t*);

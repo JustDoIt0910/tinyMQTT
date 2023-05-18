@@ -97,7 +97,7 @@ static tmq_map_entry_t* tmq_map_entry_new_(tmq_map_base_t* m, const void* key, c
     size_t v_offset = s1_aligned - s1;
     size_t total = s1_aligned + m->value_size;
 
-    tmq_map_entry_t* entry = (tmq_map_entry_t*) malloc(total);
+    tmq_map_entry_t* entry = malloc(total);
     if(!entry)
         return NULL;
     entry->next = NULL;
@@ -123,7 +123,7 @@ static tmq_map_entry_t** tmq_map_alloc_buckets(uint32_t* cap, uint32_t grow_fact
     for(int i = 1; i < sizeof(uint32_t) * 8; i *= 2)
         v |= v >> i;
     v++;
-    tmq_map_entry_t** buckets = (tmq_map_entry_t**)malloc(sizeof(tmq_map_entry_t*) * v);
+    tmq_map_entry_t** buckets = malloc(sizeof(tmq_map_entry_t*) * v);
     if(!buckets) return NULL;
     memset(buckets, 0, v * sizeof(tmq_map_entry_t*));
     *cap = v;
@@ -210,7 +210,7 @@ tmq_map_base_t* tmq_map_new_(uint32_t cap, uint32_t factor,
     if(!hash_fn || !equal_fn)
         return NULL;
     assert(!(key_type != KEY_TYPE_STR && key_size == 0));
-    tmq_map_base_t* m = (tmq_map_base_t*) malloc(sizeof(tmq_map_base_t));
+    tmq_map_base_t* m = malloc(sizeof(tmq_map_base_t));
     if(!m) return NULL;
 
     m->load_fac = factor;

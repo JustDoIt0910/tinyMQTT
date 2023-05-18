@@ -7,7 +7,7 @@
 
 tmq_vec_base_t* tmq_base_init_(size_t elem_size)
 {
-    tmq_vec_base_t* base = (tmq_vec_base_t*)malloc(sizeof(tmq_vec_base_t));
+    tmq_vec_base_t* base = malloc(sizeof(tmq_vec_base_t));
     if(!base)
         return NULL;
     memset(base, 0, sizeof(tmq_vec_base_t));
