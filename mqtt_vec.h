@@ -48,6 +48,8 @@ struct                      \
 #define tmq_vec_end(v) \
 ((v).elem_ref = tmq_vec_end_((v).base))
 
+#define tmq_vec_swap(v1, v2) tmq_vec_swap_(&(v1)->base, &(v2)->base)
+
 #define tmq_vec_clear(v) tmq_vec_clear_((v).base)
 #define tmq_vec_free(v) tmq_vec_free_((v).base)
 #define tmq_vec_size(v) tmq_vec_size_((v).base)
@@ -67,5 +69,6 @@ void tmq_vec_free_(tmq_vec_base_t* v);
 size_t tmq_vec_size_(tmq_vec_base_t* v);
 int tmq_vec_empty_(tmq_vec_base_t* v);
 int tmq_vec_resize_(tmq_vec_base_t* v, size_t size);
+void tmq_vec_swap_(tmq_vec_base_t** v1, tmq_vec_base_t** v2);
 
 #endif //TINYMQTT_MQTT_VEC_H

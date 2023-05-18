@@ -65,7 +65,7 @@ static tmq_buffer_chunk_t* find_free_chunk(tmq_buffer_t* buffer, size_t req_size
 static tmq_buffer_chunk_t* get_largest_free_chunk(tmq_buffer_t* buffer)
 {
     int i = 4;
-    while(i > 0 && !buffer->free_chunk_list[i])
+    while(i >= 0 && !buffer->free_chunk_list[i])
         i--;
     if(i < 0) return NULL;
     tmq_buffer_chunk_t* largest = buffer->free_chunk_list[i];

@@ -21,18 +21,6 @@
 #define decrementAndGet(var, val)   __atomic_sub_fetch(&(var), val, __ATOMIC_SEQ_CST)
 #define incrementAndGet(var, val)   __atomic_add_fetch(&(var), val, __ATOMIC_SEQ_CST)
 
-#define getRef(obj)                 (incrementAndGet((obj)->ref_cnt, 1), (obj))
-#define releaseRef(obj)             do                                                  \
-                                    {                                                   \
-                                        int __n = decrementAndGet((obj)->ref_cnt, 1);   \
-                                        if(!__n)                                        \
-                                        {                                               \
-                                            obj->destroy_cb(obj);                       \
-                                            free(obj);                                  \
-                                        }                                               \
-                                    } while(0)
-
-typedef void(*tmq_destroy_cb)(void* obj);
 typedef void(*tmq_event_cb)(tmq_socket_t, uint32_t, const void*);
 
 typedef struct tmq_event_handler_s
@@ -43,12 +31,18 @@ typedef struct tmq_event_handler_s
     uint32_t r_events;
     void* arg;
     tmq_event_cb cb;
+    int registered;
 } tmq_event_handler_t;
 
 tmq_event_handler_t* tmq_event_handler_create(int fd, short events, tmq_event_cb cb, void* arg);
 
-typedef SLIST_HEAD(tmq_event_handler_queue_s, tmq_event_handler_s) tmq_event_handler_queue_t;
-typedef tmq_map(int, tmq_event_handler_queue_t) tmq_handler_map;
+typedef SLIST_HEAD(handler_queue, tmq_event_handler_s) handler_queue;
+typedef struct
+{
+    handler_queue handler_queue;
+    uint32_t all_events;
+} epoll_handler_ctx;
+typedef tmq_map(int, epoll_handler_ctx) tmq_handler_map;
 typedef tmq_vec(struct epoll_event) tmq_income_events;
 typedef tmq_vec(tmq_event_handler_t*) tmq_active_handlers;
 

@@ -20,6 +20,7 @@ tmq_event_handler_t* tmq_event_handler_create(int fd, short events, tmq_event_cb
     handler->events = events;
     handler->arg = arg;
     handler->cb = cb;
+    handler->registered = 0;
     return handler;
 }
 
@@ -28,7 +29,7 @@ void tmq_event_loop_init(tmq_event_loop_t* loop)
     loop->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
     tmq_vec_init(&loop->epoll_events, struct epoll_event);
     tmq_vec_init(&loop->active_handlers, tmq_event_handler_t*);
-    tmq_map_32_init(&loop->handler_map, tmq_event_handler_queue_t,
+    tmq_map_32_init(&loop->handler_map, epoll_handler_ctx,
                     MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
     tmq_vec_resize(loop->epoll_events, INITIAL_EVENTLIST_SIZE);
     loop->running = 0;
@@ -56,15 +57,17 @@ void tmq_event_loop_run(tmq_event_loop_t* loop)
     if(!loop) return;
     if(atomicExchange(loop->running, 1) == 1)
         return;
-    while(!atomicGet(loop->quit))
+    pthread_mutex_lock(&loop->lk);
+    while(!loop->quit)
     {
+        pthread_mutex_unlock(&loop->lk);
         int events_num = epoll_wait(loop->epoll_fd,
                                     tmq_vec_begin(loop->epoll_events),
                                     tmq_vec_size(loop->epoll_events),
                                     EPOLL_WAIT_TIMEOUT);
+        pthread_mutex_lock(&loop->lk);
         if(events_num > 0)
         {
-            pthread_mutex_lock(&loop->lk);
             if(events_num == tmq_vec_size(loop->epoll_events))
                 tmq_vec_resize(loop->epoll_events, 2 * tmq_vec_size(loop->epoll_events));
             tmq_vec_clear(loop->active_handlers);
@@ -72,11 +75,11 @@ void tmq_event_loop_run(tmq_event_loop_t* loop)
             {
                 struct epoll_event* event = tmq_vec_at(loop->epoll_events, i);
                 assert(event != NULL);
-                tmq_event_handler_queue_t* handlers = tmq_map_get(loop->handler_map, event->data.fd);
-                if(!handlers)
+                epoll_handler_ctx * ctx = tmq_map_get(loop->handler_map, event->data.fd);
+                if(!ctx)
                     continue;
                 tmq_event_handler_t* handler;
-                SLIST_FOREACH(handler, handlers, event_next)
+                SLIST_FOREACH(handler, &ctx->handler_queue, event_next)
                 {
                     if(!(handler->events & event->events))
                         continue;
@@ -84,14 +87,14 @@ void tmq_event_loop_run(tmq_event_loop_t* loop)
                     tmq_vec_push_back(loop->active_handlers, handler);
                 }
             }
-            pthread_mutex_unlock(&loop->lk);
             tmq_event_handler_t** it;
             for(it = tmq_vec_begin(loop->active_handlers);
                 it != tmq_vec_end(loop->active_handlers);
                 it++)
             {
                 tmq_event_handler_t* active_handler = *it;
-                active_handler->cb(active_handler->fd, active_handler->r_events, active_handler->arg);
+                if(active_handler->registered)
+                    active_handler->cb(active_handler->fd, active_handler->r_events, active_handler->arg);
             }
         }
         else if(events_num < 0)
@@ -109,22 +112,30 @@ void tmq_event_loop_register(tmq_event_loop_t* loop, tmq_event_handler_t* handle
     event.events = handler->events;
 
     pthread_mutex_lock(&loop->lk);
-    if(epoll_ctl(loop->epoll_fd, EPOLL_CTL_ADD, handler->fd, &event) < 0)
+    int op = EPOLL_CTL_ADD;
+    epoll_handler_ctx* handler_ctx = tmq_map_get(loop->handler_map, handler->fd);
+    if(!handler_ctx)
+    {
+        epoll_handler_ctx ctx;
+        bzero(&ctx, sizeof(ctx));
+        tmq_map_put(loop->handler_map, handler->fd, ctx);
+        handler_ctx = tmq_map_get(loop->handler_map, handler->fd);
+    }
+    else
+    {
+        op = EPOLL_CTL_MOD;
+        event.events = handler_ctx->all_events | handler->events;
+    }
+    assert(handler_ctx != NULL);
+    SLIST_INSERT_HEAD(&handler_ctx->handler_queue, handler, event_next);
+    handler_ctx->all_events = event.events;
+    if(epoll_ctl(loop->epoll_fd, op, handler->fd, &event) < 0)
     {
         tlog_fatal("epoll_ctl() error %d: %s", errno, strerror(errno));
         tlog_exit();
         abort();
     }
-    tmq_event_handler_queue_t* handler_queue = tmq_map_get(loop->handler_map, handler->fd);
-    if(!handler_queue)
-    {
-        tmq_event_handler_queue_t hq;
-        bzero(&hq, sizeof(tmq_event_handler_queue_t));
-        tmq_map_put(loop->handler_map, handler->fd, hq);
-    }
-    handler_queue = tmq_map_get(loop->handler_map, handler->fd);
-    assert(handler_queue != NULL);
-    SLIST_INSERT_HEAD(handler_queue, handler, event_next);
+    handler->registered = 1;
     pthread_mutex_unlock(&loop->lk);
 }
 
@@ -132,23 +143,42 @@ void tmq_event_loop_unregister(tmq_event_loop_t* loop, tmq_event_handler_t* hand
 {
     if(!loop || !handler) return;
     pthread_mutex_lock(&loop->lk);
-    tmq_event_handler_queue_t* handler_queue = tmq_map_get(loop->handler_map, handler->fd);
-    if(!handler_queue)
+    epoll_handler_ctx * ctx = tmq_map_get(loop->handler_map, handler->fd);
+    if(!ctx)
         goto unlock;
-    tmq_event_handler_t** next = &handler_queue->slh_first;
+    tmq_event_handler_t** next = &ctx->handler_queue.slh_first;
     while(*next && *next != handler)
         next = &(*next)->event_next.sle_next;
     if(*next)
     {
-        *next = (*next)->event_next.sle_next;
-        handler->event_next.sle_next = NULL;
-        /* Since Linux 2.6.9, event can be specified as NULL when using EPOLL_CTL_DEL. */
-        if(epoll_ctl(loop->epoll_fd, EPOLL_CTL_ADD, handler->fd, NULL) < 0)
+        int op = EPOLL_CTL_MOD;
+        struct epoll_event event, *event_p = &event;
+        /* if *next is the only handler in this handler queue,
+         * then delete corresponding fd from epoll instance */
+        if(*next == ctx->handler_queue.slh_first && !(*next)->event_next.sle_next)
+        {
+            op = EPOLL_CTL_DEL;
+            /* Since Linux 2.6.9, event can be specified as NULL when using EPOLL_CTL_DEL. */
+            event_p = NULL;
+            tmq_map_erase(loop->handler_map, handler->fd);
+        }
+        /* otherwise, there are other handlers associated with this fd,
+         * using EPOLL_CTL_MOD to modify events */
+        else
+        {
+            event.data.fd = handler->fd;
+            ctx->all_events &= ~handler->events;
+            event.events = ctx->all_events;
+            *next = (*next)->event_next.sle_next;
+        }
+        if(epoll_ctl(loop->epoll_fd, op, handler->fd, event_p) < 0)
         {
             tlog_fatal("epoll_ctl() error %d: %s", errno, strerror(errno));
             tlog_exit();
             abort();
         }
+        handler->event_next.sle_next = NULL;
+        handler->registered = 0;
     }
     unlock:
     pthread_mutex_unlock(&loop->lk);
@@ -177,9 +207,9 @@ void tmq_event_loop_clean(tmq_event_loop_t* loop)
     tmq_map_iter_t it;
     for(it = tmq_map_iter(loop->handler_map); tmq_map_has_next(it); tmq_map_next(loop->handler_map, it))
     {
-        tmq_event_handler_queue_t* handler_queue = it.entry->value;
+        epoll_handler_ctx * ctx = it.entry->value;
         tmq_event_handler_t* handler, *next;
-        handler = handler_queue->slh_first;
+        handler = ctx->handler_queue.slh_first;
         while(handler)
         {
             next = handler->event_next.sle_next;

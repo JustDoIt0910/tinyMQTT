@@ -136,3 +136,12 @@ int tmq_vec_resize_(tmq_vec_base_t* v, size_t size)
     v->size = size;
     return 0;
 }
+
+void tmq_vec_swap_(tmq_vec_base_t** v1, tmq_vec_base_t** v2)
+{
+    if((*v1)->elem_size != (*v2)->elem_size)
+        return;
+    tmq_vec_base_t* tmp = *v1;
+    *v1 = *v2;
+    *v2 = tmp;
+}

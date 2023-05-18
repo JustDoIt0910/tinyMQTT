@@ -2,21 +2,16 @@
 // Created by zr on 23-4-15.
 //
 #include "mqtt_tcp_conn.h"
-#include "mqtt_buffer.h"
+#include "mqtt_broker.h"
 #include "tlog.h"
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <assert.h>
 
-static void destroy_cb_(void* arg)
+static void destroy_conn(tmq_tcp_conn_t* conn)
 {
-    assert(arg != NULL);
-    tmq_tcp_conn_t* conn = (tmq_tcp_conn_t*) arg;
-    assert(conn->ref_cnt == 0);
-
     free(conn->read_event_handler);
-    free(conn->read_event_handler);
+    free(conn->error_close_handler);
     if(conn->write_event_handler)
         free(conn->write_event_handler);
 
@@ -24,48 +19,44 @@ static void destroy_cb_(void* arg)
     tmq_buffer_free(&conn->out_buffer);
 
     tmq_socket_close(conn->fd);
-    pthread_mutex_destroy(&conn->lk);
 }
 
-void tmq_tcp_conn_close(tmq_tcp_conn_t* conn)
+void close_conn(tmq_tcp_conn_t* conn)
 {
-    if(atomicExchange(conn->state, DISCONNECTED) == DISCONNECTED)
-    {
-        releaseRef(conn);
-        return;
-    }
-    tmq_event_loop_unregister(conn->loop, conn->read_event_handler);
-    tmq_event_loop_unregister(conn->loop, conn->write_event_handler);
-    tmq_event_loop_unregister(conn->loop, conn->error_close_handler);
+    char conn_name[50];
+    tmq_tcp_conn_id(conn, conn_name, sizeof(conn_name));
+
+    tmq_event_loop_unregister(&conn->group->loop, conn->read_event_handler);
+    tmq_event_loop_unregister(&conn->group->loop, conn->error_close_handler);
+
+    if(conn->write_event_handler)
+        tmq_event_loop_unregister(&conn->group->loop, conn->write_event_handler);
+
     if(conn->close_cb)
-        conn->close_cb(getRef(conn), conn->close_cb_arg);
-    releaseRef(conn);
+        conn->close_cb(conn, conn->close_cb_arg);
+    destroy_conn(conn);
+    free(conn);
+
+    tlog_info("free connection [%s]", conn_name);
 }
 
 static void read_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
 {
     if(!arg) return;
-    tmq_tcp_conn_t* conn = getRef((tmq_tcp_conn_t*) arg);
-    pthread_mutex_lock(&conn->lk);
+    tmq_tcp_conn_t* conn = (tmq_tcp_conn_t*) arg;
     ssize_t n = tmq_buffer_read_fd(&conn->in_buffer, fd, 0);
     if(n == 0)
-    {
-        pthread_mutex_unlock(&conn->lk);
-        tmq_tcp_conn_close(getRef(conn));
-    }
+        close_conn(conn);
     else if(n < 0)
     {
-        pthread_mutex_unlock(&conn->lk);
-        if(conn->error_cb)
-            conn->error_cb(getRef(conn), conn->error_cb_arg);
+        tlog_error("tmq_buffer_read_fd() error: n < 0");
+        close_conn(conn);
     }
     else
     {
-        pthread_mutex_unlock(&conn->lk);
         if(conn->message_codec)
-            conn->message_codec->on_message(conn->message_codec, getRef(conn), &conn->in_buffer);
+            conn->message_codec->on_message(conn->message_codec, conn, &conn->in_buffer);
     }
-    releaseRef(conn);
 }
 
 static void write_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
@@ -76,34 +67,31 @@ static void write_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
 static void close_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
 {
     if(!arg) return;
-    tmq_tcp_conn_t* conn = getRef((tmq_tcp_conn_t*) arg);
-    if(event & EPOLLERR && conn->error_cb)
-        conn->error_cb(getRef(conn), conn->error_cb_arg);
+    tmq_tcp_conn_t* conn = (tmq_tcp_conn_t*) arg;
+    if(event & EPOLLERR)
+    {
+        tlog_error("epoll error %d: %s", errno, strerror(errno));
+        close_conn(conn);
+    }
     else if(event & EPOLLHUP && !(event & EPOLLIN))
-        tmq_tcp_conn_close(getRef(conn));
-    releaseRef(conn);
+        close_conn(conn);
 }
 
-tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_event_loop_t* loop, tmq_socket_t fd, tmq_codec_interface_t* codec)
+tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_io_group_t* group, tmq_socket_t fd, tmq_codec_interface_t* codec)
 {
     if(fd < 0) return NULL;
     tmq_tcp_conn_t* conn = (tmq_tcp_conn_t*) malloc(sizeof(tmq_tcp_conn_t));
     if(!conn) return NULL;
     bzero(conn, sizeof(tmq_tcp_conn_t));
-    if(pthread_mutex_init(&conn->lk, NULL))
-    {
-        tlog_fatal("pthread_mutex_init() error %d: %s", errno, strerror(errno));
-        tlog_exit();
-        abort();
-    }
+
     conn->fd = fd;
     tmq_socket_local_addr(conn->fd, &conn->local_addr);
     tmq_socket_peer_addr(conn->fd, &conn->peer_addr);
     conn->message_codec = codec;
-    conn->destroy_cb = destroy_cb_;
+
     tmq_buffer_init(&conn->in_buffer);
     tmq_buffer_init(&conn->out_buffer);
-    conn->loop = loop;
+    conn->group = group;
     conn->read_event_handler = tmq_event_handler_create(fd, EPOLLIN | EPOLLRDHUP, read_cb_, conn);
     if(!conn->read_event_handler)
         goto cleanup;
@@ -113,39 +101,18 @@ tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_event_loop_t* loop, tmq_socket_t fd, tmq_co
         free(conn->read_event_handler);
         goto cleanup;
     }
-    return getRef(conn);
+    tmq_event_loop_register(&conn->group->loop, conn->read_event_handler);
+    tmq_event_loop_register(&conn->group->loop, conn->error_close_handler);
+    return conn;
 
     cleanup:
-    pthread_mutex_destroy(&conn->lk);
     free(conn);
     return NULL;
-}
-
-void tmq_tcp_conn_set_close_cb(tmq_tcp_conn_t* conn, tcp_close_cb cb, void* arg)
-{
-    conn->close_cb = cb;
-    conn->close_cb_arg = arg;
-    releaseRef(conn);
-}
-
-void tmq_tcp_conn_set_error_cb(tmq_tcp_conn_t* conn, tcp_error_cb cb, void* arg)
-{
-    conn->error_cb = cb;
-    conn->error_cb_arg = arg;
-    releaseRef(conn);
-}
-
-void tmq_tcp_conn_start(tmq_tcp_conn_t* conn)
-{
-    tmq_event_loop_register(conn->loop, conn->read_event_handler);
-    tmq_event_loop_register(conn->loop, conn->error_close_handler);
-    releaseRef(conn);
 }
 
 int tmq_tcp_conn_id(tmq_tcp_conn_t* conn, char* buf, size_t buf_size)
 {
     if(!conn) return -1;
     int ret = tmq_addr_to_string(&conn->peer_addr, buf, buf_size);
-    releaseRef(conn);
     return ret;
 }
