@@ -3,7 +3,7 @@
 //
 #include "mqtt_timer.h"
 #include "mqtt_event.h"
-#include "mqtt_util.h"
+#include "base/mqtt_util.h"
 #include <stdlib.h>
 #include <sys/timerfd.h>
 #include <errno.h>
@@ -110,11 +110,19 @@ static int timer_heap_insert(tmq_timer_heap_t* timer_heap, tmq_timer_t* timer)
     return 0;
 }
 
-void tmq_timer_heap_add(tmq_timer_heap_t* timer_heap, tmq_timer_t* timer)
+tmq_timerid_t tmq_timer_heap_add(tmq_timer_heap_t* timer_heap, tmq_timer_t* timer)
 {
+    tmq_timerid_t timerid;
+    bzero(&timerid, sizeof(timerid));
+    if(!timer_heap || !timer) return timerid;
+
     pthread_mutex_lock(&timer_heap->lk);
     if(timer_heap_insert(timer_heap, timer))
         timerfd_set_timeout(timer_heap->timer_fd, timer_heap->heap[1]->expire);
+
+    timerid.addr = (int64_t) timer;
+    timerid.timestamp = time_now();
+    tmq_map_put(timer_heap->registered_timers, timerid, timer);
     pthread_mutex_unlock(&timer_heap->lk);
 }
 
@@ -156,19 +164,17 @@ static void timer_heap_timeout(int timer_fd, uint32_t event, const void* arg)
             break;
         top = timer_heap->heap[1];
     }
-    pthread_mutex_unlock(&timer_heap->lk);
     tmq_timer_t** timer = tmq_vec_begin(timer_heap->expired_timers);
     for(; timer != tmq_vec_end(timer_heap->expired_timers); timer++)
     {
-        if(atomicGet((*timer)->canceled) == 1)
+        if((*timer)->canceled == 1)
             continue;
         (*timer)->cb((*timer)->arg);
     }
-    pthread_mutex_lock(&timer_heap->lk);
     timer = tmq_vec_begin(timer_heap->expired_timers);
     for(; timer != tmq_vec_end(timer_heap->expired_timers); timer++)
     {
-        if((*timer)->repeat && !atomicGet((*timer)->canceled))
+        if((*timer)->repeat && !(*timer)->canceled)
         {
             (*timer)->expire = now + (int64_t) ((*timer)->timeout_ms * 1000);
             timer_heap_insert(timer_heap, *timer);
@@ -178,6 +184,18 @@ static void timer_heap_timeout(int timer_fd, uint32_t event, const void* arg)
     if(timer_heap->size > 0)
         timerfd_set_timeout(timer_heap->timer_fd, timer_heap->heap[1]->expire);
     pthread_mutex_unlock(&timer_heap->lk);
+}
+
+unsigned timerid_hash(const void* key)
+{
+    const tmq_timerid_t* timerid = key;
+    return hash_64(&timerid->addr) ^ hash_64(&timerid->timestamp);
+}
+
+static int timerid_equal(const void* key1, const void* key2)
+{
+    const tmq_timerid_t* timerid1 = key1, *timerid2 = key2;
+    return (timerid1->addr == timerid2->addr) && (timerid1->timestamp == timerid2->timestamp);
 }
 
 void tmq_timer_heap_init(tmq_timer_heap_t* timer_heap, tmq_event_loop_t* loop)
@@ -194,10 +212,22 @@ void tmq_timer_heap_init(tmq_timer_heap_t* timer_heap, tmq_event_loop_t* loop)
     timer_heap->size = 0;
     timer_heap->cap = TIMER_HEAP_INITIAL_SIZE;
     tmq_vec_init(&timer_heap->expired_timers, tmq_timer_t*);
+    tmq_map_custom_init(&timer_heap->registered_timers, tmq_timerid_t, tmq_timer_t*,
+                        MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR,
+                        timerid_hash, timerid_equal);
+
+    pthread_mutexattr_t attr;
+    memset(&attr, 0, sizeof(pthread_mutexattr_t));
+    if(pthread_mutexattr_init(&attr))
+        fatal_error("pthread_mutexattr_init() error %d: %s", errno, strerror(errno));
+
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE_NP);
+    if(pthread_mutex_init(&timer_heap->lk, &attr))
+        fatal_error("pthread_mutex_init() error %d: %s", errno, strerror(errno));
+
     tmq_event_handler_t* handler = tmq_event_handler_create(timer_heap->timer_fd, EPOLLIN,
                                                             timer_heap_timeout, timer_heap);
-    pthread_mutex_init(&timer_heap->lk, NULL);
-    tmq_event_loop_register(loop, handler);
+    tmq_handler_register(loop, handler);
 }
 
 void tmq_timer_heap_free(tmq_timer_heap_t* timer_heap)
@@ -209,9 +239,19 @@ void tmq_timer_heap_free(tmq_timer_heap_t* timer_heap)
     close(timer_heap->timer_fd);
 }
 
-void tmq_cancel_timer(tmq_timer_t* timer)
+void tmq_cancel_timer(tmq_timer_heap_t* timer_heap, tmq_timerid_t timerid)
 {
-    atomicSet(timer->canceled, 1);
+    pthread_mutex_lock(&timer_heap->lk);
+    tmq_timer_t** timer = tmq_map_get(timer_heap->registered_timers, timerid);
+    if(!timer)
+    {
+        tlog_warn("invalid timerid (timer already canceled)");
+        pthread_mutex_unlock(&timer_heap->lk);
+        return;
+    }
+    (*timer)->canceled = 1;
+    tmq_map_erase(timer_heap->registered_timers, timerid);
+    pthread_mutex_unlock(&timer_heap->lk);
 }
 
 /* for debug */
@@ -220,6 +260,7 @@ static void tmq_timer_print(const tmq_timer_t* timer)
     printf("timer{exp=%lu, repeat=%d, cb=%p}\n", timer->expire, timer->repeat, timer->cb);
 }
 
+/* for debug */
 void tmq_timer_heap_print(tmq_timer_heap_t* timer_heap)
 {
     if(!timer_heap) return;

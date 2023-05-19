@@ -2,7 +2,7 @@
 // Created by zr on 23-4-9.
 //
 #include "mqtt_buffer.h"
-#include "mqtt_vec.h"
+#include "base/mqtt_vec.h"
 #include "tlog.h"
 #include <stdlib.h>
 #include <string.h>

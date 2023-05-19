@@ -32,7 +32,7 @@ void tmq_acceptor_init(tmq_acceptor_t* acceptor, tmq_event_loop_t* loop, uint16_
     acceptor->idle_socket = open("/dev/null", O_RDONLY | O_CLOEXEC);
     tmq_event_handler_t* handler = tmq_event_handler_create(acceptor->lis_socket, EPOLLIN,
                                                             acceptor_cb, acceptor);
-    tmq_event_loop_register(loop, handler);
+    tmq_handler_register(loop, handler);
 }
 
 void tmq_acceptor_listen(tmq_acceptor_t* acceptor)

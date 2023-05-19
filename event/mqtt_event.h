@@ -4,9 +4,9 @@
 
 #ifndef TINYMQTT_MQTT_EVENT_H
 #define TINYMQTT_MQTT_EVENT_H
-#include "mqtt_map.h"
-#include "mqtt_vec.h"
-#include "mqtt_socket.h"
+#include "base/mqtt_map.h"
+#include "base/mqtt_vec.h"
+#include "base/mqtt_socket.h"
 #include "mqtt_timer.h"
 #include <sys/epoll.h>
 #include <sys/queue.h>
@@ -31,7 +31,6 @@ typedef struct tmq_event_handler_s
     uint32_t r_events;
     void* arg;
     tmq_event_cb cb;
-    int registered;
 } tmq_event_handler_t;
 
 tmq_event_handler_t* tmq_event_handler_create(int fd, short events, tmq_event_cb cb, void* arg);
@@ -39,32 +38,52 @@ tmq_event_handler_t* tmq_event_handler_create(int fd, short events, tmq_event_cb
 typedef SLIST_HEAD(handler_queue, tmq_event_handler_s) handler_queue;
 typedef struct
 {
-    handler_queue handler_queue;
+    handler_queue handlers;
     uint32_t all_events;
 } epoll_handler_ctx;
-typedef tmq_map(int, epoll_handler_ctx) tmq_handler_map;
-typedef tmq_vec(struct epoll_event) tmq_income_events;
-typedef tmq_vec(tmq_event_handler_t*) tmq_active_handlers;
+typedef tmq_map(int, epoll_handler_ctx) handler_map_t;
+typedef tmq_vec(struct epoll_event) event_list_t;
+typedef tmq_vec(tmq_event_handler_t*) active_handler_list_t;
+typedef tmq_map(tmq_event_handler_t*, int) removing_handler_set_t;
 
 typedef struct tmq_event_loop_s
 {
     int epoll_fd;
-    tmq_income_events epoll_events;
-    tmq_active_handlers active_handlers;
-    tmq_handler_map handler_map;
+    event_list_t epoll_events;
+
+    active_handler_list_t active_handlers;
+    removing_handler_set_t removing_handlers;
+    handler_map_t handler_map;
+
     tmq_timer_heap_t timer_heap;
     int running;
     int quit;
+    int event_handling;
     pthread_mutex_t lk;
 } tmq_event_loop_t;
 
 void tmq_event_loop_init(tmq_event_loop_t* loop);
 void tmq_event_loop_run(tmq_event_loop_t* loop);
-void tmq_event_loop_register(tmq_event_loop_t* loop, tmq_event_handler_t* handler);
-void tmq_event_loop_unregister(tmq_event_loop_t* loop, tmq_event_handler_t* handler);
+void tmq_handler_register(tmq_event_loop_t* loop, tmq_event_handler_t* handler);
+void tmq_handler_unregister(tmq_event_loop_t* loop, tmq_event_handler_t* handler);
+int tmq_handler_is_registered(tmq_event_loop_t* loop, tmq_event_handler_t* handler);
 void tmq_event_loop_add_timer(tmq_event_loop_t* loop, tmq_timer_t* timer);
 void tmq_event_loop_cancel_timer(tmq_event_loop_t* loop, tmq_timer_t* timer);
 void tmq_event_loop_quit(tmq_event_loop_t* loop);
-void tmq_event_loop_clean(tmq_event_loop_t* loop);
+void tmq_event_loop_destroy(tmq_event_loop_t* loop);
+
+typedef void (*tmq_notify_cb) (void*);
+typedef struct tmq_notifier_s
+{
+    tmq_event_loop_t* loop;
+    int wakeup_pipe[2];
+    tmq_event_handler_t* wakeup_handler;
+    tmq_notify_cb cb;
+    void* arg;
+} tmq_notifier_t;
+
+void tmq_notifier_init(tmq_notifier_t* notifier, tmq_event_loop_t* loop, tmq_notify_cb cb, void* arg);
+void tmq_notifier_notify(tmq_notifier_t* notifier);
+void tmq_notifier_destroy(tmq_notifier_t* notifier);
 
 #endif //TINYMQTT_MQTT_EVENT_H

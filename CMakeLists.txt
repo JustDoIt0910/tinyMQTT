@@ -3,20 +3,21 @@ cmake_minimum_required(VERSION 3.8)
 project(tinyMQTT)
 
 set(TINYMQTT_LIB_SRC
-        mqtt_socket.c
-        mqtt_buffer.c
-        mqtt_map.c
-        mqtt_vec.c
-        mqtt_event.c
-        mqtt_acceptor.c
-        mqtt_tcp_conn.c
-        mqtt_timer.c
-        mqtt_packet.c
-        mqtt_session.c
-        mqtt_codec.c
-        mqtt_broker.c
-        mqtt_client.c
-        mqtt_config.c
+        base/mqtt_socket.c
+        net/mqtt_buffer.c
+        base/mqtt_map.c
+        base/mqtt_vec.c
+        base/mqtt_str.c
+        event/mqtt_event.c
+        net/mqtt_acceptor.c
+        net/mqtt_tcp_conn.c
+        event/mqtt_timer.c
+        mqtt/mqtt_packet.c
+        mqtt/mqtt_session.c
+        mqtt/mqtt_codec.c
+        mqtt/mqtt_broker.c
+        mqtt/mqtt_client.c
+        base/mqtt_config.c
         3rd/tinylog/tlog.c)
 set(CMAKE_BUILD_TYPE "Debug")
 

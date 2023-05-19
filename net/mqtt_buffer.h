@@ -5,7 +5,7 @@
 #ifndef TINYMQTT_MQTT_BUFFER_H
 #define TINYMQTT_MQTT_BUFFER_H
 #include <stddef.h>
-#include "mqtt_socket.h"
+#include "base/mqtt_socket.h"
 
 #define MAX_IOVEC_NUM               4
 #define BUFFER_CHUNK_MIN            512

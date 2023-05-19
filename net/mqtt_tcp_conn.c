@@ -2,8 +2,8 @@
 // Created by zr on 23-4-15.
 //
 #include "mqtt_tcp_conn.h"
-#include "mqtt_broker.h"
-#include "mqtt_util.h"
+#include "mqtt/mqtt_broker.h"
+#include "base/mqtt_util.h"
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -71,8 +71,8 @@ tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_io_group_t* group, tmq_socket_t fd, tmq_cod
         free(conn->read_event_handler);
         goto cleanup;
     }
-    tmq_event_loop_register(&conn->group->loop, conn->read_event_handler);
-    tmq_event_loop_register(&conn->group->loop, conn->error_close_handler);
+    tmq_handler_register(&conn->group->loop, conn->read_event_handler);
+    tmq_handler_register(&conn->group->loop, conn->error_close_handler);
     return conn;
 
 cleanup:
@@ -85,11 +85,11 @@ void tmq_tcp_conn_destroy(tmq_tcp_conn_t* conn)
     char conn_name[50];
     tmq_tcp_conn_id(conn, conn_name, sizeof(conn_name));
 
-    tmq_event_loop_unregister(&conn->group->loop, conn->read_event_handler);
-    tmq_event_loop_unregister(&conn->group->loop, conn->error_close_handler);
+    tmq_handler_unregister(&conn->group->loop, conn->read_event_handler);
+    tmq_handler_unregister(&conn->group->loop, conn->error_close_handler);
 
     if(conn->write_event_handler)
-        tmq_event_loop_unregister(&conn->group->loop, conn->write_event_handler);
+        tmq_handler_unregister(&conn->group->loop, conn->write_event_handler);
 
     if(conn->close_cb)
         conn->close_cb(conn, conn->close_cb_arg);
