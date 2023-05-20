@@ -4,6 +4,7 @@
 
 #ifndef TINYMQTT_MQTT_PACKET_H
 #define TINYMQTT_MQTT_PACKET_H
+#include <stdint.h>
 
 typedef enum tmq_packet_type_e
 {
@@ -21,6 +22,13 @@ typedef struct tmq_packet_t
     tmq_packet_type_e packet_type;
     void* packet;
 } tmq_packet_t;
+
+typedef struct tmq_fixed_header
+{
+    tmq_packet_type_e packet_type;
+    uint32_t remain_lenth;
+    uint8_t publish_flags;
+} tmq_fixed_header;
 
 typedef struct tmq_connect_pkt
 {

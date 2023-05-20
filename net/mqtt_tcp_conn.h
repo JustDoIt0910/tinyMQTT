@@ -26,6 +26,7 @@ typedef struct tmq_tcp_conn_s
 
     tmq_event_handler_t* read_event_handler,
     *write_event_handler, *error_close_handler;
+    int is_writing;
 
     tcp_close_cb close_cb;
     void* close_cb_arg;
@@ -34,10 +35,13 @@ typedef struct tmq_tcp_conn_s
 } tmq_tcp_conn_t;
 
 tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_io_group_t* group, tmq_socket_t fd, tmq_codec_t* codec);
+tmq_tcp_conn_t* get_ref(tmq_tcp_conn_t* conn);
+void release_ref(tmq_tcp_conn_t* conn);
+
+/* functions below must be called only in the io thread of the connection */
+void tmq_tcp_conn_write(tmq_tcp_conn_t* conn, char* data, size_t size);
 void tmq_tcp_conn_close(tmq_tcp_conn_t* conn);
 int tmq_tcp_conn_id(tmq_tcp_conn_t* conn, char* buf, size_t buf_size);
 void tmq_tcp_conn_set_context(tmq_tcp_conn_t* conn, void* ctx);
-tmq_tcp_conn_t* get_ref(tmq_tcp_conn_t* conn);
-void release_ref(tmq_tcp_conn_t* conn);
 
 #endif //TINYMQTT_MQTT_TCP_CONN_H

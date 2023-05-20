@@ -286,7 +286,6 @@ ssize_t tmq_buffer_read_fd(tmq_buffer_t* buffer, tmq_socket_t fd, size_t max)
         size = min(fd_readable, FD_MAX_READ_BYTES);
     else
         size = min(fd_readable, min(max, FD_MAX_READ_BYTES));
-    tlog_info("read %lu bytes", size);
     int iovec_cnt = 0;
     size_t space_aval = 0;
     struct iovec vecs[MAX_IOVEC_NUM];

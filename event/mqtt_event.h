@@ -33,7 +33,7 @@ typedef struct tmq_event_handler_s
     tmq_event_cb cb;
 } tmq_event_handler_t;
 
-tmq_event_handler_t* tmq_event_handler_create(int fd, short events, tmq_event_cb cb, void* arg);
+tmq_event_handler_t* tmq_event_handler_new(int fd, short events, tmq_event_cb cb, void* arg);
 
 typedef SLIST_HEAD(handler_queue, tmq_event_handler_s) handler_queue;
 typedef struct

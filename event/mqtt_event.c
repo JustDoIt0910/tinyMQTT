@@ -12,11 +12,11 @@
 #include <string.h>
 #include <assert.h>
 
-tmq_event_handler_t* tmq_event_handler_create(int fd, short events, tmq_event_cb cb, void* arg)
+tmq_event_handler_t* tmq_event_handler_new(int fd, short events, tmq_event_cb cb, void* arg)
 {
     tmq_event_handler_t* handler = malloc(sizeof(tmq_event_handler_t));
     if(!handler)
-        return NULL;
+        fatal_error("malloc() error: out of memory");
     bzero(handler, sizeof(tmq_event_handler_t));
     handler->fd = fd;
     handler->events = events;
@@ -269,8 +269,8 @@ void tmq_notifier_init(tmq_notifier_t* notifier, tmq_event_loop_t* loop, tmq_not
     notifier->loop = loop;
     notifier->cb = cb;
     notifier->arg = arg;
-    notifier->wakeup_handler = tmq_event_handler_create(notifier->wakeup_pipe[0], EPOLLIN,
-                                                        tmq_notifier_on_notify, notifier);
+    notifier->wakeup_handler = tmq_event_handler_new(notifier->wakeup_pipe[0], EPOLLIN,
+                                                     tmq_notifier_on_notify, notifier);
     tmq_handler_register(loop, notifier->wakeup_handler);
 }
 

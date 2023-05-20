@@ -227,8 +227,8 @@ void tmq_timer_heap_init(tmq_timer_heap_t* timer_heap, tmq_event_loop_t* loop)
     if(pthread_mutex_init(&timer_heap->lk, &attr))
         fatal_error("pthread_mutex_init() error %d: %s", errno, strerror(errno));
 
-    tmq_event_handler_t* handler = tmq_event_handler_create(timer_heap->timer_fd, EPOLLIN,
-                                                            timer_heap_timeout, timer_heap);
+    tmq_event_handler_t* handler = tmq_event_handler_new(timer_heap->timer_fd, EPOLLIN,
+                                                         timer_heap_timeout, timer_heap);
     tmq_handler_register(loop, handler);
 }
 

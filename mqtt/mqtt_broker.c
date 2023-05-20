@@ -9,6 +9,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
+#include <signal.h>
 
 /* mqtt io group */
 
@@ -23,7 +24,6 @@ static void remove_tcp_conn(tmq_tcp_conn_t* conn, void* arg)
     tmq_map_erase(group->tcp_conns, conn_name);
     release_ref(conn);
 
-    tlog_info("remove connection [%s]", conn_name);
     release_ref(conn);
 }
 
@@ -140,6 +140,9 @@ void tmq_broker_init(tmq_broker_t* broker, uint16_t port)
     for(int i = 0; i < MQTT_IO_THREAD; i++)
         tmq_io_group_init(&broker->io_groups[i], broker);
     broker->next_io_group = 0;
+
+    /* ignore SIGPIPE signal */
+    signal(SIGPIPE, SIG_IGN);
 }
 
 void tmq_broker_run(tmq_broker_t* broker)

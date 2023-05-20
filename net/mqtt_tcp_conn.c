@@ -29,7 +29,20 @@ static void read_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
 
 static void write_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
 {
-
+    if(!arg) return;
+    tmq_tcp_conn_t* conn = (tmq_tcp_conn_t*) arg;
+    if(!conn->is_writing) return;
+    ssize_t n = tmq_buffer_write_fd(&conn->out_buffer, fd);
+    if(n >= 0)
+    {
+        if(conn->out_buffer.readable_bytes == 0)
+        {
+            tmq_handler_unregister(&conn->group->loop, conn->write_event_handler);
+            conn->is_writing = 0;
+        }
+    }
+    else
+        tlog_error("tmq_buffer_write_fd() error");
 }
 
 static void close_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
@@ -68,35 +81,53 @@ tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_io_group_t* group, tmq_socket_t fd, tmq_cod
 {
     if(fd < 0) return NULL;
     tmq_tcp_conn_t* conn = malloc(sizeof(tmq_tcp_conn_t));
-    if(!conn) return NULL;
+    if(!conn)
+        fatal_error("malloc() error: out of memory");
     bzero(conn, sizeof(tmq_tcp_conn_t));
 
     conn->fd = fd;
     conn->group = group;
     conn->codec = codec;
     conn->context = NULL;
+    conn->is_writing = 0;
     tmq_socket_local_addr(conn->fd, &conn->local_addr);
     tmq_socket_peer_addr(conn->fd, &conn->peer_addr);
 
     tmq_buffer_init(&conn->in_buffer);
     tmq_buffer_init(&conn->out_buffer);
 
-    conn->read_event_handler = tmq_event_handler_create(fd, EPOLLIN | EPOLLRDHUP, read_cb_, conn);
-    if(!conn->read_event_handler)
-        goto cleanup;
-    conn->error_close_handler = tmq_event_handler_create(fd, EPOLLERR | EPOLLHUP, close_cb_, conn);
-    if(!conn->error_close_handler)
-    {
-        free(conn->read_event_handler);
-        goto cleanup;
-    }
+    conn->read_event_handler = tmq_event_handler_new(fd, EPOLLIN | EPOLLRDHUP, read_cb_, conn);
+    conn->error_close_handler = tmq_event_handler_new(fd, EPOLLERR | EPOLLHUP, close_cb_, conn);
     tmq_handler_register(&conn->group->loop, conn->read_event_handler);
     tmq_handler_register(&conn->group->loop, conn->error_close_handler);
     return conn;
+}
 
-    cleanup:
-    free(conn);
-    return NULL;
+void tmq_tcp_conn_write(tmq_tcp_conn_t* conn, char* data, size_t size)
+{
+    ssize_t wrote;
+    if(!conn->is_writing)
+        wrote = tmq_socket_write(conn->fd, data, size);
+    int error = 0;
+    if(wrote < 0)
+    {
+        wrote = 0;
+        /* EWOULDBLOCK(EAGAIN) isn't error */
+        if(errno != EWOULDBLOCK)
+            error = 1;
+    }
+    size_t remain = size - wrote;
+    if(!error && remain)
+    {
+        tmq_buffer_append(&conn->out_buffer, data + wrote, remain);
+        if(!conn->is_writing)
+        {
+            if(!conn->write_event_handler)
+                conn->write_event_handler = tmq_event_handler_new(conn->fd, EPOLLOUT, write_cb_, conn);
+            tmq_handler_register(&conn->group->loop, conn->write_event_handler);
+            conn->is_writing = 1;
+        }
+    }
 }
 
 void tmq_tcp_conn_close(tmq_tcp_conn_t* conn)

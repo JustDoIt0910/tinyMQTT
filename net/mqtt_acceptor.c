@@ -30,8 +30,8 @@ void tmq_acceptor_init(tmq_acceptor_t* acceptor, tmq_event_loop_t* loop, uint16_
     tmq_socket_reuse_addr(acceptor->lis_socket, 1);
     tmq_socket_bind(acceptor->lis_socket, NULL, port);
     acceptor->idle_socket = open("/dev/null", O_RDONLY | O_CLOEXEC);
-    tmq_event_handler_t* handler = tmq_event_handler_create(acceptor->lis_socket, EPOLLIN,
-                                                            acceptor_cb, acceptor);
+    tmq_event_handler_t* handler = tmq_event_handler_new(acceptor->lis_socket, EPOLLIN,
+                                                         acceptor_cb, acceptor);
     tmq_handler_register(loop, handler);
 }
 

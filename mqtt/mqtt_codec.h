@@ -52,6 +52,14 @@ typedef struct tmq_codec_s
     disconnect_pkt_cb on_disconnect;
 } tmq_codec_t;
 
+typedef enum decode_status_e
+{
+    DECODE_OK,
+    UNKNOWN_PACKET,
+    BAD_PACKET_FORMAT,
+    UNSURPORTED_VERSION
+} decode_status;
+
 void tmq_codec_init(tmq_codec_t* codec);
 
 #endif //TINYMQTT_MQTT_CODEC_H

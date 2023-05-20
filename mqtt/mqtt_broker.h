@@ -11,7 +11,7 @@
 #include "mqtt_codec.h"
 
 #define MQTT_TCP_CHECKALIVE_INTERVAL    10
-#define MQTT_CONNECT_MAX_PENDING        10
+#define MQTT_CONNECT_MAX_PENDING        100
 #define MQTT_TCP_MAX_IDLE               300
 #define MQTT_IO_THREAD                  4
 
