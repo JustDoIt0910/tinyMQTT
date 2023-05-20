@@ -335,6 +335,7 @@ ssize_t tmq_buffer_write_fd(tmq_buffer_t* buffer, tmq_socket_t fd)
     int iovec_cnt = 0;
     while (chunk)
     {
+        iovec_cnt++;
         struct iovec iov = {
                 .iov_base = chunk->buf + chunk->read_idx,
                 .iov_len = CHUNK_DATA_LEN(chunk)

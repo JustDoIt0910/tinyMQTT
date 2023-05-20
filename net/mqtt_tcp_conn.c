@@ -105,7 +105,7 @@ tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_io_group_t* group, tmq_socket_t fd, tmq_cod
 
 void tmq_tcp_conn_write(tmq_tcp_conn_t* conn, char* data, size_t size)
 {
-    ssize_t wrote;
+    ssize_t wrote = 0;
     if(!conn->is_writing)
         wrote = tmq_socket_write(conn->fd, data, size);
     int error = 0;
