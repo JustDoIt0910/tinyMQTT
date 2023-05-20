@@ -5,6 +5,23 @@
 #ifndef TINYMQTT_MQTT_PACKET_H
 #define TINYMQTT_MQTT_PACKET_H
 
+typedef enum tmq_packet_type_e
+{
+    MQTT_CONNECT, MQTT_CONNACK,
+    MQTT_PUBLISH, MQTT_PUBACK,
+    MQTT_PUBREC, MQTT_PUBREL, MQTT_PUBCOMP,
+    MQTT_SUBSCRIBE, MQTT_SUBACK,
+    MQTT_UNSUBSCRIBE, MQTT_UNSUBACK,
+    MQTT_PINGREQ, MQTT_PINGRESP,
+    MQTT_DISCONNECT
+} tmq_packet_type_e;
+
+typedef struct tmq_packet_t
+{
+    tmq_packet_type_e packet_type;
+    void* packet;
+} tmq_packet_t;
+
 typedef struct tmq_connect_pkt
 {
 

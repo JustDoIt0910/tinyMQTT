@@ -316,6 +316,8 @@ tmq_map_iter_t tmq_map_iter_(tmq_map_base_t* m)
     tmq_map_iter_t iter;
     iter.bucket_idx = tmq_next_bucket(m, 0);
     iter.entry = iter.bucket_idx == UINT32_MAX ? NULL : m->buckets[0][iter.bucket_idx];
+    iter.first = iter.entry ? iter.entry->key : NULL;
+    iter.second = iter.entry ? iter.entry->value : NULL;
     return iter;
 }
 
@@ -330,4 +332,6 @@ void tmq_map_iter_next_(tmq_map_base_t* m, tmq_map_iter_t* iter)
         iter->bucket_idx = tmq_next_bucket(m, iter->bucket_idx + 1);
         iter->entry = iter->bucket_idx == UINT32_MAX ? NULL : m->buckets[0][iter->bucket_idx];
     }
+    iter->first = iter->entry ? iter->entry->key : NULL;
+    iter->second = iter->entry ? iter->entry->value : NULL;
 }

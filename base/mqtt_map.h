@@ -57,6 +57,7 @@ struct                      \
 
 typedef struct tmq_map_iter_s
 {
+    void* first, *second;
     tmq_map_entry_t* entry;
     uint32_t bucket_idx;
 } tmq_map_iter_t;

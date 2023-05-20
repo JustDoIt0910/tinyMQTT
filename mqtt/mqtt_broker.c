@@ -10,13 +10,13 @@
 #include <unistd.h>
 #include <assert.h>
 
+/* mqtt io group */
+
 static void remove_tcp_conn(tmq_tcp_conn_t* conn, void* arg)
 {
     tmq_io_group_t* group = conn->group;
     tcp_conn_ctx* ctx = conn->context;
     assert(ctx != NULL);
-
-    tmq_event_loop_cancel_timer(&group->loop, ctx->timerid);
 
     char conn_name[50];
     tmq_tcp_conn_id(conn, conn_name, sizeof(conn_name));
@@ -25,20 +25,29 @@ static void remove_tcp_conn(tmq_tcp_conn_t* conn, void* arg)
     tlog_info("remove connection [%s]", conn_name);
 }
 
-static void handle_timeout(void* arg)
+static void tcp_checkalive(void* arg)
 {
-    tmq_tcp_conn_t* conn = (tmq_tcp_conn_t*) arg;
-    tcp_conn_ctx* ctx = conn->context;
-    assert(ctx != NULL);
+    tmq_io_group_t* group = arg;
 
-    ctx->ttl--;
-    if(ctx->ttl <= 0)
+    int64_t now = time_now();
+    tmq_vec(tmq_tcp_conn_t*) timeout_conns = tmq_vec_make(tmq_tcp_conn_t*);
+    tmq_map_iter_t it = tmq_map_iter(group->tcp_conns);
+    for(; tmq_map_has_next(it); tmq_map_next(group->tcp_conns, it))
     {
-        char conn_name[50];
-        tmq_tcp_conn_id(conn, conn_name, sizeof(conn_name));
-        tlog_info("connection timeout [%s]", conn_name);
-        tmq_tcp_conn_destroy(conn);
+        tmq_tcp_conn_t* conn = *(tmq_tcp_conn_t**) (it.second);
+        tcp_conn_ctx* ctx = conn->context;
+        if((ctx->session_state == NO_SESSION && now - ctx->last_msg_time > SEC_US(MQTT_CONNECT_MAX_PENDING)) ||
+            (ctx->session_state != NO_SESSION && now - ctx->last_msg_time > SEC_US(MQTT_TCP_MAX_IDLE)))
+        {
+            tmq_vec_push_back(timeout_conns, conn);
+            tlog_info("connection timeout [%s]", (char*) (it.first));
+        }
     }
+    /* do remove after iteration to prevent iterator failure */
+    tmq_tcp_conn_t** conn_it = tmq_vec_begin(timeout_conns);
+    for(; conn_it != tmq_vec_end(timeout_conns); conn_it++)
+        tmq_tcp_conn_destroy(*conn_it);
+    tmq_vec_free(timeout_conns);
 }
 
 static void handle_new_connection(void* arg)
@@ -55,14 +64,11 @@ static void handle_new_connection(void* arg)
         tmq_tcp_conn_t* conn = tmq_tcp_conn_new(group, *it, &group->broker->codec);
         conn->close_cb = remove_tcp_conn;
 
-        tmq_timer_t* timer = tmq_timer_new(MQTT_ALIVE_TIMER_INTERVAL, 1, handle_timeout, conn);
-        tmq_timerid_t timerid = tmq_event_loop_add_timer(&group->loop, timer);
-
         tcp_conn_ctx* conn_ctx = malloc(sizeof(tcp_conn_ctx));
+        tmq_vec_init(&conn_ctx->pending_packets, tmq_packet_t);
         conn_ctx->context = group->broker;
-        conn_ctx->in_session = 0;
-        conn_ctx->ttl = MQTT_CONNECT_PENDING;
-        conn_ctx->timerid = timerid;
+        conn_ctx->session_state = NO_SESSION;
+        conn_ctx->last_msg_time = time_now();
         tmq_tcp_conn_set_context(conn, conn_ctx);
 
         char conn_name[50];
@@ -79,6 +85,10 @@ static void tmq_io_group_init(tmq_io_group_t* group, tmq_broker_t* broker)
     group->broker = broker;
     tmq_event_loop_init(&group->loop);
     tmq_map_str_init(&group->tcp_conns, tmq_tcp_conn_t*, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
+
+    tmq_timer_t* timer = tmq_timer_new(SEC_MS(MQTT_TCP_CHECKALIVE_INTERVAL), 1, tcp_checkalive, group);
+    group->tcp_checkalive_timer = tmq_event_loop_add_timer(&group->loop, timer);
+
     tmq_vec_init(&group->pending_conns, tmq_socket_t);
     tmq_notifier_init(&group->new_conn_notifier, &group->loop, handle_new_connection, group);
     pthread_mutex_init(&group->pending_conns_lk, NULL);
@@ -97,9 +107,13 @@ static void tmq_io_group_run(tmq_io_group_t* group)
         fatal_error("pthread_create() error %d: %s", errno, strerror(errno));
 }
 
+/* mqtt broker */
+
 static void dispatch_new_connection(tmq_socket_t conn, void* arg)
 {
     tmq_broker_t* broker = (tmq_broker_t*) arg;
+
+    /* dispatch tcp connection using round-robin */
     tmq_io_group_t* next_group = &broker->io_groups[broker->next_io_group++];
     if(broker->next_io_group >= MQTT_IO_THREAD)
         broker->next_io_group = 0;

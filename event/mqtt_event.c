@@ -235,7 +235,7 @@ void tmq_event_loop_destroy(tmq_event_loop_t* loop)
     tmq_map_iter_t it = tmq_map_iter(loop->handler_map);
     for(; tmq_map_has_next(it); tmq_map_next(loop->handler_map, it))
     {
-        epoll_handler_ctx * ctx = it.entry->value;
+        epoll_handler_ctx * ctx = it.second;
         tmq_event_handler_t* handler, *next;
         handler = ctx->handlers.slh_first;
         while(handler)

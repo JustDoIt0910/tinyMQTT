@@ -19,7 +19,7 @@ tmq_timerid_t invalid_timerid()
     return timerid;
 }
 
-static int64_t time_now()
+int64_t time_now()
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);

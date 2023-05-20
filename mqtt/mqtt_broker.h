@@ -10,27 +10,36 @@
 #include "base/mqtt_map.h"
 #include "mqtt_codec.h"
 
-#define MQTT_ALIVE_TIMER_INTERVAL   10 * 1000
-#define MQTT_CONNECT_PENDING        30
-#define MQTT_IO_THREAD              4
+#define MQTT_TCP_CHECKALIVE_INTERVAL    10
+#define MQTT_CONNECT_MAX_PENDING        10
+#define MQTT_TCP_MAX_IDLE               300
+#define MQTT_IO_THREAD                  4
 
-typedef struct tmq_broker_s tmq_broker_t;
-typedef tmq_map(char*, tmq_tcp_conn_t*) tcp_conn_map_t;
+typedef tmq_vec(tmq_packet_t) pending_packet_list;
+typedef enum session_state_e
+{
+    NO_SESSION,
+    STARTING_SESSION,
+    IN_SESSION
+} session_state_e;
 
 typedef struct
 {
     void* context;
-    int in_session;
-    tmq_timerid_t timerid;
-    int ttl;
+    int64_t last_msg_time;
+    pending_packet_list pending_packets;
+    session_state_e session_state;
 } tcp_conn_ctx;
 
+typedef struct tmq_broker_s tmq_broker_t;
+typedef tmq_map(char*, tmq_tcp_conn_t*) tcp_conn_map_t;
 typedef struct tmq_io_group_s
 {
     tmq_broker_t* broker;
     pthread_t io_thread;
     tmq_event_loop_t loop;
     tcp_conn_map_t tcp_conns;
+    tmq_timerid_t tcp_checkalive_timer;
 
     tmq_notifier_t new_conn_notifier;
     pthread_mutex_t pending_conns_lk;

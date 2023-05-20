@@ -10,6 +10,8 @@
 #include "base/mqtt_vec.h"
 #include "base/mqtt_map.h"
 
+#define SEC_US(sec)                 (sec) * 1000000
+#define SEC_MS(sec)                 (sec) * 1000
 #define TIMER_HEAP_INITIAL_SIZE     16
 #define LEFT_CHILD_IDX(i)           ((i) << 1)
 #define RIGHT_CHILD_IDX(i)          (((i) << 1) + 1)
@@ -50,6 +52,7 @@ typedef struct tmq_timer_heap_s
     timer_list expired_timers;
 } tmq_timer_heap_t;
 
+int64_t time_now();
 void tmq_timer_heap_init(tmq_timer_heap_t* timer_heap, tmq_event_loop_t* loop);
 void tmq_timer_heap_free(tmq_timer_heap_t* timer_heap);
 tmq_timerid_t tmq_timer_heap_add(tmq_timer_heap_t* timer_heap, tmq_timer_t* timer);
