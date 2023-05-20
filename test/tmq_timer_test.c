@@ -1,8 +1,8 @@
 //
 // Created by zr on 23-4-20.
 //
-#include "mqtt_timer.h"
-#include "mqtt_event.h"
+#include "event/mqtt_timer.h"
+#include "event/mqtt_event.h"
 #include "tlog.h"
 #include <stdio.h>
 
@@ -36,7 +36,7 @@ int main()
     tmq_event_loop_add_timer(&loop, timer3);
 
     tmq_event_loop_run(&loop);
-    tmq_event_loop_clean(&loop);
+    tmq_event_loop_destroy(&loop);
     tlog_exit();
     return 0;
 }
