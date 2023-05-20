@@ -21,8 +21,10 @@ static void remove_tcp_conn(tmq_tcp_conn_t* conn, void* arg)
     char conn_name[50];
     tmq_tcp_conn_id(conn, conn_name, sizeof(conn_name));
     tmq_map_erase(group->tcp_conns, conn_name);
+    release_ref(conn);
 
     tlog_info("remove connection [%s]", conn_name);
+    release_ref(conn);
 }
 
 static void tcp_checkalive(void* arg)
@@ -46,7 +48,7 @@ static void tcp_checkalive(void* arg)
     /* do remove after iteration to prevent iterator failure */
     tmq_tcp_conn_t** conn_it = tmq_vec_begin(timeout_conns);
     for(; conn_it != tmq_vec_end(timeout_conns); conn_it++)
-        tmq_tcp_conn_destroy(*conn_it);
+        tmq_tcp_conn_close(get_ref(*conn_it));
     tmq_vec_free(timeout_conns);
 }
 
@@ -73,7 +75,8 @@ static void handle_new_connection(void* arg)
 
         char conn_name[50];
         tmq_tcp_conn_id(conn, conn_name, sizeof(conn_name));
-        tmq_map_put(group->tcp_conns, conn_name, conn);
+        tmq_map_put(group->tcp_conns, conn_name, get_ref(conn));
+        assert(conn->ref_cnt == 1);
 
         tlog_info("new connection [%s] group=%p thread=%lu", conn_name, group, mqtt_tid);
     }

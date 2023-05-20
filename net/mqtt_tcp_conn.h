@@ -17,6 +17,7 @@ typedef void(*tcp_close_cb)(tmq_tcp_conn_t* conn, void* arg);
 typedef struct tmq_tcp_conn_s
 {
     tmq_socket_t fd;
+    int ref_cnt;
     tmq_io_group_t* group;
     tmq_codec_t* codec;
 
@@ -33,8 +34,10 @@ typedef struct tmq_tcp_conn_s
 } tmq_tcp_conn_t;
 
 tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_io_group_t* group, tmq_socket_t fd, tmq_codec_t* codec);
-void tmq_tcp_conn_destroy(tmq_tcp_conn_t* conn);
+void tmq_tcp_conn_close(tmq_tcp_conn_t* conn);
 int tmq_tcp_conn_id(tmq_tcp_conn_t* conn, char* buf, size_t buf_size);
 void tmq_tcp_conn_set_context(tmq_tcp_conn_t* conn, void* ctx);
+tmq_tcp_conn_t* get_ref(tmq_tcp_conn_t* conn);
+void release_ref(tmq_tcp_conn_t* conn);
 
 #endif //TINYMQTT_MQTT_TCP_CONN_H

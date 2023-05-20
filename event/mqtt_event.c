@@ -190,7 +190,7 @@ void tmq_handler_unregister(tmq_event_loop_t* loop, tmq_event_handler_t* handler
 
 int tmq_handler_is_registered(tmq_event_loop_t* loop, tmq_event_handler_t* handler)
 {
-    if(!loop || !handler) 0;
+    if(!loop || !handler) return 0;
     pthread_mutex_lock(&loop->lk);
     epoll_handler_ctx * ctx = tmq_map_get(loop->handler_map, handler->fd);
     if(!ctx)
