@@ -287,6 +287,7 @@ void tmq_map_clear_(tmq_map_base_t* m)
             free(entry);
             entry = next;
         }
+        m->buckets[0][i] = NULL;
     }
     m->size = 0;
 }

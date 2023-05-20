@@ -33,6 +33,8 @@ typedef struct tmq_timerid_s
     int64_t timestamp;
 } tmq_timerid_t;
 
+tmq_timerid_t invalid_timerid();
+
 typedef tmq_vec(tmq_timer_t*) timer_list;
 typedef tmq_map(tmq_timerid_t, tmq_timer_t*) timerid_map;
 typedef struct tmq_event_loop_s tmq_event_loop_t;
@@ -54,7 +56,6 @@ tmq_timerid_t tmq_timer_heap_add(tmq_timer_heap_t* timer_heap, tmq_timer_t* time
 /* for debug */
 void tmq_timer_heap_print(tmq_timer_heap_t* timer_heap);
 tmq_timer_t* tmq_timer_new(double timeout_ms, int repeat, tmq_timer_cb cb, void* arg);
-void tmq_timer_reset(tmq_timer_t* timer);
 void tmq_cancel_timer(tmq_timer_heap_t* timer_heap, tmq_timerid_t timerid);
 
 #endif //TINYMQTT_MQTT_TIMER_H

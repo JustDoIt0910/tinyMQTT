@@ -21,7 +21,7 @@ typedef struct
 {
     void* context;
     int in_session;
-    tmq_timer_t* timer;
+    tmq_timerid_t timerid;
     int ttl;
 } tcp_conn_ctx;
 

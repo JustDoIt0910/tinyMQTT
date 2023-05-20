@@ -10,7 +10,7 @@
 
 static void decode_tcp_message_(tmq_codec_t* codec, tmq_tcp_conn_t* conn, tmq_buffer_t* buffer)
 {
-
+    tlog_info("message");
 }
 
 void tmq_codec_init(tmq_codec_t* codec)

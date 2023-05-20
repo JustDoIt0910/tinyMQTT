@@ -28,7 +28,7 @@ int main()
 
     tmq_event_loop_run(&loop);
 
-    tmq_event_loop_clean(&loop);
+    tmq_event_loop_destroy(&loop);
 
     tlog_exit();
     return 0;

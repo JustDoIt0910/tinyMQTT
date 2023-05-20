@@ -16,7 +16,7 @@ static void remove_tcp_conn(tmq_tcp_conn_t* conn, void* arg)
     tcp_conn_ctx* ctx = conn->context;
     assert(ctx != NULL);
 
-    tmq_cancel_timer(ctx->timer);
+    tmq_event_loop_cancel_timer(&group->loop, ctx->timerid);
 
     char conn_name[50];
     tmq_tcp_conn_id(conn, conn_name, sizeof(conn_name));
@@ -56,19 +56,18 @@ static void handle_new_connection(void* arg)
         conn->close_cb = remove_tcp_conn;
 
         tmq_timer_t* timer = tmq_timer_new(MQTT_ALIVE_TIMER_INTERVAL, 1, handle_timeout, conn);
+        tmq_timerid_t timerid = tmq_event_loop_add_timer(&group->loop, timer);
 
         tcp_conn_ctx* conn_ctx = malloc(sizeof(tcp_conn_ctx));
         conn_ctx->context = group->broker;
         conn_ctx->in_session = 0;
         conn_ctx->ttl = MQTT_CONNECT_PENDING;
-        conn_ctx->timer = timer;
+        conn_ctx->timerid = timerid;
         tmq_tcp_conn_set_context(conn, conn_ctx);
 
         char conn_name[50];
         tmq_tcp_conn_id(conn, conn_name, sizeof(conn_name));
-
         tmq_map_put(group->tcp_conns, conn_name, conn);
-        tmq_event_loop_add_timer(&group->loop, timer);
 
         tlog_info("new connection [%s] group=%p thread=%lu", conn_name, group, mqtt_tid);
     }

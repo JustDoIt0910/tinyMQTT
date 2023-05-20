@@ -12,6 +12,13 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+tmq_timerid_t invalid_timerid()
+{
+    tmq_timerid_t timerid;
+    bzero(&timerid, sizeof(timerid));
+    return timerid;
+}
+
 static int64_t time_now()
 {
     struct timeval tv;
@@ -53,12 +60,6 @@ tmq_timer_t* tmq_timer_new(double timeout_ms, int repeat, tmq_timer_cb cb, void*
     timer->arg = arg;
     timer->cb = cb;
     return timer;
-}
-
-void tmq_timer_reset(tmq_timer_t* timer)
-{
-    timer->expire = time_now() + (int64_t) (timer->timeout_ms * 1000);
-    timer->canceled = 0;
 }
 
 static void timer_swim(tmq_timer_heap_t* timer_heap, size_t idx)
@@ -124,6 +125,7 @@ tmq_timerid_t tmq_timer_heap_add(tmq_timer_heap_t* timer_heap, tmq_timer_t* time
     timerid.timestamp = time_now();
     tmq_map_put(timer_heap->registered_timers, timerid, timer);
     pthread_mutex_unlock(&timer_heap->lk);
+    return timerid;
 }
 
 static tmq_timer_t* timer_heap_pop(tmq_timer_heap_t* timer_heap)

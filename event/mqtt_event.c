@@ -22,7 +22,6 @@ tmq_event_handler_t* tmq_event_handler_create(int fd, short events, tmq_event_cb
     handler->events = events;
     handler->arg = arg;
     handler->cb = cb;
-    handler->registered = 0;
     return handler;
 }
 
@@ -213,16 +212,16 @@ int tmq_handler_is_registered(tmq_event_loop_t* loop, tmq_event_handler_t* handl
     return registered;
 }
 
-void tmq_event_loop_add_timer(tmq_event_loop_t* loop, tmq_timer_t* timer)
+tmq_timerid_t tmq_event_loop_add_timer(tmq_event_loop_t* loop, tmq_timer_t* timer)
 {
-    if(!loop || !timer) return;
-    tmq_timer_heap_add(&loop->timer_heap, timer);
+    if(!loop || !timer) return invalid_timerid();
+    return tmq_timer_heap_add(&loop->timer_heap, timer);
 }
 
-void tmq_event_loop_cancel_timer(tmq_event_loop_t* loop, tmq_timer_t* timer)
+void tmq_event_loop_cancel_timer(tmq_event_loop_t* loop, tmq_timerid_t timerid)
 {
-    if(!loop || !timer) return;
-    tmq_cancel_timer(timer);
+    if(!loop) return;
+    tmq_cancel_timer(&loop->timer_heap, timerid);
 }
 
 void tmq_event_loop_quit(tmq_event_loop_t* loop) {atomicSet(loop->quit, 1);}
