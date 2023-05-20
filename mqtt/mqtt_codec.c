@@ -19,10 +19,10 @@ static void decode_tcp_message_(tmq_codec_t* codec, tmq_tcp_conn_t* conn, tmq_bu
     if(ctx->session_state != NO_SESSION)
         ctx->last_msg_time = time_now();
 
-    char data[1024] = {0};
-    size_t n = tmq_buffer_read(buffer, data, buffer->readable_bytes);
-    tlog_info("%s", data);
-    tmq_tcp_conn_write(conn, data, n);
+//    char data[1024] = {0};
+//    size_t n = tmq_buffer_read(buffer, data, buffer->readable_bytes);
+//    tlog_info("%s", data);
+//    tmq_tcp_conn_write(conn, data, n);
 }
 
 void tmq_codec_init(tmq_codec_t* codec)
