@@ -14,10 +14,15 @@ typedef struct tmq_session_s tmq_session_t;
 
 typedef struct tmq_fixed_header
 {
-    tmq_packet_type_e packet_type;
-    uint32_t remain_lenth;
-    uint8_t publish_flags;
+    uint8_t type_flags;
+    uint32_t remain_length;
 } tmq_fixed_header;
+
+#define PACKET_TYPE(header) (((header).type_flags >> 4) & 0x0F)
+#define FLAGS(header)       (((header).type_flags) & 0x0F)
+#define DUP(header)         (((header).type_flags) & 0x08)
+#define QOS(header)         (((header).type_flags) & 0x06)
+#define RETAIN(header)      (((header).type_flags) & 0x01)
 
 typedef void (*tcp_message_decoder_f) (tmq_codec_t* codec, tmq_tcp_conn_t* conn, tmq_buffer_t* buffer);
 typedef void (*connect_pkt_cb) (tmq_broker_t* broker, tmq_connect_pkt connect_pkt);
@@ -72,8 +77,7 @@ typedef enum parsing_state_e
     PARSING_FIXED_HEADER,
     PARSING_REMAIN_LENGTH,
     PARSING_VARIABLE_HEADER,
-    PARSING_PAYLOAD,
-    PARSING_STOP
+    PARSING_PAYLOAD
 } parsing_state;
 
 typedef struct pkt_parsing_ctx_s
