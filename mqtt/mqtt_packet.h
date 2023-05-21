@@ -23,13 +23,6 @@ typedef struct tmq_packet_t
     void* packet;
 } tmq_packet_t;
 
-typedef struct tmq_fixed_header
-{
-    tmq_packet_type_e packet_type;
-    uint32_t remain_lenth;
-    uint8_t publish_flags;
-} tmq_fixed_header;
-
 typedef struct tmq_connect_pkt
 {
 

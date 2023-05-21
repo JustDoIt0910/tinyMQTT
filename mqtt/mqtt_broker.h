@@ -15,6 +15,7 @@
 #define MQTT_TCP_MAX_IDLE               300
 #define MQTT_IO_THREAD                  4
 
+typedef struct tmq_broker_s tmq_broker_t;
 typedef tmq_vec(tmq_packet_t) pending_packet_list;
 typedef enum session_state_e
 {
@@ -25,13 +26,17 @@ typedef enum session_state_e
 
 typedef struct
 {
-    void* context;
     int64_t last_msg_time;
-    pending_packet_list pending_packets;
+    union
+    {
+        tmq_broker_t* broker;
+        tmq_session_t* session;
+    } upstream;
     session_state_e session_state;
+    pkt_parsing_ctx parsing_ctx;
+    pending_packet_list pending_packets;
 } tcp_conn_ctx;
 
-typedef struct tmq_broker_s tmq_broker_t;
 typedef tmq_map(char*, tmq_tcp_conn_t*) tcp_conn_map_t;
 typedef struct tmq_io_group_s
 {

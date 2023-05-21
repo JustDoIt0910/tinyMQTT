@@ -68,7 +68,7 @@ static void handle_new_connection(void* arg)
 
         tcp_conn_ctx* conn_ctx = malloc(sizeof(tcp_conn_ctx));
         tmq_vec_init(&conn_ctx->pending_packets, tmq_packet_t);
-        conn_ctx->context = group->broker;
+        conn_ctx->upstream.broker = group->broker;
         conn_ctx->session_state = NO_SESSION;
         conn_ctx->last_msg_time = time_now();
         tmq_tcp_conn_set_context(conn, conn_ctx);

@@ -12,6 +12,13 @@ typedef struct tmq_buffer_s tmq_buffer_t;
 typedef struct tmq_broker_s tmq_broker_t;
 typedef struct tmq_session_s tmq_session_t;
 
+typedef struct tmq_fixed_header
+{
+    tmq_packet_type_e packet_type;
+    uint32_t remain_lenth;
+    uint8_t publish_flags;
+} tmq_fixed_header;
+
 typedef void (*tcp_message_decoder_f) (tmq_codec_t* codec, tmq_tcp_conn_t* conn, tmq_buffer_t* buffer);
 typedef void (*connect_pkt_cb) (tmq_broker_t* broker, tmq_connect_pkt connect_pkt);
 typedef void (*connack_pkt_cb) (tmq_session_t* session, tmq_connack_pkt connack_pkt);
@@ -59,6 +66,21 @@ typedef enum decode_status_e
     BAD_PACKET_FORMAT,
     UNSURPORTED_VERSION
 } decode_status;
+
+typedef enum parsing_state_e
+{
+    PARSING_FIXED_HEADER,
+    PARSING_REMAIN_LENGTH,
+    PARSING_VARIABLE_HEADER,
+    PARSING_PAYLOAD,
+    PARSING_STOP
+} parsing_state;
+
+typedef struct pkt_parsing_ctx_s
+{
+    parsing_state state;
+    tmq_fixed_header fixed_header;
+} pkt_parsing_ctx;
 
 void tmq_codec_init(tmq_codec_t* codec);
 
