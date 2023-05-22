@@ -67,6 +67,7 @@ typedef struct tmq_codec_s
 typedef enum decode_status_e
 {
     DECODE_OK,
+    NEED_MORE_DATA,
     UNKNOWN_PACKET,
     BAD_PACKET_FORMAT,
     UNSURPORTED_VERSION
@@ -76,14 +77,15 @@ typedef enum parsing_state_e
 {
     PARSING_FIXED_HEADER,
     PARSING_REMAIN_LENGTH,
-    PARSING_VARIABLE_HEADER,
-    PARSING_PAYLOAD
+    PARSING_BODY
 } parsing_state;
 
 typedef struct pkt_parsing_ctx_s
 {
     parsing_state state;
     tmq_fixed_header fixed_header;
+    /* used when decoding remain_length */
+    uint32_t multiplier;
 } pkt_parsing_ctx;
 
 void tmq_codec_init(tmq_codec_t* codec);
