@@ -20,6 +20,16 @@ static decode_status parse_fix_header(tmq_buffer_t* buffer, pkt_parsing_ctx* par
     return DECODE_OK;
 }
 
+static decode_status validate_flags(tmq_fixed_header* header)
+{
+    uint8_t type = PACKET_TYPE(*header);
+    if(type == MQTT_PUBLISH)
+        return DECODE_OK;
+    if(type == MQTT_PUBREL || type == MQTT_SUBSCRIBE || type == MQTT_UNSUBSCRIBE)
+        return FLAGS(*header) == 2 ? DECODE_OK : BAD_PACKET_FORMAT;
+    return FLAGS(*header) == 0 ? DECODE_OK : BAD_PACKET_FORMAT;
+}
+
 static decode_status parse_remain_length(tmq_buffer_t* buffer, pkt_parsing_ctx* parsing_ctx)
 {
     uint8_t byte;
@@ -130,6 +140,9 @@ static void decode_tcp_message_(tmq_codec_t* codec, tmq_tcp_conn_t* conn, tmq_bu
             case PARSING_FIXED_HEADER:
                 status = parse_fix_header(buffer, parsing_ctx);
                 if(status != DECODE_OK)
+                    tmq_tcp_conn_close(conn);
+                status = validate_flags(&parsing_ctx->fixed_header);
+                if(status == BAD_PACKET_FORMAT)
                     tmq_tcp_conn_close(conn);
 
             case PARSING_REMAIN_LENGTH:
