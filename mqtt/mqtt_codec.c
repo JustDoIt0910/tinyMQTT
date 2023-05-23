@@ -5,6 +5,8 @@
 #include "mqtt_broker.h"
 #include "net/mqtt_tcp_conn.h"
 #include <assert.h>
+#include <endian.h>
+#include <string.h>
 
 static decode_status parse_fix_header(tmq_buffer_t* buffer, pkt_parsing_ctx* parsing_ctx)
 {
@@ -48,6 +50,24 @@ static decode_status parse_remain_length(tmq_buffer_t* buffer, pkt_parsing_ctx* 
 
 static decode_status parse_connect_packet(tmq_codec_t* codec, tmq_buffer_t* buffer)
 {
+    uint16_t protocol_nam_len;
+    tmq_buffer_read(buffer, (char*) &protocol_nam_len, 2);
+    protocol_nam_len = be16toh(protocol_nam_len);
+    if(protocol_nam_len != 4)
+        return BAD_PACKET_FORMAT;
+    char protocol_name[5] = {0};
+    tmq_buffer_read(buffer, protocol_name, 4);
+    if(!strcmp(protocol_name, "MQTT"))
+        return BAD_PACKET_FORMAT;
+    uint8_t protocol_level;
+    tmq_buffer_read(buffer, (char*) &protocol_level, 1);
+    if(protocol_level != 4)
+        return UNSURPORTED_VERSION;
+    uint8_t flags;
+    tmq_buffer_read(buffer, (char*) &flags, 1);
+    if(CONNECT_RESERVED(flags))
+        return BAD_PACKET_FORMAT;
+
     return DECODE_OK;
 }
 

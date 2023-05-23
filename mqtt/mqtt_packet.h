@@ -26,15 +26,23 @@ typedef struct tmq_packet_t
 
 typedef struct tmq_connect_pkt
 {
-    tmq_str_t protocol_name;
-    uint8_t protocol_level;
     uint8_t flags;
     uint16_t keep_alive;
 
     tmq_str_t client_id;
     tmq_str_t will_topic;
-
+    tmq_str_t will_message;
+    tmq_str_t username;
+    tmq_str_t password;
 } tmq_connect_pkt;
+
+#define CONNECT_USERNAME_FLAG(flags)     ((flags) & 0x80)
+#define CONNECT_PASSWORD_FLAG(flags)     ((flags) & 0x40)
+#define CONNECT_WILL_RETAIN(flags)       ((flags) & 0x20)
+#define CONNECT_WILL_QOS(flags)          (((flags) >> 3) & 0x03)
+#define CONNECT_WILL_FLAG(flags)         ((flags) & 0x04)
+#define CONNECT_CLEAN_SESSION(flags)     ((flags) & 0x02)
+#define CONNECT_RESERVED(flags)          ((flags) & 0x01)
 
 typedef struct tmq_connack_pkt
 {
