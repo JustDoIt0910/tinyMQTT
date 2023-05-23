@@ -10,8 +10,7 @@
 typedef enum tmq_packet_type_e
 {
     MQTT_CONNECT = 1, MQTT_CONNACK,
-    MQTT_PUBLISH, MQTT_PUBACK,
-    MQTT_PUBREC, MQTT_PUBREL, MQTT_PUBCOMP,
+    MQTT_PUBLISH, MQTT_PUBACK, MQTT_PUBREC, MQTT_PUBREL, MQTT_PUBCOMP,
     MQTT_SUBSCRIBE, MQTT_SUBACK,
     MQTT_UNSUBSCRIBE, MQTT_UNSUBACK,
     MQTT_PINGREQ, MQTT_PINGRESP,
@@ -44,9 +43,20 @@ typedef struct tmq_connect_pkt
 #define CONNECT_CLEAN_SESSION(flags)     ((flags) & 0x02)
 #define CONNECT_RESERVED(flags)          ((flags) & 0x01)
 
+typedef enum connack_return_code_e
+{
+    CONNECTION_ACCEPTED,
+    UNACCEPTABLE_PROTOCOL_VERSION,
+    IDENTIFIER_REJECTED,
+    SERVER_UNAVAILABLE,
+    BAD_USERNAME_OR_PASSWORD,
+    NOT_AUTHORIZED
+} connack_return_code;
+
 typedef struct tmq_connack_pkt
 {
-
+    uint8_t ack_flags;
+    connack_return_code return_code;
 } tmq_connack_pkt;
 
 typedef struct tmq_publish_pkt

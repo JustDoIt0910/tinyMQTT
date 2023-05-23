@@ -70,7 +70,8 @@ typedef enum decode_status_e
     NEED_MORE_DATA,
     UNKNOWN_PACKET,
     BAD_PACKET_FORMAT,
-    UNSURPORTED_VERSION
+    PROTOCOL_ERROR,
+    UNSUPPORTED_VERSION
 } decode_status;
 
 typedef enum parsing_state_e
@@ -84,10 +85,25 @@ typedef struct pkt_parsing_ctx_s
 {
     parsing_state state;
     tmq_fixed_header fixed_header;
-    /* used when decoding remain_length */
+    /* save the current multiplier when decoding remain_length */
     uint32_t multiplier;
 } pkt_parsing_ctx;
 
 void tmq_codec_init(tmq_codec_t* codec);
+
+void send_connect_packet(tmq_tcp_conn_t* conn, tmq_connect_pkt* pkt);
+void send_connack_packet(tmq_tcp_conn_t* conn, tmq_connack_pkt* pkt);
+void send_publish_packet(tmq_tcp_conn_t* conn, tmq_publish_pkt* pkt);
+void send_puback_packet(tmq_tcp_conn_t* conn, tmq_puback_pkt* pkt);
+void send_pubrec_packet(tmq_tcp_conn_t* conn, tmq_pubrec_pkt* pkt);
+void send_pubrel_packet(tmq_tcp_conn_t* conn, tmq_pubrel_pkt* pkt);
+void send_pubcomp_packet(tmq_tcp_conn_t* conn, tmq_pubcomp_pkt* pkt);
+void send_subscribe_packet(tmq_tcp_conn_t* conn, tmq_subscribe_pkt* pkt);
+void send_suback_packet(tmq_tcp_conn_t* conn, tmq_suback_pkt* pkt);
+void send_unsubscribe_packet(tmq_tcp_conn_t* conn, tmq_unsubscribe_pkt* pkt);
+void send_unsuback_packet(tmq_tcp_conn_t* conn, tmq_unsuback_pkt* pkt);
+void send_pingreq_packet(tmq_tcp_conn_t* conn, tmq_pingreq_pkt* pkt);
+void send_pingresp_packet(tmq_tcp_conn_t* conn, tmq_pingresp_pkt* pkt);
+void send_disconnect_packet(tmq_tcp_conn_t* conn, tmq_disconnect_pkt* pkt);
 
 #endif //TINYMQTT_MQTT_CODEC_H

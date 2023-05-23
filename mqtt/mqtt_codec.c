@@ -29,7 +29,7 @@ static decode_status validate_flags(tmq_fixed_header* header)
         return DECODE_OK;
     if(type == MQTT_PUBREL || type == MQTT_SUBSCRIBE || type == MQTT_UNSUBSCRIBE)
         return FLAGS(*header) == 2 ? DECODE_OK : BAD_PACKET_FORMAT;
-    return FLAGS(*header) == 0 ? DECODE_OK : BAD_PACKET_FORMAT;
+    return FLAGS(*header) == 0 ? DECODE_OK : PROTOCOL_ERROR;
 }
 
 static decode_status parse_remain_length(tmq_buffer_t* buffer, pkt_parsing_ctx* parsing_ctx)
@@ -50,24 +50,29 @@ static decode_status parse_remain_length(tmq_buffer_t* buffer, pkt_parsing_ctx* 
 
 static decode_status parse_connect_packet(tmq_codec_t* codec, tmq_buffer_t* buffer)
 {
+    /* parse variable header */
     uint16_t protocol_nam_len;
     tmq_buffer_read(buffer, (char*) &protocol_nam_len, 2);
     protocol_nam_len = be16toh(protocol_nam_len);
     if(protocol_nam_len != 4)
-        return BAD_PACKET_FORMAT;
+        return PROTOCOL_ERROR;
     char protocol_name[5] = {0};
     tmq_buffer_read(buffer, protocol_name, 4);
     if(!strcmp(protocol_name, "MQTT"))
-        return BAD_PACKET_FORMAT;
+        return PROTOCOL_ERROR;
     uint8_t protocol_level;
     tmq_buffer_read(buffer, (char*) &protocol_level, 1);
     if(protocol_level != 4)
-        return UNSURPORTED_VERSION;
+        return UNSUPPORTED_VERSION;
     uint8_t flags;
     tmq_buffer_read(buffer, (char*) &flags, 1);
     if(CONNECT_RESERVED(flags))
-        return BAD_PACKET_FORMAT;
+        return PROTOCOL_ERROR;
+    uint16_t keep_alive;
+    tmq_buffer_read(buffer, (char*) &keep_alive, 2);
+    keep_alive = be16toh(keep_alive);
 
+    /* parse payload */
     return DECODE_OK;
 }
 
@@ -191,4 +196,74 @@ static void decode_tcp_message_(tmq_codec_t* codec, tmq_tcp_conn_t* conn, tmq_bu
 void tmq_codec_init(tmq_codec_t* codec)
 {
     codec->decode_tcp_message = decode_tcp_message_;
+}
+
+void send_connect_packet(tmq_tcp_conn_t* conn, tmq_connect_pkt* pkt)
+{
+
+}
+
+void send_connack_packet(tmq_tcp_conn_t* conn, tmq_connack_pkt* pkt)
+{
+    
+}
+
+void send_publish_packet(tmq_tcp_conn_t* conn, tmq_publish_pkt* pkt)
+{
+
+}
+
+void send_puback_packet(tmq_tcp_conn_t* conn, tmq_puback_pkt* pkt)
+{
+
+}
+
+void send_pubrec_packet(tmq_tcp_conn_t* conn, tmq_pubrec_pkt* pkt)
+{
+
+}
+
+void send_pubrel_packet(tmq_tcp_conn_t* conn, tmq_pubrel_pkt* pkt)
+{
+
+}
+
+void send_pubcomp_packet(tmq_tcp_conn_t* conn, tmq_pubcomp_pkt* pkt)
+{
+
+}
+
+void send_subscribe_packet(tmq_tcp_conn_t* conn, tmq_subscribe_pkt* pkt)
+{
+
+}
+
+void send_suback_packet(tmq_tcp_conn_t* conn, tmq_suback_pkt* pkt)
+{
+
+}
+
+void send_unsubscribe_packet(tmq_tcp_conn_t* conn, tmq_unsubscribe_pkt* pkt)
+{
+
+}
+
+void send_unsuback_packet(tmq_tcp_conn_t* conn, tmq_unsuback_pkt* pkt)
+{
+
+}
+
+void send_pingreq_packet(tmq_tcp_conn_t* conn, tmq_pingreq_pkt* pkt)
+{
+
+}
+
+void send_pingresp_packet(tmq_tcp_conn_t* conn, tmq_pingresp_pkt* pkt)
+{
+
+}
+
+void send_disconnect_packet(tmq_tcp_conn_t* conn, tmq_disconnect_pkt* pkt)
+{
+
 }
