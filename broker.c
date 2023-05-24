@@ -9,7 +9,7 @@ int main()
     tlog_init("broker.log", 1024 * 1024, 10, 0, TLOG_SCREEN);
 
     tmq_broker_t broker;
-    tmq_broker_init(&broker, 9999);
+    tmq_broker_init(&broker, 1883);
     tmq_broker_run(&broker);
 
     tlog_exit();

@@ -7,14 +7,14 @@
 #include "tlog.h"
 #include <assert.h>
 #include <string.h>
-#include <stdlib.h>
 
 static decode_status parse_fix_header(tmq_buffer_t* buffer, pkt_parsing_ctx* parsing_ctx)
 {
     uint8_t byte;
     tmq_buffer_read(buffer, (char*) &byte, 1);
     /* invalid packet type, close the connection */
-    if(byte < 1 || byte > 14)
+    uint type = (byte >> 4) & 0x0F;
+    if(type < 1 || type > 14)
         return UNKNOWN_PACKET;
     parsing_ctx->fixed_header.type_flags = byte;
     parsing_ctx->fixed_header.remain_length = 0;
@@ -59,7 +59,7 @@ static decode_status parse_connect_packet(tmq_codec_t* codec, tmq_tcp_conn_t* co
     char protocol_name[5] = {0};
     /* read and check if the protocol name is correct */
     tmq_buffer_read(buffer, protocol_name, 4);
-    if(!strcmp(protocol_name, "MQTT"))
+    if(strcmp(protocol_name, "MQTT") != 0)
         return PROTOCOL_ERROR;
 
     uint8_t protocol_level;

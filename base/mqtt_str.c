@@ -77,6 +77,7 @@ tmq_str_t tmq_str_append_str(tmq_str_t s, const char* str)
 
 tmq_str_t tmq_str_append_data_n(tmq_str_t s, const char* data, size_t n)
 {
+    if(!data || !n) return s;
     tmq_ds_t* hdr = TMQ_DS_HDR(s);
     size_t hdr_len = sizeof(tmq_ds_t);
     size_t new_len = hdr->len + n;
@@ -88,7 +89,7 @@ tmq_str_t tmq_str_append_data_n(tmq_str_t s, const char* data, size_t n)
         s = tmp;
     }
     hdr = TMQ_DS_HDR(s);
-    memcpy(hdr->buf + hdr->len, s, n);
+    memcpy(hdr->buf + hdr->len, data, n);
     hdr->len = new_len;
     hdr->buf[hdr->len] = 0;
     return s;

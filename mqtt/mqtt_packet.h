@@ -43,6 +43,10 @@ typedef struct tmq_connect_pkt
 #define CONNECT_CLEAN_SESSION(flags)     ((flags) & 0x02)
 #define CONNECT_RESERVED(flags)          ((flags) & 0x01)
 
+void tmq_connect_pkt_cleanup(tmq_connect_pkt* pkt);
+/* for debug */
+void tmq_connect_pkt_print(tmq_connect_pkt* pkt);
+
 typedef enum connack_return_code_e
 {
     CONNECTION_ACCEPTED,

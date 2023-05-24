@@ -132,7 +132,7 @@ static void dispatch_new_connection(tmq_socket_t conn, void* arg)
 
 void handle_mqtt_connect(tmq_broker_t* broker, tmq_connect_pkt connect_pkt)
 {
-
+    tmq_connect_pkt_print(&connect_pkt);
 }
 
 void tmq_broker_init(tmq_broker_t* broker, uint16_t port)
