@@ -15,11 +15,11 @@ typedef enum tmq_packet_type_e
     MQTT_UNSUBSCRIBE, MQTT_UNSUBACK,
     MQTT_PINGREQ, MQTT_PINGRESP,
     MQTT_DISCONNECT
-} tmq_packet_type_e;
+} tmq_packet_type;
 
 typedef struct tmq_packet_t
 {
-    tmq_packet_type_e packet_type;
+    tmq_packet_type packet_type;
     void* packet;
 } tmq_packet_t;
 

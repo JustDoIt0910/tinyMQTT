@@ -39,6 +39,8 @@ static void write_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
         {
             tmq_handler_unregister(&conn->group->loop, conn->write_event_handler);
             conn->is_writing = 0;
+            if(conn->state == DISCONNECTING)
+                tmq_tcp_conn_close(get_ref(conn));
         }
     }
     else
@@ -132,6 +134,13 @@ void tmq_tcp_conn_write(tmq_tcp_conn_t* conn, char* data, size_t size)
 
 void tmq_tcp_conn_close(tmq_tcp_conn_t* conn)
 {
+    if(conn->state == DISCONNECTED)
+        return;
+    if(conn->is_writing)
+    {
+        conn->state = DISCONNECTING;
+        return;
+    }
     tmq_handler_unregister(&conn->group->loop, conn->read_event_handler);
     tmq_handler_unregister(&conn->group->loop, conn->error_close_handler);
 
@@ -141,6 +150,7 @@ void tmq_tcp_conn_close(tmq_tcp_conn_t* conn)
     if(conn->close_cb)
         conn->close_cb(get_ref(conn), conn->close_cb_arg);
 
+    conn->state = DISCONNECTED;
     release_ref(conn);
 }
 

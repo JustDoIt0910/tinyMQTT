@@ -71,7 +71,8 @@ typedef enum decode_status_e
     UNKNOWN_PACKET,
     BAD_PACKET_FORMAT,
     PROTOCOL_ERROR,
-    UNSUPPORTED_VERSION
+    UNSUPPORTED_VERSION,
+    DECODE_TERMINATED
 } decode_status;
 
 typedef enum parsing_state_e

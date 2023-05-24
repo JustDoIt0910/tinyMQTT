@@ -65,6 +65,7 @@ static void handle_new_connection(void* arg)
     {
         tmq_tcp_conn_t* conn = tmq_tcp_conn_new(group, *it, &group->broker->codec);
         conn->close_cb = remove_tcp_conn;
+        conn->state = CONNECTED;
 
         tcp_conn_ctx* conn_ctx = malloc(sizeof(tcp_conn_ctx));
         tmq_vec_init(&conn_ctx->pending_packets, tmq_packet_t);
