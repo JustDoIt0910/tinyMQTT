@@ -72,9 +72,14 @@ tmq_str_t tmq_str_append_char(tmq_str_t s, char c)
 tmq_str_t tmq_str_append_str(tmq_str_t s, const char* str)
 {
     if(!s) return NULL;
+    return tmq_str_append_data_n(s, str, strlen(str));
+}
+
+tmq_str_t tmq_str_append_data_n(tmq_str_t s, const char* data, size_t n)
+{
     tmq_ds_t* hdr = TMQ_DS_HDR(s);
     size_t hdr_len = sizeof(tmq_ds_t);
-    size_t new_len = hdr->len + strlen(str);
+    size_t new_len = hdr->len + n;
     if(hdr_len + new_len + 1 > hdr->alloc)
     {
         tmq_str_t tmp = tmq_str_grow(s, new_len);
@@ -83,7 +88,7 @@ tmq_str_t tmq_str_append_str(tmq_str_t s, const char* str)
         s = tmp;
     }
     hdr = TMQ_DS_HDR(s);
-    strcpy(hdr->buf + hdr->len, str);
+    memcpy(hdr->buf + hdr->len, s, n);
     hdr->len = new_len;
     hdr->buf[hdr->len] = 0;
     return s;
@@ -114,6 +119,12 @@ tmq_str_t tmq_str_assign(tmq_str_t s, const char* str)
 {
     tmq_str_clear(s);
     return tmq_str_append_str(s, str);
+}
+
+tmq_str_t tmq_str_assign_n(tmq_str_t s, const char* data, size_t n)
+{
+    tmq_str_clear(s);
+    return tmq_str_append_data_n(s, data, n);
 }
 
 tmq_str_t tmq_str_parse_int(int v, int base)

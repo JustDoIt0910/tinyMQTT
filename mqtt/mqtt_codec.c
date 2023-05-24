@@ -58,6 +58,7 @@ static decode_status parse_connect_packet(tmq_codec_t* codec, tmq_tcp_conn_t* co
     if(protocol_nam_len != 4)
         return PROTOCOL_ERROR;
     char protocol_name[5] = {0};
+    /* read and check if the protocol name is correct */
     tmq_buffer_read(buffer, protocol_name, 4);
     if(!strcmp(protocol_name, "MQTT"))
         return PROTOCOL_ERROR;
@@ -79,12 +80,16 @@ static decode_status parse_connect_packet(tmq_codec_t* codec, tmq_tcp_conn_t* co
     tmq_buffer_read(buffer, (char*) &flags, 1);
     if(CONNECT_RESERVED(flags))
         return PROTOCOL_ERROR;
+    /* If will_flag is 0, will_qos must be set 0. And will_qos can't greater than 2 */
+    if((!CONNECT_WILL_FLAG(flags) && CONNECT_WILL_QOS(flags)) || CONNECT_WILL_QOS(flags) > 2)
+        return PROTOCOL_ERROR;
 
     uint16_t keep_alive;
     tmq_buffer_read(buffer, (char*) &keep_alive, 2);
     keep_alive = be16toh(keep_alive);
 
     /* parse payload */
+
     return DECODE_OK;
 }
 
