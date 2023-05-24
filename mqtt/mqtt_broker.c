@@ -130,6 +130,11 @@ static void dispatch_new_connection(tmq_socket_t conn, void* arg)
     tmq_notifier_notify(&next_group->new_conn_notifier);
 }
 
+void handle_mqtt_connect(tmq_broker_t* broker, tmq_connect_pkt connect_pkt)
+{
+
+}
+
 void tmq_broker_init(tmq_broker_t* broker, uint16_t port)
 {
     if(!broker) return;

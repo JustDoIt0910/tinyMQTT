@@ -6,8 +6,8 @@
 #include "net/mqtt_tcp_conn.h"
 #include "tlog.h"
 #include <assert.h>
-#include <endian.h>
 #include <string.h>
+#include <stdlib.h>
 
 static decode_status parse_fix_header(tmq_buffer_t* buffer, pkt_parsing_ctx* parsing_ctx)
 {
@@ -53,8 +53,7 @@ static decode_status parse_connect_packet(tmq_codec_t* codec, tmq_tcp_conn_t* co
 {
     /* parse variable header */
     uint16_t protocol_nam_len;
-    tmq_buffer_read(buffer, (char*) &protocol_nam_len, 2);
-    protocol_nam_len = be16toh(protocol_nam_len);
+    tmq_buffer_read16(buffer, &protocol_nam_len);
     if(protocol_nam_len != 4)
         return PROTOCOL_ERROR;
     char protocol_name[5] = {0};
@@ -73,23 +72,73 @@ static decode_status parse_connect_packet(tmq_codec_t* codec, tmq_tcp_conn_t* co
         pkt.ack_flags = 0;
         pkt.return_code = UNACCEPTABLE_PROTOCOL_VERSION;
         send_connack_packet(conn, &pkt);
-        return UNSUPPORTED_VERSION;
+        return PROTOCOL_ERROR;
     }
 
     uint8_t flags;
     tmq_buffer_read(buffer, (char*) &flags, 1);
     if(CONNECT_RESERVED(flags))
         return PROTOCOL_ERROR;
-    /* If will_flag is 0, will_qos must be set 0. And will_qos can't greater than 2 */
+    /* If will flag is 0, will qos must be set 0. And will qos can't greater than 2 */
     if((!CONNECT_WILL_FLAG(flags) && CONNECT_WILL_QOS(flags)) || CONNECT_WILL_QOS(flags) > 2)
         return PROTOCOL_ERROR;
 
     uint16_t keep_alive;
-    tmq_buffer_read(buffer, (char*) &keep_alive, 2);
-    keep_alive = be16toh(keep_alive);
+    tmq_buffer_read16(buffer, &keep_alive);
 
     /* parse payload */
-
+    uint16_t client_id_len;
+    tmq_buffer_read16(buffer, &client_id_len);
+    /* if client provide a zero-byte ClientId, it must set clean_session to 1,
+     * otherwise the server returns a CONNACK packet will return code 0x02 */
+    if(!client_id_len && !CONNECT_CLEAN_SESSION(flags))
+    {
+        tmq_connack_pkt pkt;
+        pkt.ack_flags = 0;
+        pkt.return_code = IDENTIFIER_REJECTED;
+        send_connack_packet(conn, &pkt);
+        return PROTOCOL_ERROR;
+    }
+    tmq_connect_pkt connect_pkt;
+    bzero(&connect_pkt, sizeof(tmq_connect_pkt));
+    connect_pkt.flags = flags;
+    connect_pkt.keep_alive = keep_alive;
+    if(client_id_len > 0)
+    {
+        /* read client identifier */
+        connect_pkt.client_id = tmq_str_new_len(NULL, client_id_len);
+        tmq_buffer_read(buffer, connect_pkt.client_id, client_id_len);
+    }
+    if(CONNECT_WILL_FLAG(flags))
+    {
+        /* read will topic and will message */
+        uint16_t field_len;
+        tmq_buffer_read16(buffer, &field_len);
+        connect_pkt.will_topic = tmq_str_new_len(NULL, field_len);
+        tmq_buffer_read(buffer, connect_pkt.will_topic, field_len);
+        tmq_buffer_read16(buffer, &field_len);
+        connect_pkt.will_message = tmq_str_new_len(NULL, field_len);
+        tmq_buffer_read(buffer, connect_pkt.will_message, field_len);
+    }
+    if(CONNECT_USERNAME_FLAG(flags))
+    {
+        /* read username if username flag is 1 */
+        uint16_t username_len;
+        tmq_buffer_read16(buffer, &username_len);
+        connect_pkt.username = tmq_str_new_len(NULL, username_len);
+        tmq_buffer_read(buffer, connect_pkt.username, username_len);
+    }
+    if(CONNECT_PASSWORD_FLAG(flags))
+    {
+        /* read password if password flag is 1 */
+        uint16_t password_len;
+        tmq_buffer_read16(buffer, &password_len);
+        connect_pkt.password = tmq_str_new_len(NULL, password_len);
+        tmq_buffer_read(buffer, connect_pkt.password, password_len);
+    }
+    tcp_conn_ctx* ctx = conn->context;
+    /* deliver this CONNECT packet to the broker */
+    codec->on_connect(ctx->upstream.broker, connect_pkt);
     return DECODE_OK;
 }
 
@@ -212,9 +261,12 @@ static void decode_tcp_message_(tmq_codec_t* codec, tmq_tcp_conn_t* conn, tmq_bu
     }
 }
 
+extern void handle_mqtt_connect(tmq_broker_t* broker, tmq_connect_pkt connect_pkt);
+
 void tmq_codec_init(tmq_codec_t* codec)
 {
     codec->decode_tcp_message = decode_tcp_message_;
+    codec->on_connect = handle_mqtt_connect;
 }
 
 typedef tmq_vec(uint8_t) packet_buf;
