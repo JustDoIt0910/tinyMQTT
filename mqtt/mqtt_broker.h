@@ -59,10 +59,10 @@ typedef struct tmq_broker_s
     tmq_codec_t codec;
     int next_io_group;
     tmq_io_group_t io_groups[MQTT_IO_THREAD];
-    tmq_config_t conf;
+    tmq_config_t conf, pwd_conf;
 } tmq_broker_t;
 
-void tmq_broker_init(tmq_broker_t* broker, const char* cfg);
+int tmq_broker_init(tmq_broker_t* broker, const char* cfg);
 void tmq_broker_run(tmq_broker_t* broker);
 
 #endif //TINYMQTT_MQTT_BROKER_H

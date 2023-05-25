@@ -73,7 +73,10 @@ int tmq_config_init(tmq_config_t* cfg, const char* filename)
     if(!cfg || !filename) return -1;
     cfg->fp = fopen(filename, "r+");
     if(!cfg->fp)
-        fatal_error("fopen() error: file not exist");
+    {
+        tlog_error("fopen() error: file not exist: %s", filename);
+        return -1;
+    }
     tmq_map_str_init(&cfg->cfg, tmq_str_t, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
     tmq_vec_init(&cfg->new_items, new_item);
     return read_config_file(cfg);
@@ -83,7 +86,7 @@ tmq_str_t tmq_config_get(tmq_config_t* cfg, const char* key)
 {
     tmq_str_t value = NULL;
     tmq_str_t* it = tmq_map_get(cfg->cfg, key);
-    if(it) value = *it;
+    if(it) value = tmq_str_new(*it);
     return value;
 }
 

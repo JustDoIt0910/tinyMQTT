@@ -157,22 +157,35 @@ void handle_mqtt_connect(tmq_broker_t* broker, tmq_connect_pkt connect_pkt)
     tmq_connect_pkt_print(&connect_pkt);
 }
 
-void tmq_broker_init(tmq_broker_t* broker, const char* cfg)
+int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
 {
-    if(!broker) return;
+    if(!broker) return -1;
     if(tmq_config_init(&broker->conf, cfg) == 0)
         tlog_info("read config file %s ok", cfg);
     else
     {
         tlog_error("read config file error");
-        return;
+        return -1;
     }
+    tmq_str_t pwd_file_path = tmq_config_get(&broker->conf, "password_file");
+    if(!pwd_file_path)
+        pwd_file_path = tmq_str_new("pwd.conf");
+    if(tmq_config_init(&broker->pwd_conf, pwd_file_path) == 0)
+        tlog_info("read password file %s ok", pwd_file_path);
+    else
+    {
+        tlog_error("read password file error");
+        tmq_str_free(pwd_file_path);
+        return -1;
+    }
+    tmq_str_free(pwd_file_path);
 
     tmq_event_loop_init(&broker->event_loop);
     tmq_codec_init(&broker->codec);
 
     tmq_str_t port_str = tmq_config_get(&broker->conf, "port");
     unsigned int port = port_str ? strtoul(port_str, NULL, 10): 1883;
+    tmq_str_free(port_str);
     tlog_info("listening on port %u", port);
     tmq_acceptor_init(&broker->acceptor, &broker->event_loop, port);
     tmq_acceptor_set_cb(&broker->acceptor, dispatch_new_connection, broker);
@@ -183,6 +196,7 @@ void tmq_broker_init(tmq_broker_t* broker, const char* cfg)
 
     /* ignore SIGPIPE signal */
     signal(SIGPIPE, SIG_IGN);
+    return 0;
 }
 
 void tmq_broker_run(tmq_broker_t* broker)
@@ -195,6 +209,8 @@ void tmq_broker_run(tmq_broker_t* broker)
 
     /* clean up */
     tmq_acceptor_destroy(&broker->acceptor);
+    tmq_config_destroy(&broker->conf);
+    tmq_config_destroy(&broker->pwd_conf);
     for(int i = 0; i < MQTT_IO_THREAD; i++)
     {
         tmq_io_group_stop(&broker->io_groups[i]);
