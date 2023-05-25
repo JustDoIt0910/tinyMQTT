@@ -24,7 +24,7 @@ tmq_str_t tmq_str_new_len(const char* data, size_t len)
 
 tmq_str_t tmq_str_new(const char* data)
 {
-    size_t len = strlen(data);
+    size_t len = data ? strlen(data): 0;
     return tmq_str_new_len(data, len);
 }
 
@@ -105,6 +105,7 @@ void tmq_str_free(tmq_str_t s)
 
 void tmq_str_debug(tmq_str_t s)
 {
+    if(!s) return;
     tmq_ds_t* hdr = TMQ_DS_HDR(s);
     printf("addr = %p len = %zu alloc = %zu\n", s, hdr->len, hdr->alloc);
     printf("content = %s\n", s);
@@ -112,6 +113,7 @@ void tmq_str_debug(tmq_str_t s)
 
 void tmq_str_clear(tmq_str_t s)
 {
+    if(!s) return;
     tmq_ds_t* hdr = TMQ_DS_HDR(s);
     memset(s, 0, hdr->len);
     hdr->len = 0;
@@ -119,12 +121,14 @@ void tmq_str_clear(tmq_str_t s)
 
 tmq_str_t tmq_str_assign(tmq_str_t s, const char* str)
 {
+    if(!s) s = tmq_str_new(NULL);
     tmq_str_clear(s);
     return tmq_str_append_str(s, str);
 }
 
 tmq_str_t tmq_str_assign_n(tmq_str_t s, const char* data, size_t n)
 {
+    if(!s) s = tmq_str_new(NULL);
     tmq_str_clear(s);
     return tmq_str_append_data_n(s, data, n);
 }

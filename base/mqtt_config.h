@@ -8,12 +8,15 @@
 #include "mqtt_map.h"
 #include "mqtt_str.h"
 
-typedef tmq_map(char*, tmq_str_t) config_map;
+typedef tmq_map(const char*, tmq_str_t) content_map;
+typedef struct new_item { tmq_str_t key, value;} new_item;
+typedef tmq_vec(new_item) new_item_list;
+
 typedef struct tmq_config_s
 {
     FILE* fp;
-    config_map cfg;
-    config_map cfg_add;
+    content_map cfg;
+    new_item_list new_items;
 } tmq_config_t;
 
 int tmq_config_init(tmq_config_t* cfg, const char* filename);

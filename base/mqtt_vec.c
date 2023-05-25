@@ -105,7 +105,10 @@ void tmq_vec_free_(tmq_vec_base_t* v)
 {
     if(!v) return;
     if(v->data)
+    {
         free(v->data);
+        v->data = NULL;
+    }
     free(v);
 }
 
