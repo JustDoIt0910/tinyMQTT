@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 
 tmq_str_t tmq_str_new_len(const char* data, size_t len)
 {
@@ -171,4 +172,46 @@ tmq_str_t tmq_str_substr(tmq_str_t s, size_t start, size_t len)
         return NULL;
     tmq_str_t sub = tmq_str_new_len(s, len);
     return sub;
+}
+
+ssize_t tmq_str_find(tmq_str_t s, char c)
+{
+    char* pos = strchr(s, c);
+    return pos ? pos - s : -1;
+}
+
+str_vec tmq_str_split(tmq_str_t s, const char* delimeters)
+{
+    str_vec parts = tmq_vec_make(tmq_str_t);
+    if(!s) return parts;
+    tmq_str_t copy = tmq_str_new("");
+    copy = tmq_str_assign(copy, s);
+    char* p, *saved;
+    p = strtok_r(copy, delimeters, &saved);
+    while(p)
+    {
+        tmq_str_t part = tmq_str_new(p);
+        tmq_vec_push_back(parts, part);
+        p = strtok_r(NULL, delimeters, &saved);
+    }
+    tmq_str_free(copy);
+    return parts;
+}
+
+void tmq_str_trim(tmq_str_t s)
+{
+    if(!s || !tmq_str_len(s)) return;
+    char* p = s;
+    while((*p) && isblank(*p)) p++;
+    if(!(*p))
+    {
+        tmq_str_clear(s);
+        return;
+    }
+    char* p2 = p + 1;
+    while((*p2) && !isblank(*p2)) p2++;
+    memmove(s, p, p2 - p);
+    *(s + (p2 - p)) = 0;
+    tmq_ds_t* hdr = TMQ_DS_HDR(s);
+    hdr->len = p2 - p;
 }

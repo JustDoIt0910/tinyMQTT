@@ -3,10 +3,19 @@
 //
 #include "mqtt_config.h"
 #include "mqtt_util.h"
+#include <string.h>
 
 static void read_config_file(tmq_config_t* cfg)
 {
-    
+    tmq_str_t line = tmq_str_new("");
+    char buf[1024];
+    while(!feof(cfg->fp))
+    {
+        bzero(buf,sizeof(buf));
+        fgets(buf, sizeof(buf), cfg->fp);
+        line = tmq_str_assign(line, buf);
+
+    }
 }
 
 int tmq_config_init(tmq_config_t* cfg, const char* filename)
