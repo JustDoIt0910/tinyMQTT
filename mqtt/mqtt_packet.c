@@ -54,4 +54,5 @@ void tmq_connect_pkt_print(tmq_connect_pkt* pkt)
     }
     s = tmq_str_append_str(s, "}");
     tlog_info("%s", s);
+    tmq_str_free(s);
 }

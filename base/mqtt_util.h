@@ -6,6 +6,7 @@
 #define TINYMQTT_MQTT_UTIL_H
 #include "tlog.h"
 #include <unistd.h>
+#include <stdlib.h>
 #include <sys/syscall.h>
 
 #define mqtt_tid syscall(SYS_gettid)
