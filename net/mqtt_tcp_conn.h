@@ -51,5 +51,6 @@ void tmq_tcp_conn_write(tmq_tcp_conn_t* conn, char* data, size_t size);
 void tmq_tcp_conn_close(tmq_tcp_conn_t* conn);
 int tmq_tcp_conn_id(tmq_tcp_conn_t* conn, char* buf, size_t buf_size);
 void tmq_tcp_conn_set_context(tmq_tcp_conn_t* conn, void* ctx);
+void tmq_tcp_conn_free(tmq_tcp_conn_t* conn);
 
 #endif //TINYMQTT_MQTT_TCP_CONN_H

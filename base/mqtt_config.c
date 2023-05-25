@@ -5,12 +5,12 @@
 #include "mqtt_util.h"
 #include <string.h>
 
-static void read_config_file(tmq_config_t* cfg)
+static int read_config_file(tmq_config_t* cfg)
 {
     uint32_t l_num = 0;
     char buf[1024] = {0};
     str_vec split;
-    int parsing_value = 0;
+    int parsing_value = 0, err = 0;
     tmq_str_t line = NULL, key = NULL, value = NULL;
     while(fgets(buf, sizeof(buf), cfg->fp))
     {
@@ -30,6 +30,7 @@ static void read_config_file(tmq_config_t* cfg)
         {
             if(!parsing_value)
             {
+                err = -1;
                 tlog_error("read_config_file() error: malformed config format at line %u", l_num);
                 tmq_vec_free(split);
                 goto cleanup;
@@ -49,6 +50,7 @@ static void read_config_file(tmq_config_t* cfg)
         }
         else
         {
+            err = -1;
             tlog_error("read_config_file() error: malformed config format at line %u", l_num);
             tmq_vec_free(split);
             goto cleanup;
@@ -63,6 +65,7 @@ static void read_config_file(tmq_config_t* cfg)
     cleanup:
     tmq_str_free(line);
     tmq_str_free(key);
+    return err;
 }
 
 int tmq_config_init(tmq_config_t* cfg, const char* filename)
@@ -73,8 +76,7 @@ int tmq_config_init(tmq_config_t* cfg, const char* filename)
         fatal_error("fopen() error: file not exist");
     tmq_map_str_init(&cfg->cfg, tmq_str_t, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
     tmq_vec_init(&cfg->new_items, new_item);
-    read_config_file(cfg);
-    return 0;
+    return read_config_file(cfg);
 }
 
 tmq_str_t tmq_config_get(tmq_config_t* cfg, const char* key)

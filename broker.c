@@ -16,7 +16,7 @@ int main()
            "                    /____/                                      \n");
 
     tmq_broker_t broker;
-    tmq_broker_init(&broker, 1883);
+    tmq_broker_init(&broker, "tinymqtt.conf");
     tmq_broker_run(&broker);
 
     tlog_exit();

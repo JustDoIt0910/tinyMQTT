@@ -103,13 +103,35 @@ static void* io_group_thread_func(void* arg)
 {
     tmq_io_group_t* group = (tmq_io_group_t*) arg;
     tmq_event_loop_run(&group->loop);
+
+    /* clean up */
+    /* free all connections in the connection map */
+    tmq_map_iter_t it = tmq_map_iter(group->tcp_conns);
+    for(; tmq_map_has_next(it); tmq_map_next(group->tcp_conns, it))
+        tmq_tcp_conn_free(*(tmq_tcp_conn_t**)it.second);
+    tmq_map_free(group->tcp_conns);
+
+    /* close pending conns in the pending list */
+    tmq_socket_t* fd_it = tmq_vec_begin(group->pending_conns);
+    for(; fd_it != tmq_vec_end(group->pending_conns); fd_it++)
+        close(*fd_it);
+    tmq_vec_free(group->pending_conns);
+
+    tmq_notifier_destroy(&group->new_conn_notifier);
     tmq_event_loop_destroy(&group->loop);
+    pthread_mutex_destroy(&group->pending_conns_lk);
 }
 
 static void tmq_io_group_run(tmq_io_group_t* group)
 {
     if(pthread_create(&group->io_thread, NULL, io_group_thread_func, group) != 0)
         fatal_error("pthread_create() error %d: %s", errno, strerror(errno));
+}
+
+static void tmq_io_group_stop(tmq_io_group_t* group)
+{
+    tmq_event_loop_cancel_timer(&group->loop, group->tcp_checkalive_timer);
+    tmq_event_loop_quit(&group->loop);
 }
 
 /* mqtt broker */
@@ -135,12 +157,23 @@ void handle_mqtt_connect(tmq_broker_t* broker, tmq_connect_pkt connect_pkt)
     tmq_connect_pkt_print(&connect_pkt);
 }
 
-void tmq_broker_init(tmq_broker_t* broker, uint16_t port)
+void tmq_broker_init(tmq_broker_t* broker, const char* cfg)
 {
     if(!broker) return;
+    if(tmq_config_init(&broker->conf, cfg) == 0)
+        tlog_info("read config file %s ok", cfg);
+    else
+    {
+        tlog_error("read config file error");
+        return;
+    }
+
     tmq_event_loop_init(&broker->event_loop);
     tmq_codec_init(&broker->codec);
 
+    tmq_str_t port_str = tmq_config_get(&broker->conf, "port");
+    unsigned int port = port_str ? strtoul(port_str, NULL, 10): 1883;
+    tlog_info("listening on port %u", port);
     tmq_acceptor_init(&broker->acceptor, &broker->event_loop, port);
     tmq_acceptor_set_cb(&broker->acceptor, dispatch_new_connection, broker);
 
@@ -160,6 +193,12 @@ void tmq_broker_run(tmq_broker_t* broker)
     tmq_acceptor_listen(&broker->acceptor);
     tmq_event_loop_run(&broker->event_loop);
 
+    /* clean up */
+    tmq_acceptor_destroy(&broker->acceptor);
+    for(int i = 0; i < MQTT_IO_THREAD; i++)
+    {
+        tmq_io_group_stop(&broker->io_groups[i]);
+        pthread_join(broker->io_groups[i].io_thread, NULL);
+    }
     tmq_event_loop_destroy(&broker->event_loop);
-
 }

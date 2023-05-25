@@ -232,9 +232,14 @@ void tmq_timer_heap_init(tmq_timer_heap_t* timer_heap, tmq_event_loop_t* loop)
     tmq_handler_register(loop, handler);
 }
 
-void tmq_timer_heap_free(tmq_timer_heap_t* timer_heap)
+void tmq_timer_heap_destroy(tmq_timer_heap_t* timer_heap)
 {
     if(!timer_heap) return;
+    for(int i = 1; i < timer_heap->size; i++)
+        free(timer_heap->heap[i]);
+    tmq_timer_t** it = tmq_vec_begin(timer_heap->expired_timers);
+    for(; it != tmq_vec_end(timer_heap->expired_timers); it++)
+        free(*it);
     if(timer_heap->heap)
         free(timer_heap->heap);
     tmq_vec_free(timer_heap->expired_timers);

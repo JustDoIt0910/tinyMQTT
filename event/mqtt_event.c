@@ -247,7 +247,7 @@ void tmq_event_loop_destroy(tmq_event_loop_t* loop)
     }
     tmq_map_free(loop->handler_map);
     close(loop->epoll_fd);
-    tmq_timer_heap_free(&loop->timer_heap);
+    tmq_timer_heap_destroy(&loop->timer_heap);
 }
 
 static void tmq_notifier_on_notify(tmq_socket_t fd, uint32_t events, const void* arg)

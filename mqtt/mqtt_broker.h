@@ -8,6 +8,7 @@
 #include "net/mqtt_acceptor.h"
 #include "base/mqtt_str.h"
 #include "base/mqtt_map.h"
+#include "base/mqtt_config.h"
 #include "mqtt_codec.h"
 
 #define MQTT_TCP_CHECKALIVE_INTERVAL    10
@@ -58,9 +59,10 @@ typedef struct tmq_broker_s
     tmq_codec_t codec;
     int next_io_group;
     tmq_io_group_t io_groups[MQTT_IO_THREAD];
+    tmq_config_t conf;
 } tmq_broker_t;
 
-void tmq_broker_init(tmq_broker_t* broker, uint16_t port);
+void tmq_broker_init(tmq_broker_t* broker, const char* cfg);
 void tmq_broker_run(tmq_broker_t* broker);
 
 #endif //TINYMQTT_MQTT_BROKER_H

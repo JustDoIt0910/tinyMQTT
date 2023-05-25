@@ -60,7 +60,7 @@ static void close_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
         tmq_tcp_conn_close(get_ref(conn));
 }
 
-static void free_conn(tmq_tcp_conn_t* conn)
+void tmq_tcp_conn_free(tmq_tcp_conn_t* conn)
 {
     free(conn->read_event_handler);
     free(conn->error_close_handler);
@@ -178,5 +178,5 @@ tmq_tcp_conn_t* get_ref(tmq_tcp_conn_t* conn)
 void release_ref(tmq_tcp_conn_t* conn)
 {
     int n = decrementAndGet(conn->ref_cnt, 1);
-    if(!n) free_conn(conn);
+    if(!n) tmq_tcp_conn_free(conn);
 }
