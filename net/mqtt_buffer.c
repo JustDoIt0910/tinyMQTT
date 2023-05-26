@@ -247,6 +247,42 @@ size_t tmq_buffer_read(tmq_buffer_t* buffer, char* buf, size_t size)
     return n;
 }
 
+void tmq_buffer_peek16(tmq_buffer_t* buffer, uint16_t* v)
+{
+    tmq_buffer_peek(buffer, (char*) v, 2);
+    *v = be16toh(*v);
+}
+
+void tmq_buffer_peek32(tmq_buffer_t* buffer, uint32_t* v)
+{
+    tmq_buffer_peek(buffer, (char*) v, 4);
+    *v = be32toh(*v);
+}
+
+void tmq_buffer_peek64(tmq_buffer_t* buffer, uint64_t* v)
+{
+    tmq_buffer_peek(buffer, (char*) v, 8);
+    *v = be64toh(*v);
+}
+
+void tmq_buffer_read16(tmq_buffer_t* buffer, uint16_t* v)
+{
+    tmq_buffer_read(buffer, (char*) v, 2);
+    *v = be16toh(*v);
+}
+
+void tmq_buffer_read32(tmq_buffer_t* buffer, uint32_t* v)
+{
+    tmq_buffer_peek(buffer, (char*) v, 4);
+    *v = be32toh(*v);
+}
+
+void tmq_buffer_read64(tmq_buffer_t* buffer, uint64_t* v)
+{
+    tmq_buffer_peek(buffer, (char*) v, 8);
+    *v = be64toh(*v);
+}
+
 void tmq_buffer_remove(tmq_buffer_t* buffer, size_t size)
 {
     if(!buffer || !size) return;

@@ -54,7 +54,7 @@ typedef struct tmq_timer_heap_s
 
 int64_t time_now();
 void tmq_timer_heap_init(tmq_timer_heap_t* timer_heap, tmq_event_loop_t* loop);
-void tmq_timer_heap_free(tmq_timer_heap_t* timer_heap);
+void tmq_timer_heap_destroy(tmq_timer_heap_t* timer_heap);
 tmq_timerid_t tmq_timer_heap_add(tmq_timer_heap_t* timer_heap, tmq_timer_t* timer);
 /* for debug */
 void tmq_timer_heap_print(tmq_timer_heap_t* timer_heap);

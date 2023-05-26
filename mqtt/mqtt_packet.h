@@ -4,40 +4,63 @@
 
 #ifndef TINYMQTT_MQTT_PACKET_H
 #define TINYMQTT_MQTT_PACKET_H
+#include "base/mqtt_str.h"
 #include <stdint.h>
 
 typedef enum tmq_packet_type_e
 {
-    MQTT_CONNECT, MQTT_CONNACK,
-    MQTT_PUBLISH, MQTT_PUBACK,
-    MQTT_PUBREC, MQTT_PUBREL, MQTT_PUBCOMP,
+    MQTT_CONNECT = 1, MQTT_CONNACK,
+    MQTT_PUBLISH, MQTT_PUBACK, MQTT_PUBREC, MQTT_PUBREL, MQTT_PUBCOMP,
     MQTT_SUBSCRIBE, MQTT_SUBACK,
     MQTT_UNSUBSCRIBE, MQTT_UNSUBACK,
     MQTT_PINGREQ, MQTT_PINGRESP,
     MQTT_DISCONNECT
-} tmq_packet_type_e;
+} tmq_packet_type;
 
 typedef struct tmq_packet_t
 {
-    tmq_packet_type_e packet_type;
+    tmq_packet_type packet_type;
     void* packet;
 } tmq_packet_t;
 
-typedef struct tmq_fixed_header
-{
-    tmq_packet_type_e packet_type;
-    uint32_t remain_lenth;
-    uint8_t publish_flags;
-} tmq_fixed_header;
-
 typedef struct tmq_connect_pkt
 {
+    uint8_t flags;
+    uint16_t keep_alive;
 
+    tmq_str_t client_id;
+    tmq_str_t will_topic;
+    tmq_str_t will_message;
+    tmq_str_t username;
+    tmq_str_t password;
 } tmq_connect_pkt;
+
+#define CONNECT_USERNAME_FLAG(flags)     ((flags) & 0x80)
+#define CONNECT_PASSWORD_FLAG(flags)     ((flags) & 0x40)
+#define CONNECT_WILL_RETAIN(flags)       ((flags) & 0x20)
+#define CONNECT_WILL_QOS(flags)          (((flags) >> 3) & 0x03)
+#define CONNECT_WILL_FLAG(flags)         ((flags) & 0x04)
+#define CONNECT_CLEAN_SESSION(flags)     ((flags) & 0x02)
+#define CONNECT_RESERVED(flags)          ((flags) & 0x01)
+
+void tmq_connect_pkt_cleanup(tmq_connect_pkt* pkt);
+/* for debug */
+void tmq_connect_pkt_print(tmq_connect_pkt* pkt);
+
+typedef enum connack_return_code_e
+{
+    CONNECTION_ACCEPTED,
+    UNACCEPTABLE_PROTOCOL_VERSION,
+    IDENTIFIER_REJECTED,
+    SERVER_UNAVAILABLE,
+    BAD_USERNAME_OR_PASSWORD,
+    NOT_AUTHORIZED
+} connack_return_code;
 
 typedef struct tmq_connack_pkt
 {
-
+    uint8_t ack_flags;
+    connack_return_code return_code;
 } tmq_connack_pkt;
 
 typedef struct tmq_publish_pkt

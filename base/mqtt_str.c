@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 
 tmq_str_t tmq_str_new_len(const char* data, size_t len)
 {
@@ -23,7 +24,7 @@ tmq_str_t tmq_str_new_len(const char* data, size_t len)
 
 tmq_str_t tmq_str_new(const char* data)
 {
-    size_t len = strlen(data);
+    size_t len = data ? strlen(data): 0;
     return tmq_str_new_len(data, len);
 }
 
@@ -72,9 +73,15 @@ tmq_str_t tmq_str_append_char(tmq_str_t s, char c)
 tmq_str_t tmq_str_append_str(tmq_str_t s, const char* str)
 {
     if(!s) return NULL;
+    return tmq_str_append_data_n(s, str, strlen(str));
+}
+
+tmq_str_t tmq_str_append_data_n(tmq_str_t s, const char* data, size_t n)
+{
+    if(!data || !n) return s;
     tmq_ds_t* hdr = TMQ_DS_HDR(s);
     size_t hdr_len = sizeof(tmq_ds_t);
-    size_t new_len = hdr->len + strlen(str);
+    size_t new_len = hdr->len + n;
     if(hdr_len + new_len + 1 > hdr->alloc)
     {
         tmq_str_t tmp = tmq_str_grow(s, new_len);
@@ -83,7 +90,7 @@ tmq_str_t tmq_str_append_str(tmq_str_t s, const char* str)
         s = tmp;
     }
     hdr = TMQ_DS_HDR(s);
-    strcpy(hdr->buf + hdr->len, str);
+    memcpy(hdr->buf + hdr->len, data, n);
     hdr->len = new_len;
     hdr->buf[hdr->len] = 0;
     return s;
@@ -98,6 +105,7 @@ void tmq_str_free(tmq_str_t s)
 
 void tmq_str_debug(tmq_str_t s)
 {
+    if(!s) return;
     tmq_ds_t* hdr = TMQ_DS_HDR(s);
     printf("addr = %p len = %zu alloc = %zu\n", s, hdr->len, hdr->alloc);
     printf("content = %s\n", s);
@@ -105,6 +113,7 @@ void tmq_str_debug(tmq_str_t s)
 
 void tmq_str_clear(tmq_str_t s)
 {
+    if(!s) return;
     tmq_ds_t* hdr = TMQ_DS_HDR(s);
     memset(s, 0, hdr->len);
     hdr->len = 0;
@@ -112,8 +121,16 @@ void tmq_str_clear(tmq_str_t s)
 
 tmq_str_t tmq_str_assign(tmq_str_t s, const char* str)
 {
+    if(!s) s = tmq_str_new(NULL);
     tmq_str_clear(s);
     return tmq_str_append_str(s, str);
+}
+
+tmq_str_t tmq_str_assign_n(tmq_str_t s, const char* data, size_t n)
+{
+    if(!s) s = tmq_str_new(NULL);
+    tmq_str_clear(s);
+    return tmq_str_append_data_n(s, data, n);
 }
 
 tmq_str_t tmq_str_parse_int(int v, int base)
@@ -159,4 +176,46 @@ tmq_str_t tmq_str_substr(tmq_str_t s, size_t start, size_t len)
         return NULL;
     tmq_str_t sub = tmq_str_new_len(s, len);
     return sub;
+}
+
+ssize_t tmq_str_find(tmq_str_t s, char c)
+{
+    char* pos = strchr(s, c);
+    return pos ? pos - s : -1;
+}
+
+str_vec tmq_str_split(tmq_str_t s, const char* delimeters)
+{
+    str_vec parts = tmq_vec_make(tmq_str_t);
+    if(!s) return parts;
+    tmq_str_t copy = tmq_str_new("");
+    copy = tmq_str_assign(copy, s);
+    char* p, *saved;
+    p = strtok_r(copy, delimeters, &saved);
+    while(p)
+    {
+        tmq_str_t part = tmq_str_new(p);
+        tmq_vec_push_back(parts, part);
+        p = strtok_r(NULL, delimeters, &saved);
+    }
+    tmq_str_free(copy);
+    return parts;
+}
+
+void tmq_str_trim(tmq_str_t s)
+{
+    if(!s || !tmq_str_len(s)) return;
+    char* p = s;
+    while((*p) && isblank(*p)) p++;
+    if(!(*p))
+    {
+        tmq_str_clear(s);
+        return;
+    }
+    char* p2 = p + 1;
+    while((*p2) && !isblank(*p2)) p2++;
+    memmove(s, p, p2 - p);
+    *(s + (p2 - p)) = 0;
+    tmq_ds_t* hdr = TMQ_DS_HDR(s);
+    hdr->len = p2 - p;
 }
