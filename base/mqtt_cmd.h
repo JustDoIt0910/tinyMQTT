@@ -39,6 +39,10 @@ void tmq_cmd_add_string(tmq_cmd_t* cmd, const char* name, const char* short_name
 void tmq_cmd_add_number(tmq_cmd_t* cmd, const char* name, const char* short_name,
                         const char* desc, int required, int64_t default_val);
 void tmq_cmd_add_bool(tmq_cmd_t* cmd, const char* name, const char* short_name, const char* desc);
-void tmq_cmd_parse(tmq_cmd_t* cmd, int argc, char** argv);
+int tmq_cmd_parse(tmq_cmd_t* cmd, int argc, char** argv);
+int tmq_cmd_exist(tmq_cmd_t* cmd, const char* name);
+tmq_str_t tmq_cmd_get_string(tmq_cmd_t* cmd, const char* name);
+int64_t tmq_cmd_get_number(tmq_cmd_t* cmd, const char* name);
+void tmq_cmd_destroy(tmq_cmd_t* cmd);
 
 #endif //TINYMQTT_MQTT_CMD_H
