@@ -34,7 +34,7 @@ tmq_str_t tmq_str_assign(tmq_str_t s, const char* str);
 tmq_str_t tmq_str_assign_n(tmq_str_t s, const char* str, size_t n);
 void tmq_str_free(tmq_str_t s);
 void tmq_str_debug(tmq_str_t s);
-tmq_str_t tmq_str_parse_int(int v, int base);
+tmq_str_t tmq_str_parse_int(int64_t v, int base);
 char tmq_str_at(tmq_str_t s, size_t index);
 tmq_str_t tmq_str_substr(tmq_str_t s, size_t start, size_t len);
 ssize_t tmq_str_find(tmq_str_t s, char c);

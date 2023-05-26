@@ -133,15 +133,15 @@ tmq_str_t tmq_str_assign_n(tmq_str_t s, const char* data, size_t n)
     return tmq_str_append_data_n(s, data, n);
 }
 
-tmq_str_t tmq_str_parse_int(int v, int base)
+tmq_str_t tmq_str_parse_int(int64_t v, int base)
 {
     if(base < 2 || base > 16)
         return NULL;
     tmq_str_t str = tmq_str_empty();
     if(!str) return NULL;
     static char tbl[] = "0123456789ABCDEF";
-    char tmp[50] = {0};
-    int s = v; int i = 0;
+    char tmp[100] = {0};
+    int64_t s = v; int i = 0;
     if(s < 0)
     {
         s = -s;
