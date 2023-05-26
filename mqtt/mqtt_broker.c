@@ -160,7 +160,7 @@ void handle_mqtt_connect(tmq_broker_t* broker, tmq_connect_pkt connect_pkt)
 int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
 {
     if(!broker) return -1;
-    if(tmq_config_init(&broker->conf, cfg) == 0)
+    if(tmq_config_init(&broker->conf, cfg, "=") == 0)
         tlog_info("read config file %s ok", cfg);
     else
     {
@@ -170,7 +170,7 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
     tmq_str_t pwd_file_path = tmq_config_get(&broker->conf, "password_file");
     if(!pwd_file_path)
         pwd_file_path = tmq_str_new("pwd.conf");
-    if(tmq_config_init(&broker->pwd_conf, pwd_file_path) == 0)
+    if(tmq_config_init(&broker->pwd_conf, pwd_file_path, ":") == 0)
         tlog_info("read password file %s ok", pwd_file_path);
     else
     {
