@@ -20,12 +20,14 @@ set(TINYMQTT_LIB_SRC
         mqtt/mqtt_broker.c
         mqtt/mqtt_client.c
         3rd/tinylog/tlog.c
-        3rd/md5-c/md5.c)
+        3rd/md5-c/md5.c
+        3rd/b64.c/encode.c
+        3rd/b64.c/buffer.c)
 set(CMAKE_BUILD_TYPE "Debug")
 
 add_definitions(-D_GNU_SOURCE)
 
-include_directories(${CMAKE_SOURCE_DIR} 3rd/tinylog 3rd/md5-c)
+include_directories(${CMAKE_SOURCE_DIR} 3rd/tinylog 3rd/md5-c 3rd/b64.c)
 
 add_library(mqtt ${TINYMQTT_LIB_SRC})
 
