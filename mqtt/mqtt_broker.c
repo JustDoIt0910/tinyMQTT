@@ -58,7 +58,7 @@ static void handle_new_connection(void* arg)
 
     pthread_mutex_lock(&group->pending_conns_lk);
     tmq_vec(tmq_socket_t) conns = tmq_vec_make(tmq_socket_t);
-    tmq_vec_swap(&conns, &group->pending_conns);
+    tmq_vec_swap(conns, group->pending_conns);
     pthread_mutex_unlock(&group->pending_conns_lk);
 
     for(tmq_socket_t* it = tmq_vec_begin(conns); it != tmq_vec_end(conns); it++)
@@ -85,6 +85,11 @@ static void handle_new_connection(void* arg)
     tmq_vec_free(conns);
 }
 
+static void handle_new_session(void* arg)
+{
+    tmq_io_group_t *group = arg;
+}
+
 static void tmq_io_group_init(tmq_io_group_t* group, tmq_broker_t* broker)
 {
     group->broker = broker;
@@ -94,9 +99,16 @@ static void tmq_io_group_init(tmq_io_group_t* group, tmq_broker_t* broker)
     tmq_timer_t* timer = tmq_timer_new(SEC_MS(MQTT_TCP_CHECKALIVE_INTERVAL), 1, tcp_checkalive, group);
     group->tcp_checkalive_timer = tmq_event_loop_add_timer(&group->loop, timer);
 
+    if(pthread_mutex_init(&group->pending_conns_lk, NULL))
+        fatal_error("pthread_mutex_init() error %d: %s", errno, strerror(errno));
+    if(pthread_mutex_init(&group->connect_resp_lk, NULL))
+        fatal_error("pthread_mutex_init() error %d: %s", errno, strerror(errno));
+
     tmq_vec_init(&group->pending_conns, tmq_socket_t);
+    tmq_vec_init(&group->connect_resp, start_session_resp);
+    
     tmq_notifier_init(&group->new_conn_notifier, &group->loop, handle_new_connection, group);
-    pthread_mutex_init(&group->pending_conns_lk, NULL);
+    tmq_notifier_init(&group->connect_resp_notifier, &group->loop, handle_new_session, group);
 }
 
 static void* io_group_thread_func(void* arg)
@@ -152,9 +164,54 @@ static void dispatch_new_connection(tmq_socket_t conn, void* arg)
     tmq_notifier_notify(&next_group->new_conn_notifier);
 }
 
-void handle_mqtt_connect(tmq_broker_t* broker, tmq_connect_pkt connect_pkt)
+static void handle_session_ctl(void* arg)
 {
-    tmq_connect_pkt_print(&connect_pkt);
+    tmq_broker_t* broker = arg;
+
+    pthread_mutex_lock(&broker->session_ctl_lk);
+    session_ctl_list ctls = tmq_vec_make(session_ctl);
+    tmq_vec_swap(ctls, broker->session_ctl_reqs);
+    pthread_mutex_unlock(&broker->session_ctl_lk);
+
+    for(session_ctl* ctl = tmq_vec_begin(ctls); ctl != tmq_vec_end(ctls); ctl++)
+    {
+        // handle a connect request
+        if(ctl->op == START_SESSION)
+        {
+            start_session_req* start_req = &ctl->context.start_req;
+            tmq_connect_pkt* connect_pkt = &start_req->connect_pkt;
+            // validate username and password if anonymous login is not allowed
+            tmq_str_t allow_anonymous = tmq_config_get(&broker->conf, "allow_anonymous");
+            if(strcmp(allow_anonymous, "true") != 0)
+            {
+
+            }
+            tmq_str_free(allow_anonymous);
+            release_ref(start_req->conn);
+        }
+        else
+        {
+
+        }
+    }
+    tmq_vec_free(ctls);
+}
+
+void mqtt_connect_request(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt connect_pkt)
+{
+    start_session_req req = {
+            .conn = get_ref(conn),
+            .connect_pkt = connect_pkt
+    };
+    session_ctl ctl = {
+            .op = START_SESSION,
+            .context = req
+    };
+    pthread_mutex_lock(&broker->session_ctl_lk);
+    tmq_vec_push_back(broker->session_ctl_reqs, ctl);
+    pthread_mutex_unlock(&broker->session_ctl_lk);
+
+    tmq_notifier_notify(&broker->session_ctl_notifier);
 }
 
 int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
@@ -193,6 +250,13 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
     for(int i = 0; i < MQTT_IO_THREAD; i++)
         tmq_io_group_init(&broker->io_groups[i], broker);
     broker->next_io_group = 0;
+
+    if(pthread_mutex_init(&broker->session_ctl_lk, NULL))
+        fatal_error("pthread_mutex_init() error %d: %s", errno, strerror(errno));
+    tmq_vec_init(&broker->session_ctl_reqs, session_ctl);
+    tmq_notifier_init(&broker->session_ctl_notifier, &broker->event_loop, handle_session_ctl, broker);
+
+    tmq_map_str_init(&broker->sessions, tmq_session_t*, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
 
     /* ignore SIGPIPE signal */
     signal(SIGPIPE, SIG_IGN);

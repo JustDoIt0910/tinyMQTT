@@ -8,7 +8,7 @@
 #include "mqtt_map.h"
 #include "mqtt_str.h"
 #define MAX_LINE_SIZE       1024
-#define MAX_DELIMETER_SIZE  20
+#define MAX_DELIMETER_SIZE  10
 
 typedef struct config_value
 {

@@ -138,7 +138,7 @@ static decode_status parse_connect_packet(tmq_codec_t* codec, tmq_tcp_conn_t* co
     }
     tcp_conn_ctx* ctx = conn->context;
     /* deliver this CONNECT packet to the broker */
-    codec->on_connect(ctx->upstream.broker, connect_pkt);
+    codec->on_connect(ctx->upstream.broker, conn, connect_pkt);
     return DECODE_OK;
 }
 
@@ -261,12 +261,12 @@ static void decode_tcp_message_(tmq_codec_t* codec, tmq_tcp_conn_t* conn, tmq_bu
     }
 }
 
-extern void handle_mqtt_connect(tmq_broker_t* broker, tmq_connect_pkt connect_pkt);
+extern void mqtt_connect_request(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt connect_pkt);
 
 void tmq_codec_init(tmq_codec_t* codec)
 {
     codec->decode_tcp_message = decode_tcp_message_;
-    codec->on_connect = handle_mqtt_connect;
+    codec->on_connect = mqtt_connect_request;
 }
 
 typedef tmq_vec(uint8_t) packet_buf;

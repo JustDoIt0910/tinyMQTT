@@ -25,7 +25,7 @@ typedef enum session_state_e
     IN_SESSION
 } session_state_e;
 
-typedef struct
+typedef struct tcp_conn_ctx_s
 {
     int64_t last_msg_time;
     union
@@ -38,6 +38,31 @@ typedef struct
     pending_packet_list pending_packets;
 } tcp_conn_ctx;
 
+typedef enum session_ctl_op_e {START_SESSION, CLOSE_SESSION} session_ctl_op_e;
+typedef struct start_session_req
+{
+    tmq_connect_pkt connect_pkt;
+    tmq_tcp_conn_t* conn;
+} start_session_req;
+
+typedef struct session_ctl
+{
+    session_ctl_op_e op;
+    union
+    {
+        start_session_req start_req;
+        tmq_session_t* close_req;
+    } context;
+} session_ctl;
+typedef tmq_vec(session_ctl) session_ctl_list;
+
+typedef struct start_session_resp
+{
+    uint8_t return_code;
+    tmq_session_t* session;
+} start_session_resp;
+typedef tmq_vec(start_session_resp) connect_resp_list;
+
 typedef tmq_map(char*, tmq_tcp_conn_t*) tcp_conn_map_t;
 typedef struct tmq_io_group_s
 {
@@ -49,9 +74,16 @@ typedef struct tmq_io_group_s
 
     tmq_notifier_t new_conn_notifier;
     pthread_mutex_t pending_conns_lk;
+    /* guarded by pending_conns_lk */
     tmq_vec(tmq_socket_t) pending_conns;
+
+    pthread_mutex_t connect_resp_lk;
+    /* guarded by connect_resp_lk */
+    connect_resp_list connect_resp;
+    tmq_notifier_t connect_resp_notifier;
 } tmq_io_group_t;
 
+typedef tmq_map(char*, tmq_session_t*) tmq_session_map;
 typedef struct tmq_broker_s
 {
     tmq_event_loop_t event_loop;
@@ -60,6 +92,12 @@ typedef struct tmq_broker_s
     int next_io_group;
     tmq_io_group_t io_groups[MQTT_IO_THREAD];
     tmq_config_t conf, pwd_conf;
+    tmq_session_map sessions;
+
+    pthread_mutex_t session_ctl_lk;
+    /* guarded by session_ctl_lk */
+    session_ctl_list session_ctl_reqs;
+    tmq_notifier_t session_ctl_notifier;
 } tmq_broker_t;
 
 int tmq_broker_init(tmq_broker_t* broker, const char* cfg);

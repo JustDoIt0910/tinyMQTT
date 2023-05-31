@@ -48,7 +48,7 @@ struct                      \
 #define tmq_vec_end(v) \
 ((v).elem_ref = tmq_vec_end_((v).base))
 
-#define tmq_vec_swap(v1, v2) tmq_vec_swap_(&(v1)->base, &(v2)->base)
+#define tmq_vec_swap(v1, v2) tmq_vec_swap_(&(v1).base, &(v2).base)
 
 #define tmq_vec_clear(v) tmq_vec_clear_((v).base)
 #define tmq_vec_free(v) tmq_vec_free_((v).base)
