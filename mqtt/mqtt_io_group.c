@@ -10,11 +10,29 @@
 #include <assert.h>
 #include <string.h>
 
-static void remove_tcp_conn(tmq_tcp_conn_t* conn, void* arg)
+/* called when closing a tcp conn */
+static void tcp_conn_cleanup(tmq_tcp_conn_t* conn, void* arg)
 {
     tmq_io_group_t* group = conn->group;
     tcp_conn_ctx* ctx = conn->context;
     assert(ctx != NULL);
+
+    /* IN_SESSION state means that the client closed the connection without sending
+     * a disconnect packet, we have to clean the session in the broker. */
+    if(ctx->conn_state == IN_SESSION)
+    {
+        ctx->conn_state = NO_SESSION;
+        tmq_broker_t* broker = group->broker;
+        session_ctl ctl = {
+                .op = SESSION_CLOSE,
+                .context.session = ctx->upstream.session
+        };
+        pthread_mutex_lock(&broker->session_ctl_lk);
+        tmq_vec_push_back(broker->session_ctl_reqs, ctl);
+        pthread_mutex_unlock(&broker->session_ctl_lk);
+
+        tmq_notifier_notify(&broker->session_ctl_notifier);
+    }
 
     char conn_name[50];
     tmq_tcp_conn_id(conn, conn_name, sizeof(conn_name));
@@ -61,7 +79,7 @@ static void handle_new_connection(void* arg)
     for(tmq_socket_t* it = tmq_vec_begin(conns); it != tmq_vec_end(conns); it++)
     {
         tmq_tcp_conn_t* conn = tmq_tcp_conn_new(group, *it, &group->broker->codec);
-        conn->close_cb = remove_tcp_conn;
+        conn->close_cb = tcp_conn_cleanup;
         conn->state = CONNECTED;
 
         tcp_conn_ctx* conn_ctx = malloc(sizeof(tcp_conn_ctx));
@@ -95,11 +113,26 @@ static void handle_new_session(void* arg)
     for(; resp != tmq_vec_end(resps); resp++)
     {
         tcp_conn_ctx* conn_ctx = resp->conn->context;
-        if(resp->conn->state != CONNECTED || conn_ctx->conn_state == NO_SESSION)
+
+        /* if the client sent a disconnect packet or closed the tcp connection before the
+         * session-establishing procedure complete, we need to close the session in the broker */
+        if((resp->return_code == CONNECTION_ACCEPTED) &&
+        (conn_ctx->conn_state == NO_SESSION) || (resp->conn->state != CONNECTED))
         {
+            tmq_broker_t* broker = group->broker;
+            session_ctl ctl = {
+                    .op = conn_ctx->conn_state == NO_SESSION ? SESSION_DISCONNECT : SESSION_CLOSE,
+                    .context.session = resp->session
+            };
+            pthread_mutex_lock(&broker->session_ctl_lk);
+            tmq_vec_push_back(broker->session_ctl_reqs, ctl);
+            pthread_mutex_unlock(&broker->session_ctl_lk);
+
+            tmq_notifier_notify(&broker->session_ctl_notifier);
             release_ref(resp->conn);
             continue;
         }
+
         if(resp->return_code == CONNECTION_ACCEPTED)
         {
             conn_ctx->upstream.session = resp->session;

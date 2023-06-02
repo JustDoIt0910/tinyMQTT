@@ -160,11 +160,21 @@ static void handle_session_ctl(void* arg)
         /* handle disconnect request */
         else if(ctl->op == SESSION_DISCONNECT)
         {
-
+            tmq_session_t* session = ctl->context.session;
+            session->state = CLOSED;
+            release_ref(session->conn);
+            session->conn = NULL;
+            /* todo: clean up the session context and remove the session if it is a clean session */
+            tlog_info("session %p closed", session);
         }
         else
         {
-
+            tmq_session_t* session = ctl->context.session;
+            session->state = CLOSED;
+            release_ref(session->conn);
+            session->conn = NULL;
+            /* todo: clean up the session context and remove the session if it is a clean session */
+            tlog_info("session %p force closed", session);
         }
     }
     tmq_vec_free(ctls);
@@ -178,7 +188,20 @@ void mqtt_connect_request(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
     };
     session_ctl ctl = {
             .op = SESSION_CONNECT,
-            .context = req
+            .context.start_req = req
+    };
+    pthread_mutex_lock(&broker->session_ctl_lk);
+    tmq_vec_push_back(broker->session_ctl_reqs, ctl);
+    pthread_mutex_unlock(&broker->session_ctl_lk);
+
+    tmq_notifier_notify(&broker->session_ctl_notifier);
+}
+
+void mqtt_disconnect_request(tmq_broker_t* broker, tmq_session_t* session)
+{
+    session_ctl ctl = {
+            .op = SESSION_DISCONNECT,
+            .context.session = session
     };
     pthread_mutex_lock(&broker->session_ctl_lk);
     tmq_vec_push_back(broker->session_ctl_reqs, ctl);

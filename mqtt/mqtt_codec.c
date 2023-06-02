@@ -205,6 +205,13 @@ static decode_status parse_pingresp_packet(tmq_codec_t* codec, tmq_tcp_conn_t* c
 
 static decode_status parse_disconnect_packet(tmq_codec_t* codec, tmq_tcp_conn_t* conn, tmq_buffer_t* buffer)
 {
+    tcp_conn_ctx* ctx = conn->context;
+    int in_session = ctx->conn_state == IN_SESSION;
+    ctx->conn_state = NO_SESSION;
+    tmq_session_t* session = ctx->upstream.session;
+    ctx->upstream.broker = conn->group->broker;
+    if(in_session)
+        codec->on_disconnect(ctx->upstream.broker, session);
     return DECODE_OK;
 }
 
@@ -263,11 +270,13 @@ static void decode_tcp_message_(tmq_codec_t* codec, tmq_tcp_conn_t* conn, tmq_bu
 }
 
 extern void mqtt_connect_request(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt connect_pkt);
+extern void mqtt_disconnect_request(tmq_broker_t* broker, tmq_session_t* session);
 
 void tmq_codec_init(tmq_codec_t* codec)
 {
     codec->decode_tcp_message = decode_tcp_message_;
     codec->on_connect = mqtt_connect_request;
+    codec->on_disconnect = mqtt_disconnect_request;
 }
 
 typedef tmq_vec(uint8_t) packet_buf;
