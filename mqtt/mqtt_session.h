@@ -15,6 +15,6 @@ typedef struct tmq_session_s
     int clean_session;
 } tmq_session_t;
 
-tmq_session_t* tmq_session_new(int clean_session);
+tmq_session_t* tmq_session_new(tmq_tcp_conn_t* conn, int clean_session);
 
 #endif //TINYMQTT_MQTT_SESSION_H

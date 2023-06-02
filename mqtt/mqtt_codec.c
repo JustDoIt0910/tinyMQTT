@@ -138,6 +138,7 @@ static decode_status parse_connect_packet(tmq_codec_t* codec, tmq_tcp_conn_t* co
     }
     tcp_conn_ctx* ctx = conn->context;
     /* deliver this CONNECT packet to the broker */
+    ctx->conn_state = STARTING_SESSION;
     codec->on_connect(ctx->upstream.broker, conn, connect_pkt);
     return DECODE_OK;
 }
@@ -219,7 +220,7 @@ static void decode_tcp_message_(tmq_codec_t* codec, tmq_tcp_conn_t* conn, tmq_bu
 {
     tcp_conn_ctx* ctx = conn->context;
     assert(ctx != NULL);
-    if(ctx->session_state != NO_SESSION)
+    if(ctx->conn_state != NO_SESSION)
         ctx->last_msg_time = time_now();
 
     pkt_parsing_ctx* parsing_ctx = &ctx->parsing_ctx;

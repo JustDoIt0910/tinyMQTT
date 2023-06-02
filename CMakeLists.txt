@@ -18,6 +18,7 @@ set(TINYMQTT_LIB_SRC
         mqtt/mqtt_packet.c
         mqtt/mqtt_session.c
         mqtt/mqtt_codec.c
+        mqtt/mqtt_io_group.c
         mqtt/mqtt_broker.c
         mqtt/mqtt_client.c
         3rd/tinylog/tlog.c
