@@ -3,8 +3,7 @@
 //
 #include "base/mqtt_cmd.h"
 #include "base/mqtt_config.h"
-#include "md5.h"
-#include "b64.h"
+#include "base/mqtt_util.h"
 #include <termios.h>
 #include <string.h>
 
@@ -17,13 +16,6 @@ void password_mode(int on)
     if(on) new_setting.c_lflag &= ~ECHO;
     else new_setting.c_lflag |= ECHO;
     tcsetattr(0, TCSANOW, &new_setting);
-}
-
-char* password_encode(char* pwd)
-{
-    uint8_t md5_res[16];
-    md5String(pwd, md5_res);
-    return b64_encode(md5_res, 16);
 }
 
 int get_password(char* user, char pwd[])

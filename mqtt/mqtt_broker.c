@@ -2,6 +2,7 @@
 // Created by zr on 23-4-9.
 //
 #include "mqtt_broker.h"
+#include "mqtt_session.h"
 #include "net/mqtt_tcp_conn.h"
 #include "base/mqtt_util.h"
 #include <stdlib.h>
@@ -38,8 +39,8 @@ static void tcp_checkalive(void* arg)
     {
         tmq_tcp_conn_t* conn = *(tmq_tcp_conn_t**) (it.second);
         tcp_conn_ctx* ctx = conn->context;
-        if((ctx->session_state == NO_SESSION && now - ctx->last_msg_time > SEC_US(MQTT_CONNECT_MAX_PENDING)) ||
-            (ctx->session_state != NO_SESSION && now - ctx->last_msg_time > SEC_US(MQTT_TCP_MAX_IDLE)))
+        if((ctx->conn_state == NO_SESSION && now - ctx->last_msg_time > SEC_US(MQTT_CONNECT_MAX_PENDING)) ||
+            (ctx->conn_state != NO_SESSION && now - ctx->last_msg_time > SEC_US(MQTT_TCP_MAX_IDLE)))
         {
             tmq_vec_push_back(timeout_conns, conn);
             tlog_info("connection timeout [%s]", (char*) (it.first));
@@ -70,7 +71,7 @@ static void handle_new_connection(void* arg)
         tcp_conn_ctx* conn_ctx = malloc(sizeof(tcp_conn_ctx));
         tmq_vec_init(&conn_ctx->pending_packets, tmq_packet_t);
         conn_ctx->upstream.broker = group->broker;
-        conn_ctx->session_state = NO_SESSION;
+        conn_ctx->conn_state = NO_SESSION;
         conn_ctx->parsing_ctx.state = PARSING_FIXED_HEADER;
         conn_ctx->last_msg_time = time_now();
         tmq_tcp_conn_set_context(conn, conn_ctx);
@@ -105,7 +106,7 @@ static void tmq_io_group_init(tmq_io_group_t* group, tmq_broker_t* broker)
         fatal_error("pthread_mutex_init() error %d: %s", errno, strerror(errno));
 
     tmq_vec_init(&group->pending_conns, tmq_socket_t);
-    tmq_vec_init(&group->connect_resp, start_session_resp);
+    tmq_vec_init(&group->connect_resp, session_connect_resp);
     
     tmq_notifier_init(&group->new_conn_notifier, &group->loop, handle_new_connection, group);
     tmq_notifier_init(&group->connect_resp_notifier, &group->loop, handle_new_session, group);
@@ -164,6 +165,76 @@ static void dispatch_new_connection(tmq_socket_t conn, void* arg)
     tmq_notifier_notify(&next_group->new_conn_notifier);
 }
 
+/* Construct a result of connecting request and notify the corresponding io thread.
+ * Called by the broker thread. */
+static void make_connect_respond(tmq_io_group_t* group, connack_return_code code, tmq_session_t* session, int sp)
+{
+    session_connect_resp resp = {
+            .return_code = code,
+            .session = session,
+            .session_present = sp
+    };
+    pthread_mutex_lock(&group->connect_resp_lk);
+    tmq_vec_push_back(group->connect_resp, resp);
+    pthread_mutex_unlock(&group->connect_resp_lk);
+
+    tmq_notifier_notify(&group->connect_resp_notifier);
+}
+
+static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt* connect_pkt)
+{
+    /* validate username and password if anonymous login is not allowed */
+    int success = 1;
+    tmq_str_t allow_anonymous = tmq_config_get(&broker->conf, "allow_anonymous");
+    if(strcmp(allow_anonymous, "true") != 0)
+    {
+        if(!tmq_config_exist(&broker->pwd_conf, connect_pkt->username))
+            make_connect_respond(conn->group, NOT_AUTHORIZED, NULL, 0);
+        tmq_str_t pwd_stored = tmq_config_get(&broker->pwd_conf, connect_pkt->username);
+        char* pwd_encoded = password_encode(connect_pkt->password);
+        if(strcmp(pwd_encoded, pwd_stored) != 0)
+        {
+            success = 0;
+            make_connect_respond(conn->group, NOT_AUTHORIZED, NULL, 0);
+        }
+        tmq_str_free(pwd_stored);
+        free(pwd_encoded);
+    }
+    if(!success) goto cleanup;
+    /* try to start a clean session */
+    if(CONNECT_CLEAN_SESSION(connect_pkt->flags))
+    {
+        tmq_session_t** session = tmq_map_get(broker->sessions, connect_pkt->client_id);
+        /* if there is a session in the broker associate with this client id */
+        if(session)
+        {
+            /* if this session has already closed, just clean it up and create a new one. */
+            if((*session)->state == CLOSED)
+            {
+                assert((*session)->clean_session == 0);
+                /* todo: clear the session data */
+                free(*session);
+                tmq_session_t* new_session = tmq_session_new(1);
+                tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
+            }
+            /* if this session is still active, disconnect it and create a new one in the callback. */
+            else
+            {
+
+            }
+        }
+    }
+    else
+    {
+
+    }
+    cleanup:
+    tmq_str_free(allow_anonymous);
+    tmq_connect_pkt_cleanup(connect_pkt);
+    release_ref(conn);
+}
+
+/* handle session creating and closing */
 static void handle_session_ctl(void* arg)
 {
     tmq_broker_t* broker = arg;
@@ -175,19 +246,17 @@ static void handle_session_ctl(void* arg)
 
     for(session_ctl* ctl = tmq_vec_begin(ctls); ctl != tmq_vec_end(ctls); ctl++)
     {
-        // handle a connect request
-        if(ctl->op == START_SESSION)
+        /* handle connect request */
+        if(ctl->op == SESSION_CONNECT)
         {
-            start_session_req* start_req = &ctl->context.start_req;
-            tmq_connect_pkt* connect_pkt = &start_req->connect_pkt;
-            // validate username and password if anonymous login is not allowed
-            tmq_str_t allow_anonymous = tmq_config_get(&broker->conf, "allow_anonymous");
-            if(strcmp(allow_anonymous, "true") != 0)
-            {
+            session_connect_req *connect_req = &ctl->context.start_req;
+            /* try to start a mqtt session */
+            start_session(broker, connect_req->conn, &connect_req->connect_pkt);
+        }
+        /* handle disconnect request */
+        else if(ctl->op == SESSION_DISCONNECT)
+        {
 
-            }
-            tmq_str_free(allow_anonymous);
-            release_ref(start_req->conn);
         }
         else
         {
@@ -199,12 +268,12 @@ static void handle_session_ctl(void* arg)
 
 void mqtt_connect_request(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt connect_pkt)
 {
-    start_session_req req = {
+    session_connect_req req = {
             .conn = get_ref(conn),
             .connect_pkt = connect_pkt
     };
     session_ctl ctl = {
-            .op = START_SESSION,
+            .op = SESSION_CONNECT,
             .context = req
     };
     pthread_mutex_lock(&broker->session_ctl_lk);

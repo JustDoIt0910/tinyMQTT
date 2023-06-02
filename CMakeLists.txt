@@ -4,7 +4,7 @@ project(tinyMQTT)
 
 set(TINYMQTT_LIB_SRC
         base/mqtt_socket.c
-        net/mqtt_buffer.c
+        base/mqtt_util.c
         base/mqtt_map.c
         base/mqtt_vec.c
         base/mqtt_str.c
@@ -14,6 +14,7 @@ set(TINYMQTT_LIB_SRC
         event/mqtt_timer.c
         net/mqtt_acceptor.c
         net/mqtt_tcp_conn.c
+        net/mqtt_buffer.c
         mqtt/mqtt_packet.c
         mqtt/mqtt_session.c
         mqtt/mqtt_codec.c

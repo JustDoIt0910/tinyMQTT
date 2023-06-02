@@ -18,4 +18,6 @@ do {                                    \
     abort();                            \
 }while(0)
 
+char* password_encode(char* pwd);
+
 #endif //TINYMQTT_MQTT_UTIL_H
