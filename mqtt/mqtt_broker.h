@@ -26,9 +26,11 @@ typedef struct tmq_broker_s
     tmq_config_t conf, pwd_conf;
     tmq_session_map sessions;
 
-    pthread_mutex_t session_ctl_lk;
     /* guarded by session_ctl_lk */
     session_ctl_list session_ctl_reqs;
+
+    pthread_mutex_t session_ctl_lk;
+
     tmq_notifier_t session_ctl_notifier;
 } tmq_broker_t;
 

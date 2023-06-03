@@ -20,14 +20,15 @@ typedef struct tmq_io_group_s
     tcp_conn_map_t tcp_conns;
     tmq_timerid_t tcp_checkalive_timer;
 
-    tmq_notifier_t new_conn_notifier;
-    pthread_mutex_t pending_conns_lk;
     /* guarded by pending_conns_lk */
     tmq_vec(tmq_socket_t) pending_conns;
-
-    pthread_mutex_t connect_resp_lk;
     /* guarded by connect_resp_lk */
     connect_resp_list connect_resp;
+
+    pthread_mutex_t pending_conns_lk;
+    pthread_mutex_t connect_resp_lk;
+
+    tmq_notifier_t new_conn_notifier;
     tmq_notifier_t connect_resp_notifier;
 } tmq_io_group_t;
 
