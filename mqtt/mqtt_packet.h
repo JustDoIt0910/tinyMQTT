@@ -43,10 +43,6 @@ typedef struct tmq_connect_pkt
 #define CONNECT_CLEAN_SESSION(flags)     ((flags) & 0x02)
 #define CONNECT_RESERVED(flags)          ((flags) & 0x01)
 
-void tmq_connect_pkt_cleanup(tmq_connect_pkt* pkt);
-/* for debug */
-void tmq_connect_pkt_print(tmq_connect_pkt* pkt);
-
 typedef enum connack_return_code_e
 {
     CONNECTION_ACCEPTED,
@@ -88,17 +84,17 @@ typedef struct tmq_pubcomp_pkt
 
 } tmq_pubcomp_pkt;
 
-struct topic_filter_qos {tmq_str_t topic_filter; uint8_t qos;};
-typedef tmq_vec(struct topic_filter_qos) topic_list;
+typedef struct topic_filter_qos
+{
+    tmq_str_t topic_filter;
+    uint8_t qos;
+} topic_filter_qos;
+typedef tmq_vec(topic_filter_qos) topic_list;
 typedef struct tmq_subscribe_pkt
 {
     uint16_t packet_id;
     topic_list topics;
 } tmq_subscribe_pkt;
-
-void tmq_subscribe_pkt_cleanup(tmq_subscribe_pkt* pkt);
-/* for debug */
-void tmq_subsribe_pkt_print(tmq_subscribe_pkt* pkt);
 
 typedef struct tmq_suback_pkt
 {
@@ -130,5 +126,12 @@ typedef struct tmq_disconnect_pkt
 {
 
 } tmq_disconnect_pkt;
+
+void tmq_connect_pkt_cleanup(tmq_connect_pkt* pkt);
+void tmq_subscribe_pkt_cleanup(tmq_subscribe_pkt* pkt);
+void tmq_suback_pkt_cleanup(tmq_suback_pkt* pkt);
+/* for debug */
+void tmq_connect_pkt_print(tmq_connect_pkt* pkt);
+void tmq_subsribe_pkt_print(tmq_subscribe_pkt* pkt);
 
 #endif //TINYMQTT_MQTT_PACKET_H

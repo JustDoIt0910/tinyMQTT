@@ -17,3 +17,8 @@ tmq_session_t* tmq_session_new(tmq_tcp_conn_t* conn, int clean_session)
     session->conn = get_ref(conn);
     return session;
 }
+
+void tmq_session_handle_subscribe(tmq_session_t* session, tmq_subscribe_pkt subscribe_pkt)
+{
+
+}

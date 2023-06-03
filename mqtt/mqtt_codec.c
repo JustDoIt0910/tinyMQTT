@@ -184,7 +184,7 @@ static decode_status parse_subscribe_packet(tmq_codec_t* codec, tmq_tcp_conn_t* 
                                             tmq_buffer_t* buffer, uint32_t len)
 {
     tmq_subscribe_pkt subscribe_pkt;
-    tmq_vec_init(&subscribe_pkt.topics, struct topic_filter_qos);
+    tmq_vec_init(&subscribe_pkt.topics, topic_filter_qos);
 
     tmq_buffer_read16(buffer, &subscribe_pkt.packet_id);
     len -= 2;
@@ -202,7 +202,7 @@ static decode_status parse_subscribe_packet(tmq_codec_t* codec, tmq_tcp_conn_t* 
             tmq_subscribe_pkt_cleanup(&subscribe_pkt);
             return PROTOCOL_ERROR;
         }
-        struct topic_filter_qos pair = {
+        topic_filter_qos pair = {
                 .topic_filter = topic_filter,
                 .qos = qos
         };
@@ -216,12 +216,13 @@ static decode_status parse_subscribe_packet(tmq_codec_t* codec, tmq_tcp_conn_t* 
             .packet_id = subscribe_pkt.packet_id,
             .return_codes = tmq_vec_make(uint8_t)
     };
-    struct topic_filter_qos* tf = tmq_vec_begin(subscribe_pkt.topics);
+    topic_filter_qos* tf = tmq_vec_begin(subscribe_pkt.topics);
     for(; tf != tmq_vec_end(subscribe_pkt.topics); tf++)
         tmq_vec_push_back(sub_ack.return_codes, tf->qos);
     send_suback_packet(conn, &sub_ack);
+    tmq_suback_pkt_cleanup(&sub_ack);
 
-    //codec->on_subsribe(ctx->upstream.session, subscribe_pkt);
+    codec->on_subsribe(ctx->upstream.session, subscribe_pkt);
     return DECODE_OK;
 }
 
@@ -335,11 +336,14 @@ static void decode_tcp_message_(tmq_codec_t* codec, tmq_tcp_conn_t* conn, tmq_bu
 extern void mqtt_connect_request(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt connect_pkt);
 extern void mqtt_disconnect_request(tmq_broker_t* broker, tmq_session_t* session);
 
+extern void tmq_session_handle_subscribe(tmq_session_t* session, tmq_subscribe_pkt subscribe_pkt);
+
 void tmq_codec_init(tmq_codec_t* codec)
 {
     codec->decode_tcp_message = decode_tcp_message_;
     codec->on_connect = mqtt_connect_request;
     codec->on_disconnect = mqtt_disconnect_request;
+    codec->on_subsribe = tmq_session_handle_subscribe;
 }
 
 typedef tmq_vec(uint8_t) packet_buf;

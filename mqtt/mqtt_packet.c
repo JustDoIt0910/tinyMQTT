@@ -13,6 +13,10 @@ void tmq_connect_pkt_cleanup(tmq_connect_pkt* pkt)
     tmq_str_free(pkt->password);
 }
 
+void tmq_subscribe_pkt_cleanup(tmq_subscribe_pkt* pkt) {tmq_vec_free(pkt->topics);}
+
+void tmq_suback_pkt_cleanup(tmq_suback_pkt* pkt) { tmq_vec_free(pkt->return_codes);}
+
 void tmq_connect_pkt_print(tmq_connect_pkt* pkt)
 {
     tmq_str_t s = tmq_str_new("CONNECT{Username Flag:");
@@ -55,11 +59,6 @@ void tmq_connect_pkt_print(tmq_connect_pkt* pkt)
     s = tmq_str_append_str(s, "}");
     tlog_info("%s", s);
     tmq_str_free(s);
-}
-
-void tmq_subscribe_pkt_cleanup(tmq_subscribe_pkt* pkt)
-{
-    tmq_vec_free(pkt->topics);
 }
 
 void tmq_subsribe_pkt_print(tmq_subscribe_pkt* pkt)
