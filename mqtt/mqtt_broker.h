@@ -11,7 +11,9 @@
 #include "base/mqtt_config.h"
 #include "mqtt_codec.h"
 #include "mqtt_io_group.h"
-#include "mqtt_def.h"
+#include "mqtt_types.h"
+
+#define MQTT_IO_THREAD                  4
 
 typedef tmq_map(char*, tmq_session_t*) tmq_session_map;
 typedef struct tmq_broker_s

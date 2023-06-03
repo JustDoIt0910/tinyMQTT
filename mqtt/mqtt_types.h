@@ -2,15 +2,10 @@
 // Created by zr on 23-6-2.
 //
 
-#ifndef TINYMQTT_MQTT_DEF_H
-#define TINYMQTT_MQTT_DEF_H
+#ifndef TINYMQTT_MQTT_TYPES_H
+#define TINYMQTT_MQTT_TYPES_H
 #include "base/mqtt_vec.h"
 #include "mqtt/mqtt_codec.h"
-
-#define MQTT_TCP_CHECKALIVE_INTERVAL    10
-#define MQTT_CONNECT_MAX_PENDING        100
-#define MQTT_TCP_MAX_IDLE               300
-#define MQTT_IO_THREAD                  4
 
 typedef tmq_vec(tmq_packet_t) pending_packet_list;
 typedef enum conn_state_e
@@ -69,4 +64,4 @@ typedef struct session_ctl
 } session_ctl;
 typedef tmq_vec(session_ctl) session_ctl_list;
 
-#endif //TINYMQTT_MQTT_DEF_H
+#endif //TINYMQTT_MQTT_TYPES_H

@@ -56,3 +56,28 @@ void tmq_connect_pkt_print(tmq_connect_pkt* pkt)
     tlog_info("%s", s);
     tmq_str_free(s);
 }
+
+void tmq_subscribe_pkt_cleanup(tmq_subscribe_pkt* pkt)
+{
+    tmq_vec_free(pkt->topics);
+}
+
+void tmq_subsribe_pkt_print(tmq_subscribe_pkt* pkt)
+{
+    tmq_str_t s = tmq_str_new("SUBSCRIBE{PacketID=");
+    tmq_str_t packet_id = tmq_str_parse_int(pkt->packet_id, 10);
+    s = tmq_str_append_str(s, packet_id);
+    tmq_str_free(packet_id);
+    struct topic_filter_qos* tf = tmq_vec_begin(pkt->topics);
+    for(; tf != tmq_vec_end(pkt->topics); tf++)
+    {
+        s = tmq_str_append_str(s, ", (");
+        s = tmq_str_append_str(s, tf->topic_filter);
+        s = tmq_str_append_str(s, ", qos=");
+        s = tmq_str_append_char(s, (char) (tf->qos + '0'));
+        s = tmq_str_append_char(s, ')');
+    }
+    s = tmq_str_append_char(s, '}');
+    tlog_info("%s", s);
+    tmq_str_free(s);
+}

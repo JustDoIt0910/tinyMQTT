@@ -88,14 +88,22 @@ typedef struct tmq_pubcomp_pkt
 
 } tmq_pubcomp_pkt;
 
+struct topic_filter_qos {tmq_str_t topic_filter; uint8_t qos;};
+typedef tmq_vec(struct topic_filter_qos) topic_list;
 typedef struct tmq_subscribe_pkt
 {
-
+    uint16_t packet_id;
+    topic_list topics;
 } tmq_subscribe_pkt;
+
+void tmq_subscribe_pkt_cleanup(tmq_subscribe_pkt* pkt);
+/* for debug */
+void tmq_subsribe_pkt_print(tmq_subscribe_pkt* pkt);
 
 typedef struct tmq_suback_pkt
 {
-
+    uint16_t packet_id;
+    tmq_vec(uint8_t) return_codes;
 } tmq_suback_pkt;
 
 typedef struct tmq_unsubscribe_pkt

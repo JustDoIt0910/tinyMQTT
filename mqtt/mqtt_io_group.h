@@ -5,7 +5,11 @@
 #ifndef TINYMQTT_MQTT_IO_GROUP_H
 #define TINYMQTT_MQTT_IO_GROUP_H
 #include "event/mqtt_event.h"
-#include "mqtt_def.h"
+#include "mqtt_types.h"
+
+#define MQTT_TCP_CHECKALIVE_INTERVAL    10
+#define MQTT_CONNECT_MAX_PENDING        100
+#define MQTT_TCP_MAX_IDLE               300
 
 typedef tmq_map(char*, tmq_tcp_conn_t*) tcp_conn_map_t;
 typedef struct tmq_io_group_s
