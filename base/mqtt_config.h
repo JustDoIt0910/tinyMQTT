@@ -8,7 +8,7 @@
 #include "mqtt_map.h"
 #include "mqtt_str.h"
 #define MAX_LINE_SIZE       1024
-#define MAX_DELIMETER_SIZE  20
+#define MAX_DELIMETER_SIZE  10
 
 typedef struct config_value
 {
@@ -31,6 +31,7 @@ typedef struct tmq_config_s
 
 int tmq_config_init(tmq_config_t* cfg, const char* filename, const char* delimeter);
 tmq_str_t tmq_config_get(tmq_config_t* cfg, const char* key);
+int tmq_config_exist(tmq_config_t* cfg, const char* key);
 void tmq_config_add(tmq_config_t* cfg, const char* key, const char* value);
 void tmq_config_mod(tmq_config_t* cfg, const char* key, const char* value);
 void tmq_config_del(tmq_config_t* cfg, const char* key);

@@ -108,7 +108,14 @@ int tmq_config_init(tmq_config_t* cfg, const char* filename, const char* delimet
     bzero(cfg->delimeter, sizeof(cfg->delimeter));
     strcpy(cfg->delimeter, delimeter);
     cfg->filename = tmq_str_new(filename);
-    return read_config_file(cfg);
+    if(read_config_file(cfg) < 0)
+    {
+        tmq_map_free(cfg->cfg);
+        tmq_vec_free(cfg->new_items);
+        tmq_str_free(cfg->filename);
+        fclose(cfg->fp);
+    }
+    return 0;
 }
 
 tmq_str_t tmq_config_get(tmq_config_t* cfg, const char* key)
@@ -117,6 +124,13 @@ tmq_str_t tmq_config_get(tmq_config_t* cfg, const char* key)
     config_value* it = tmq_map_get(cfg->cfg, key);
     if(it && !it->deleted) value = tmq_str_new((*it).value);
     return value;
+}
+
+int tmq_config_exist(tmq_config_t* cfg, const char* key)
+{
+    tmq_str_t value = NULL;
+    config_value* it = tmq_map_get(cfg->cfg, key);
+    return (it && !it->deleted);
 }
 
 void tmq_config_add(tmq_config_t* cfg, const char* key, const char* value)
@@ -221,7 +235,6 @@ void tmq_config_sync(tmq_config_t* cfg)
     new_item* it = tmq_vec_begin(cfg->new_items);
     for(; it != tmq_vec_end(cfg->new_items); it++)
     {
-        fwrite("\n", 1, 1, cfg->fp);
         tmq_str_t line = tmq_str_new((*it).key);
         line = tmq_str_append_str(line, cfg->delimeter);
         line = tmq_str_append_str(line, (*it).value);
@@ -252,5 +265,5 @@ void tmq_config_destroy(tmq_config_t* cfg)
     tmq_map_free(cfg->cfg);
     tmq_vec_free(cfg->new_items);
     tmq_str_free(cfg->filename);
-    fclose(cfg->fp);
+    if(cfg->fp) fclose(cfg->fp);
 }
