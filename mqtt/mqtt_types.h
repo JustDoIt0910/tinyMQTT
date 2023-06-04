@@ -45,6 +45,11 @@ typedef struct session_connect_resp
 } session_connect_resp;
 typedef tmq_vec(session_connect_resp) connect_resp_list;
 
+typedef struct tmq_message
+{
+    tmq_str_t message;
+    uint8_t qos;
+} tmq_message;
 
 typedef enum session_ctl_op_e
 {

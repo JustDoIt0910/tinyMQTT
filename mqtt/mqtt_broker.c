@@ -9,7 +9,6 @@
 #include <assert.h>
 #include <signal.h>
 
-
 static void dispatch_new_connection(tmq_socket_t conn, void* arg)
 {
     tmq_broker_t* broker = (tmq_broker_t*) arg;
@@ -253,6 +252,7 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
     tmq_notifier_init(&broker->session_ctl_notifier, &broker->event_loop, handle_session_ctl, broker);
 
     tmq_map_str_init(&broker->sessions, tmq_session_t*, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
+    tmq_topics_init(&broker->topics_tree, NULL);
 
     /* ignore SIGPIPE signal */
     signal(SIGPIPE, SIG_IGN);
