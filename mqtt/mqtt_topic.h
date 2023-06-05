@@ -25,9 +25,10 @@ typedef struct tmq_topics_s
     /* system topics */
     topic_tree_node* sys_topic_tree_root;
     match_cb on_match;
+    tmq_broker_t* broker;
 } tmq_topics_t;
 
-void tmq_topics_init(tmq_topics_t* topics, match_cb on_match);
+void tmq_topics_init(tmq_topics_t* topics, tmq_broker_t* broker, match_cb on_match);
 void tmq_topics_add_subscription(tmq_topics_t* topics, char* topic_filter, char* client_id, uint8_t qos);
 void tmq_topics_remove_subscription(tmq_topics_t* topics, char* topic_filter, char* client_id);
 void tmq_topics_match(tmq_topics_t* topics, char* topic, tmq_message* message);

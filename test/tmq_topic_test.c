@@ -6,7 +6,7 @@
 int main()
 {
     tmq_topics_t topics;
-    tmq_topics_init(&topics, NULL);
+    tmq_topics_init(&topics, NULL, NULL);
 
     tmq_topics_add_subscription(&topics, "/test//topic", "", 0);
 }

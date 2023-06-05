@@ -19,12 +19,13 @@ static topic_tree_node* topic_tree_node_new(topic_tree_node* parent)
     return node;
 }
 
-void tmq_topics_init(tmq_topics_t* topics, match_cb on_match)
+void tmq_topics_init(tmq_topics_t* topics, tmq_broker_t* broker, match_cb on_match)
 {
     if(!topics) return;
     topics->topic_tree_root = topic_tree_node_new(NULL);
     topics->sys_topic_tree_root = topic_tree_node_new(NULL);
     topics->on_match = on_match;
+    topics->broker = broker;
 }
 
 static topic_tree_node* find_or_create(topic_tree_node* cur, tmq_str_t level)
@@ -57,8 +58,7 @@ void tmq_topics_add_subscription(tmq_topics_t* topics, char* topic_filter, char*
             node = find_or_create(node, level);
         }
         if(!*rp) break;
-        lp = rp + 1;
-        rp = lp;
+        lp = rp + 1; rp = lp;
         if(!*lp)
         {
             level = tmq_str_assign(level, "");
@@ -77,5 +77,30 @@ void tmq_topics_remove_subscription(tmq_topics_t* topics, char* topic_filter, ch
 
 void tmq_topics_match(tmq_topics_t* topics, char* topic, tmq_message* message)
 {
-
+    char* lp = topic, *rp = lp;
+    tmq_str_t level = tmq_str_empty();
+    tmq_vec(tmq_str_t) levels = tmq_vec_make(tmq_str_t);
+    while(1)
+    {
+        while(*rp && *rp != '/') rp++;
+        if(rp == lp)
+        {
+            level = tmq_str_assign(level, "");
+            tmq_vec_push_back(levels, level);
+        }
+        else
+        {
+            level = tmq_str_assign_n(level, lp, rp - lp);
+            tmq_vec_push_back(levels, level);
+        }
+        if(!*rp) break;
+        lp = rp + 1; rp = lp;
+        if(!*lp)
+        {
+            level = tmq_str_assign(level, "");
+            tmq_vec_push_back(levels, level);
+            break;
+        }
+    }
+    tmq_str_free(level);
 }
