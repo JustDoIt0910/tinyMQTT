@@ -10,6 +10,7 @@
 
 typedef struct topic_tree_node
 {
+    tmq_str_t level_name;
     struct topic_tree_node* parent;
     /* next level */
     tmq_map(char*, struct topic_tree_node*) childs;
@@ -31,6 +32,6 @@ typedef struct tmq_topics_s
 void tmq_topics_init(tmq_topics_t* topics, tmq_broker_t* broker, match_cb on_match);
 void tmq_topics_add_subscription(tmq_topics_t* topics, char* topic_filter, char* client_id, uint8_t qos);
 void tmq_topics_remove_subscription(tmq_topics_t* topics, char* topic_filter, char* client_id);
-void tmq_topics_match(tmq_topics_t* topics, int sys, char* topic, tmq_message* message);
+void tmq_topics_publish(tmq_topics_t* topics, int sys, char* topic, tmq_message* message, int retain);
 
 #endif //TINYMQTT_MQTT_TOPIC_H

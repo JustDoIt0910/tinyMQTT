@@ -15,10 +15,12 @@ int main()
     tmq_topics_init(&topics, NULL, on_match);
 
     tmq_topics_add_subscription(&topics, "test/topic/+/1", "client1", 0);
+    tmq_topics_add_subscription(&topics, "test/topic/1/+", "client2", 0);
+    tmq_topics_add_subscription(&topics, "test/#", "client3", 0);
 
     tmq_message message = {
             .message = tmq_str_new("message"),
             .qos = 1
     };
-    tmq_topics_match(&topics, 0, "test/topic/a/1", &message);
+    tmq_topics_publish(&topics, 0, "/test/", &message, 0);
 }

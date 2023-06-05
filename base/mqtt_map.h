@@ -89,6 +89,8 @@ typedef struct tmq_map_iter_s
 #define tmq_map_erase(m, k) \
 ((m).tmp_k = (k), tmq_map_erase_((m).base, &((m).tmp_k)))
 
+#define tmq_map_size(m) ((m).base->size)
+
 #define tmq_map_clear(m) tmq_map_clear_((m).base)
 
 #define tmq_map_free(m) tmq_map_free_((m).base)
