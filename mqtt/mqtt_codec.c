@@ -428,10 +428,8 @@ void send_suback_packet(tmq_tcp_conn_t* conn, tmq_suback_pkt* pkt)
         return;
     }
     uint16_t packet_id = htobe16(pkt->packet_id);
-    /* MSB */
-    tmq_vec_push_back(buf, packet_id & 0xFF);
-    /* LSB */
-    tmq_vec_push_back(buf, (packet_id >> 8) & 0xFF);
+    tmq_vec_push_back(buf, packet_id & 0xFF);  /* MSB */
+    tmq_vec_push_back(buf, (packet_id >> 8) & 0xFF);  /* LSB */
 
     uint8_t* code = tmq_vec_begin(pkt->return_codes);
     for(; code != tmq_vec_end(pkt->return_codes); code++)

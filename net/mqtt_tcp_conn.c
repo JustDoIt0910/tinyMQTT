@@ -114,7 +114,7 @@ void tmq_tcp_conn_write(tmq_tcp_conn_t* conn, char* data, size_t size)
     if(wrote < 0)
     {
         wrote = 0;
-        /* EWOULDBLOCK(EAGAIN) isn't error */
+        /* EWOULDBLOCK(EAGAIN) isn't an error */
         if(errno != EWOULDBLOCK)
             error = 1;
     }
