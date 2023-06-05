@@ -141,8 +141,8 @@ static void handle_session_ctl(void* arg)
 {
     tmq_broker_t* broker = arg;
 
-    pthread_mutex_lock(&broker->session_ctl_lk);
     session_ctl_list ctls = tmq_vec_make(session_ctl);
+    pthread_mutex_lock(&broker->session_ctl_lk);
     tmq_vec_swap(ctls, broker->session_ctl_reqs);
     pthread_mutex_unlock(&broker->session_ctl_lk);
 

@@ -71,8 +71,8 @@ static void handle_new_connection(void* arg)
 {
     tmq_io_group_t* group = arg;
 
-    pthread_mutex_lock(&group->pending_conns_lk);
     tmq_vec(tmq_socket_t) conns = tmq_vec_make(tmq_socket_t);
+    pthread_mutex_lock(&group->pending_conns_lk);
     tmq_vec_swap(conns, group->pending_conns);
     pthread_mutex_unlock(&group->pending_conns_lk);
 
@@ -104,8 +104,8 @@ static void handle_new_session(void* arg)
 {
     tmq_io_group_t *group = arg;
 
-    pthread_mutex_lock(&group->connect_resp_lk);
     connect_resp_list resps = tmq_vec_make(session_connect_resp);
+    pthread_mutex_lock(&group->connect_resp_lk);
     tmq_vec_swap(resps, group->connect_resp);
     pthread_mutex_unlock(&group->connect_resp_lk);
 

@@ -204,3 +204,8 @@ void tmq_topics_publish(tmq_topics_t* topics, int sys, char* topic, tmq_message*
         tmq_str_free(*it);
     tmq_vec_free(levels);
 }
+
+void tmq_topics_info(tmq_topics_t* topics)
+{
+
+}
