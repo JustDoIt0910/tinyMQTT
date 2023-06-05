@@ -252,7 +252,7 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
     tmq_notifier_init(&broker->session_ctl_notifier, &broker->event_loop, handle_session_ctl, broker);
 
     tmq_map_str_init(&broker->sessions, tmq_session_t*, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
-    tmq_topics_init(&broker->topics_tree, NULL);
+    tmq_topics_init(&broker->topics_tree, broker, NULL);
 
     /* ignore SIGPIPE signal */
     signal(SIGPIPE, SIG_IGN);

@@ -75,32 +75,75 @@ void tmq_topics_remove_subscription(tmq_topics_t* topics, char* topic_filter, ch
 
 }
 
-void tmq_topics_match(tmq_topics_t* topics, char* topic, tmq_message* message)
+static void match(tmq_topics_t* topics, topic_tree_node* node, int n, int is_any_wildcard,
+                  str_vec* levels, tmq_message* message)
+{
+    if(n == tmq_vec_size(*levels) || is_any_wildcard)
+    {
+        tmq_map_iter_t it = tmq_map_iter(node->subscribers);
+        for(; tmq_map_has_next(it); tmq_map_next(node->subscribers, it))
+        {
+            char* client_id = it.first;
+            uint8_t required_qos = *(uint8_t*) it.second;
+            topics->on_match(topics->broker, client_id, required_qos, message);
+        }
+        if(n == tmq_vec_size(*levels))
+        {
+            /* "#" includes the parent */
+            topic_tree_node** next = tmq_map_get(node->childs, "#");
+            if(next)
+            {
+                it = tmq_map_iter((*next)->subscribers);
+                for(; tmq_map_has_next(it); tmq_map_next((*next)->subscribers, it))
+                {
+                    char* client_id = it.first;
+                    uint8_t required_qos = *(uint8_t*) it.second;
+                    topics->on_match(topics->broker, client_id, required_qos, message);
+                }
+            }
+        }
+        return;
+    }
+    topic_tree_node** next;
+    char* level = *tmq_vec_at(*levels, n);
+    if((next = tmq_map_get(node->childs, level)) != NULL)
+        match(topics, *next, n + 1, 0, levels, message);
+    if((next = tmq_map_get(node->childs, "+")) != NULL)
+        match(topics, *next, n + 1, 0, levels, message);
+    if((next = tmq_map_get(node->childs, "#")) != NULL)
+        match(topics, *next, n + 1, 1, levels, message);
+}
+
+void tmq_topics_match(tmq_topics_t* topics, int sys, char* topic, tmq_message* message)
 {
     char* lp = topic, *rp = lp;
-    tmq_str_t level = tmq_str_empty();
-    tmq_vec(tmq_str_t) levels = tmq_vec_make(tmq_str_t);
+    tmq_str_t level;
+    str_vec levels = tmq_vec_make(tmq_str_t);
     while(1)
     {
         while(*rp && *rp != '/') rp++;
         if(rp == lp)
         {
-            level = tmq_str_assign(level, "");
+            level = tmq_str_new("");
             tmq_vec_push_back(levels, level);
         }
         else
         {
-            level = tmq_str_assign_n(level, lp, rp - lp);
+            level = tmq_str_new_len(lp, rp - lp);
             tmq_vec_push_back(levels, level);
         }
         if(!*rp) break;
         lp = rp + 1; rp = lp;
         if(!*lp)
         {
-            level = tmq_str_assign(level, "");
+            level = tmq_str_new("");
             tmq_vec_push_back(levels, level);
             break;
         }
     }
-    tmq_str_free(level);
+    topic_tree_node* root = sys ? topics->sys_topic_tree_root : topics->topic_tree_root;
+    match(topics, root, 0, 0, &levels, message);
+    for(tmq_str_t* it = tmq_vec_begin(levels); it != tmq_vec_end(levels); it++)
+        tmq_str_free(*it);
+    tmq_vec_free(levels);
 }

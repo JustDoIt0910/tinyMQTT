@@ -18,7 +18,7 @@ typedef struct topic_tree_node
     tmq_message retain_message;
 } topic_tree_node;
 
-typedef void(*match_cb)(tmq_broker_t*, char*, tmq_message*);
+typedef void(*match_cb)(tmq_broker_t*, char*, uint8_t, tmq_message*);
 typedef struct tmq_topics_s
 {
     topic_tree_node* topic_tree_root;
@@ -31,6 +31,6 @@ typedef struct tmq_topics_s
 void tmq_topics_init(tmq_topics_t* topics, tmq_broker_t* broker, match_cb on_match);
 void tmq_topics_add_subscription(tmq_topics_t* topics, char* topic_filter, char* client_id, uint8_t qos);
 void tmq_topics_remove_subscription(tmq_topics_t* topics, char* topic_filter, char* client_id);
-void tmq_topics_match(tmq_topics_t* topics, char* topic, tmq_message* message);
+void tmq_topics_match(tmq_topics_t* topics, int sys, char* topic, tmq_message* message);
 
 #endif //TINYMQTT_MQTT_TOPIC_H
