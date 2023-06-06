@@ -30,7 +30,7 @@ typedef struct tmq_topics_s
 } tmq_topics_t;
 
 void tmq_topics_init(tmq_topics_t* topics, tmq_broker_t* broker, match_cb on_match);
-void tmq_topics_add_subscription(tmq_topics_t* topics, char* topic_filter, char* client_id, uint8_t qos);
+message_ptr_list tmq_topics_add_subscription(tmq_topics_t* topics, char* topic_filter, char* client_id, uint8_t qos);
 void tmq_topics_remove_subscription(tmq_topics_t* topics, char* topic_filter, char* client_id);
 void tmq_topics_publish(tmq_topics_t* topics, int sys, char* topic, tmq_message* message, int retain);
 void tmq_topics_info(tmq_topics_t* topics);

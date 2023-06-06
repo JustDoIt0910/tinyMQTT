@@ -47,10 +47,13 @@ static topic_tree_node* find_or_create(topic_tree_node* cur, tmq_str_t level, in
     return new_next;
 }
 
-static topic_tree_node* add_topic_or_find(tmq_topics_t* topics, char* topic_filter, int add)
+typedef tmq_vec(topic_tree_node*) topic_path;
+
+static topic_tree_node* add_topic_or_find(tmq_topics_t* topics, char* topic_filter, int add, topic_path* path)
 {
     char* lp = topic_filter, *rp = lp;
     topic_tree_node* node = topics->topic_tree_root;
+    if(path) tmq_vec_push_back(*path, node);
     tmq_str_t level = tmq_str_empty();
     while(1)
     {
@@ -60,12 +63,14 @@ static topic_tree_node* add_topic_or_find(tmq_topics_t* topics, char* topic_filt
             level = tmq_str_assign(level, "");
             node = find_or_create(node, level, add);
             if(!node) break;
+            if(path) tmq_vec_push_back(*path, node);
         }
         else
         {
             level = tmq_str_assign_n(level, lp, rp - lp);
             node = find_or_create(node, level, add);
             if(!node) break;
+            if(path) tmq_vec_push_back(*path, node);
         }
         if(!*rp) break;
         lp = rp + 1; rp = lp;
@@ -73,6 +78,7 @@ static topic_tree_node* add_topic_or_find(tmq_topics_t* topics, char* topic_filt
         {
             level = tmq_str_assign(level, "");
             node = find_or_create(node, level, add);
+            if(path) tmq_vec_push_back(*path, node);
             break;
         }
     }
@@ -80,13 +86,37 @@ static topic_tree_node* add_topic_or_find(tmq_topics_t* topics, char* topic_filt
     return node;
 }
 
-void tmq_topics_add_subscription(tmq_topics_t* topics, char* topic_filter, char* client_id, uint8_t qos)
+static void find_retain_messages(topic_tree_node* node, size_t i, topic_path* path, message_ptr_list* retain_msg)
 {
+    
+}
+
+message_ptr_list tmq_topics_add_subscription(tmq_topics_t* topics, char* topic_filter, char* client_id, uint8_t qos)
+{
+    message_ptr_list retain_messages = tmq_vec_make(tmq_message*);
     if(!topic_filter || strlen(topic_filter) < 1)
-        return;
-    topic_tree_node* node = add_topic_or_find(topics, topic_filter, 1);
+        return retain_messages;
+    topic_path path = tmq_vec_make(topic_tree_node*);
+    topic_tree_node* node = add_topic_or_find(topics, topic_filter, 1, &path);
     assert(node != NULL);
     tmq_map_put(node->subscribers, client_id, qos);
+    /* find all retained messages that matches this subscription */
+    size_t i = 0; topic_tree_node* next;
+    do
+    {
+        next = *tmq_vec_at(path, i + 1);
+        if(strcmp(next->level_name, "+") != 0 && strcmp(next->level_name, "#") != 0)
+            i++;
+        else break;
+    } while(i < tmq_vec_size(path) - 1);
+    if(i == tmq_vec_size(path) - 1)
+        tmq_vec_push_back(retain_messages, &(*tmq_vec_at(path, i))->retain_message);
+    else
+    {
+
+    }
+    tmq_vec_free(path);
+    return retain_messages;
 }
 
 static void try_remove_topic(tmq_topics_t* topics, topic_tree_node* node)
@@ -107,7 +137,7 @@ static void try_remove_topic(tmq_topics_t* topics, topic_tree_node* node)
 
 void tmq_topics_remove_subscription(tmq_topics_t* topics, char* topic_filter, char* client_id)
 {
-    topic_tree_node* node = add_topic_or_find(topics, topic_filter, 0);
+    topic_tree_node* node = add_topic_or_find(topics, topic_filter, 0, NULL);
     if(!node)
     {
         tlog_warn("topic filter doesn't exist: %s", topic_filter);
