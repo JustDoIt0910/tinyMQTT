@@ -10,13 +10,14 @@ typedef enum session_state_e{OPEN, CLOSED} session_state_e;
 
 typedef struct tmq_session_s
 {
+    tmq_str_t client_id;
     tmq_tcp_conn_t* conn;
     session_state_e state;
     int clean_session;
-    topic_list topic_filters;
+    tmq_map(char*, uint8_t) subscriptions;
+    void* upstream;
 } tmq_session_t;
 
-tmq_session_t* tmq_session_new(tmq_tcp_conn_t* conn, int clean_session);
-void tmq_session_handle_subscribe(tmq_session_t* session, tmq_subscribe_pkt subscribe_pkt);
+tmq_session_t* tmq_session_new(void* upstream, tmq_tcp_conn_t* conn, tmq_str_t client_id, int clean_session);
 
 #endif //TINYMQTT_MQTT_SESSION_H

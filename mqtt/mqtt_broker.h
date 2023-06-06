@@ -19,7 +19,7 @@
 typedef tmq_map(char*, tmq_session_t*) tmq_session_map;
 typedef struct tmq_broker_s
 {
-    tmq_event_loop_t event_loop;
+    tmq_event_loop_t loop;
     tmq_acceptor_t acceptor;
     tmq_codec_t codec;
     int next_io_group;
@@ -30,10 +30,14 @@ typedef struct tmq_broker_s
 
     /* guarded by session_ctl_lk */
     session_ctl_list session_ctl_reqs;
+    /* guarded by message_ctl_lk */
+    message_ctl_list message_ctl_reqs;
 
     pthread_mutex_t session_ctl_lk;
+    pthread_mutex_t message_ctl_lk;
 
     tmq_notifier_t session_ctl_notifier;
+    tmq_notifier_t message_ctl_notifier;
 } tmq_broker_t;
 
 int tmq_broker_init(tmq_broker_t* broker, const char* cfg);

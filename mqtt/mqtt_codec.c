@@ -209,7 +209,7 @@ static decode_status parse_subscribe_packet(tmq_codec_t* codec, tmq_tcp_conn_t* 
         tmq_vec_push_back(subscribe_pkt.topics, pair);
     }
     tcp_conn_ctx* ctx = conn->context;
-    tmq_subsribe_pkt_print(&subscribe_pkt);
+    //tmq_subsribe_pkt_print(&subscribe_pkt);
 
     /* the subscription will always successs, so just send the ack right here. */
     tmq_suback_pkt sub_ack = {

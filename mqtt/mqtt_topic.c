@@ -106,7 +106,8 @@ static void find_retain_messages(topic_tree_node* node, size_t i, topic_path* pa
 {
     if(i == tmq_vec_size(*path))
     {
-        tmq_vec_push_back(*retain_msg, &node->retain_message);
+        if(node->retain_message.message)
+            tmq_vec_push_back(*retain_msg, &node->retain_message);
         return;
     }
     topic_tree_node* path_node = *tmq_vec_at(*path, i);

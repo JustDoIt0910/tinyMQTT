@@ -45,6 +45,24 @@ typedef struct session_connect_resp
 } session_connect_resp;
 typedef tmq_vec(session_connect_resp) connect_resp_list;
 
+typedef enum session_ctl_op_e
+{
+    SESSION_CONNECT,
+    SESSION_DISCONNECT,
+    SESSION_CLOSE
+} session_ctl_op;
+
+typedef struct session_ctl
+{
+    session_ctl_op op;
+    union
+    {
+        session_connect_req start_req;
+        tmq_session_t* session;
+    } context;
+} session_ctl;
+typedef tmq_vec(session_ctl) session_ctl_list;
+
 typedef struct tmq_message
 {
     tmq_str_t message;
@@ -53,22 +71,39 @@ typedef struct tmq_message
 typedef tmq_vec(tmq_message) message_list;
 typedef tmq_vec(tmq_message*) message_ptr_list;
 
-typedef enum session_ctl_op_e
+typedef struct subscribe_req
 {
-    SESSION_CONNECT,
-    SESSION_DISCONNECT,
-    SESSION_CLOSE
-} session_ctl_op_e;
+    tmq_str_t client_id;
+    topic_list topic_filters;
+} subscribe_req;
 
-typedef struct session_ctl
+typedef struct unsubscribe_req
 {
-    session_ctl_op_e op;
+
+} unsubscribe_req;
+
+typedef struct publish_req
+{
+
+} publish_req;
+
+typedef enum message_ctl_op_e
+{
+    SUBSCRIBE,
+    UNSUBSCRIBE,
+    PUBLISH
+} message_ctl_op;
+
+typedef struct message_ctl
+{
+    message_ctl_op op;
     union
     {
-        session_connect_req start_req;
-        tmq_session_t* session;
+        subscribe_req sub_req;
+        unsubscribe_req unsub_req;
+        publish_req pub_req;
     } context;
-} session_ctl;
-typedef tmq_vec(session_ctl) session_ctl_list;
+} message_ctl;
+typedef tmq_vec(message_ctl) message_ctl_list;
 
 #endif //TINYMQTT_MQTT_TYPES_H
