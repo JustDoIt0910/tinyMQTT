@@ -44,9 +44,17 @@ int tmq_vec_push_back_(tmq_vec_base_t* v, const void* elem)
     return 0;
 }
 
-int tmq_vec_insert_(tmq_vec_base_t* v, int index, const void* elem)
+void* tmq_vec_pop_back_(tmq_vec_base_t* v)
 {
-    if(!v || index < 0 || index > v->size)
+    if(!v || v->size == 0) return NULL;
+    void* ret = tmq_vec_get_(v, v->size - 1);
+    v->size--;
+    return ret;
+}
+
+int tmq_vec_insert_(tmq_vec_base_t* v, size_t index, const void* elem)
+{
+    if(!v || index > v->size)
         return -1;
     if(v->size >= v->cap)
     {
@@ -61,9 +69,9 @@ int tmq_vec_insert_(tmq_vec_base_t* v, int index, const void* elem)
     return 0;
 }
 
-int tmq_vec_erase_(tmq_vec_base_t* v, int index)
+int tmq_vec_erase_(tmq_vec_base_t* v, size_t index)
 {
-    if(!v || index < 0 || index >= v->size)
+    if(!v || index >= v->size)
         return -1;
     memmove(index_to_addr(v, index),
             index_to_addr(v, index + 1),
@@ -71,14 +79,14 @@ int tmq_vec_erase_(tmq_vec_base_t* v, int index)
     v->size--;
 }
 
-void* tmq_vec_get_(tmq_vec_base_t* v, int index)
+void* tmq_vec_get_(tmq_vec_base_t* v, size_t index)
 {
-    if(!v || index < 0 || index >= v->size)
+    if(!v || index >= v->size)
         return NULL;
     return index_to_addr(v, index);
 }
 
-int tmq_vec_set_(tmq_vec_base_t* v, int index, const void* elem)
+int tmq_vec_set_(tmq_vec_base_t* v, size_t index, const void* elem)
 {
     void* p = tmq_vec_get_(v, index);
     if(!p) return -1;

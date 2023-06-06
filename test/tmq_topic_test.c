@@ -16,11 +16,18 @@ int main()
 
     tmq_topics_add_subscription(&topics, "test/topic/+/1", "client1", 0);
     tmq_topics_add_subscription(&topics, "test/topic/1/+", "client2", 0);
-    tmq_topics_add_subscription(&topics, "test/#", "client3", 0);
+    tmq_topics_add_subscription(&topics, "test/topic", "client3", 0);
+    tmq_topics_add_subscription(&topics, "test/topic", "client5", 1);
+    tmq_topics_add_subscription(&topics, "test/#", "client4", 0);
 
-    tmq_message message = {
-            .message = tmq_str_new("message"),
-            .qos = 1
-    };
-    tmq_topics_publish(&topics, 0, "/test/", &message, 0);
+
+//    tmq_message message = {
+//            .message = tmq_str_new("message"),
+//            .qos = 1
+//    };
+//    tmq_topics_publish(&topics, 0, "test/topic", &message, 1);
+
+    tmq_topics_remove_subscription(&topics, "test/topic/+/1", "client1");
+
+    tmq_topics_info(&topics);
 }

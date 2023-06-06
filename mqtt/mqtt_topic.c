@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <stdio.h>
 
 static topic_tree_node* topic_tree_node_new(topic_tree_node* parent, char* level_name)
 {
@@ -15,18 +16,14 @@ static topic_tree_node* topic_tree_node_new(topic_tree_node* parent, char* level
     node->level_name = tmq_str_new(level_name);
     node->retain_message.message = NULL;
     tmq_map_str_init(&node->childs, topic_tree_node*, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
-    /* parent == NULL means that this node is the root,
-     * no subscribers will be added on it. */
-    if(parent)
-        tmq_map_str_init(&node->subscribers, uint8_t, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
+    tmq_map_str_init(&node->subscribers, uint8_t, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
     return node;
 }
 
 static void topic_tree_node_free(topic_tree_node* node)
 {
     tmq_map_free(node->childs);
-    if(node->parent)
-        tmq_map_free(node->subscribers);
+    tmq_map_free(node->subscribers);
     tmq_str_free(node->level_name);
     free(node);
 }
@@ -205,7 +202,46 @@ void tmq_topics_publish(tmq_topics_t* topics, int sys, char* topic, tmq_message*
     tmq_vec_free(levels);
 }
 
+static void topic_info(topic_tree_node* node, str_vec* levels)
+{
+    tmq_map_iter_t it = tmq_map_iter(node->childs);
+    for(; tmq_map_has_next(it); tmq_map_next(node->childs, it))
+    {
+        char* next_level = it.first;
+        topic_tree_node* next = *(topic_tree_node**) it.second;
+        tmq_vec_push_back(*levels, tmq_str_new(next_level));
+        topic_info(next, levels);
+        tmq_str_free(*tmq_vec_pop_back(*levels));
+    }
+    if(tmq_map_size(node->subscribers) > 0 || node->retain_message.message)
+    {
+        for(size_t i = 0; i < tmq_vec_size(*levels); i++)
+        {
+            printf("%s", *tmq_vec_at(*levels, i));
+            if(i < tmq_vec_size(*levels) - 1)
+                printf("/");
+        }
+        printf("\nsubscribers:");
+
+        it = tmq_map_iter(node->subscribers);
+        for(; tmq_map_has_next(it); tmq_map_next(node->subscribers, it))
+        {
+            char* client_id = it.first;
+            uint8_t required_qos = *(uint8_t*) it.second;
+            printf("<%s, %u> ", client_id, required_qos);
+        }
+        printf("\n");
+        if(node->retain_message.message)
+            printf("retain message: %s", node->retain_message.message);
+    }
+}
+
 void tmq_topics_info(tmq_topics_t* topics)
 {
-
+    str_vec levels = tmq_vec_make(tmq_str_t);
+    topic_info(topics->topic_tree_root, &levels);
+    printf("\n");
+    tmq_vec_clear(levels);
+    topic_info(topics->sys_topic_tree_root, &levels);
+    tmq_vec_free(levels);
 }
