@@ -8,6 +8,8 @@
 #include <assert.h>
 #include <stdio.h>
 
+typedef tmq_vec(topic_tree_node*) topic_path;
+
 static topic_tree_node* topic_tree_node_new(topic_tree_node* parent, char* level_name)
 {
     topic_tree_node* node = malloc(sizeof(topic_tree_node));
@@ -47,8 +49,6 @@ static topic_tree_node* find_or_create(topic_tree_node* cur, tmq_str_t level, in
     return new_next;
 }
 
-typedef tmq_vec(topic_tree_node*) topic_path;
-
 static topic_tree_node* add_topic_or_find(tmq_topics_t* topics, char* topic_filter, int add, topic_path* path)
 {
     char* lp = topic_filter, *rp = lp;
@@ -86,9 +86,51 @@ static topic_tree_node* add_topic_or_find(tmq_topics_t* topics, char* topic_filt
     return node;
 }
 
+/* retrieve all retained messages from the sub-topic */
+static void get_all_retain(topic_tree_node* node, message_ptr_list* retain_msg)
+{
+    if(node->retain_message.message)
+        tmq_vec_push_back(*retain_msg, &node->retain_message);
+    tmq_map_iter_t it = tmq_map_iter(node->childs);
+    for(; tmq_map_has_next(it); tmq_map_next(node->childs, it))
+    {
+        char* next_level = it.first;
+        if(!strcmp(next_level, "+") || !strcmp(next_level, "#"))
+            continue;
+        topic_tree_node* next = *(topic_tree_node**) it.second;
+        get_all_retain(next, retain_msg);
+    }
+}
+
 static void find_retain_messages(topic_tree_node* node, size_t i, topic_path* path, message_ptr_list* retain_msg)
 {
-    
+    if(i == tmq_vec_size(*path))
+    {
+        tmq_vec_push_back(*retain_msg, &node->retain_message);
+        return;
+    }
+    topic_tree_node* path_node = *tmq_vec_at(*path, i);
+    /* if the subscription path contains single-level wildcards,
+     * find retained messages in all matching sub-topics */
+    if(!strcmp(path_node->level_name, "+"))
+    {
+        tmq_map_iter_t it = tmq_map_iter(node->childs);
+        for(; tmq_map_has_next(it); tmq_map_next(node->childs, it))
+        {
+            char* next_level = it.first;
+            if(!strcmp(next_level, "+") || !strcmp(next_level, "#"))
+                continue;
+            topic_tree_node* next = *(topic_tree_node**) it.second;
+            find_retain_messages(next, i + 1, path, retain_msg);
+        }
+    }
+    else if(!strcmp(path_node->level_name, "#"))
+        get_all_retain(node, retain_msg);
+    else
+    {
+        topic_tree_node** next = tmq_map_get(node->childs, path_node->level_name);
+        if(next) find_retain_messages(*next, i + 1, path, retain_msg);
+    }
 }
 
 message_ptr_list tmq_topics_add_subscription(tmq_topics_t* topics, char* topic_filter, char* client_id, uint8_t qos)
@@ -112,9 +154,7 @@ message_ptr_list tmq_topics_add_subscription(tmq_topics_t* topics, char* topic_f
     if(i == tmq_vec_size(path) - 1)
         tmq_vec_push_back(retain_messages, &(*tmq_vec_at(path, i))->retain_message);
     else
-    {
-
-    }
+        find_retain_messages(*tmq_vec_at(path, i), i + 1, &path, &retain_messages);
     tmq_vec_free(path);
     return retain_messages;
 }
@@ -245,6 +285,7 @@ static void topic_info(topic_tree_node* node, str_vec* levels)
     }
     if(tmq_map_size(node->subscribers) > 0 || node->retain_message.message)
     {
+        printf("--------------------\n");
         for(size_t i = 0; i < tmq_vec_size(*levels); i++)
         {
             printf("%s", *tmq_vec_at(*levels, i));
@@ -262,7 +303,7 @@ static void topic_info(topic_tree_node* node, str_vec* levels)
         }
         printf("\n");
         if(node->retain_message.message)
-            printf("retain message: %s", node->retain_message.message);
+            printf("retain message: %s\n", node->retain_message.message);
     }
 }
 
@@ -270,8 +311,9 @@ void tmq_topics_info(tmq_topics_t* topics)
 {
     str_vec levels = tmq_vec_make(tmq_str_t);
     topic_info(topics->topic_tree_root, &levels);
-    printf("\n");
+    printf("--------------------\n");
     tmq_vec_clear(levels);
     topic_info(topics->sys_topic_tree_root, &levels);
+    printf("--------------------\n");
     tmq_vec_free(levels);
 }
