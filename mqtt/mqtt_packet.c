@@ -3,19 +3,48 @@
 //
 #include "mqtt_packet.h"
 #include "tlog.h"
+#include <stdlib.h>
 
-void tmq_connect_pkt_cleanup(tmq_connect_pkt* pkt)
+void tmq_connect_pkt_cleanup(void* pkt)
 {
-    tmq_str_free(pkt->client_id);
-    tmq_str_free(pkt->will_topic);
-    tmq_str_free(pkt->will_message);
-    tmq_str_free(pkt->username);
-    tmq_str_free(pkt->password);
+    tmq_connect_pkt* connect_pkt = pkt;
+    tmq_str_free(connect_pkt->client_id);
+    tmq_str_free(connect_pkt->will_topic);
+    tmq_str_free(connect_pkt->will_message);
+    tmq_str_free(connect_pkt->username);
+    tmq_str_free(connect_pkt->password);
 }
 
-void tmq_subscribe_pkt_cleanup(tmq_subscribe_pkt* pkt) {tmq_vec_free(pkt->topics);}
+void tmq_subscribe_pkt_cleanup(void* pkt)
+{
+    tmq_subscribe_pkt* sub_pkt = pkt;
+    topic_filter_qos* tf = tmq_vec_begin(sub_pkt->topics);
+    for(; tf != tmq_vec_end(sub_pkt->topics); tf++)
+        tmq_str_free(tf->topic_filter);
+    tmq_vec_free(sub_pkt->topics);
+}
 
-void tmq_suback_pkt_cleanup(tmq_suback_pkt* pkt) { tmq_vec_free(pkt->return_codes);}
+void tmq_suback_pkt_cleanup(void* pkt)
+{
+    tmq_suback_pkt* suback_pkt = pkt;
+    tmq_vec_free(suback_pkt->return_codes);
+}
+
+static void(*any_packet_cleanup_fps[])(void* pkt) = {
+        NULL, tmq_connect_pkt_cleanup, NULL,
+        NULL, NULL, NULL, NULL, NULL,
+        tmq_subscribe_pkt_cleanup, tmq_suback_pkt_cleanup,
+        NULL, NULL,
+        NULL, NULL,
+        NULL
+};
+
+void tmq_any_pkt_cleanup(tmq_any_packet_t* any_pkt)
+{
+    if(any_packet_cleanup_fps[any_pkt->packet_type])
+        any_packet_cleanup_fps[any_pkt->packet_type](any_pkt->packet);
+    free(any_pkt->packet);
+}
 
 void tmq_connect_pkt_print(tmq_connect_pkt* pkt)
 {

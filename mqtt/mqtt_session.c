@@ -31,7 +31,9 @@ void tmq_session_handle_subscribe(tmq_session_t* session, tmq_subscribe_pkt subs
         tmq_map_put(session->subscriptions, tf->topic_filter, tf->qos);
     subscribe_req req = {
             .client_id = tmq_str_new(session->client_id),
-            .topic_filters = subscribe_pkt.topics
+            .topic_filters = tmq_vec_make(topic_filter_qos)
     };
+    tmq_vec_swap(req.topic_filters, subscribe_pkt.topics);
+    tmq_subscribe_pkt_cleanup(&subscribe_pkt);
     mqtt_subscribe_request((tmq_broker_t*)session->upstream, &req);
 }

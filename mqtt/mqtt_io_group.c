@@ -67,6 +67,8 @@ static void tcp_checkalive(void* arg)
     tmq_vec_free(timeout_conns);
 }
 
+extern void tcp_conn_ctx_cleanup(void* arg);
+
 static void handle_new_connection(void* arg)
 {
     tmq_io_group_t* group = arg;
@@ -83,12 +85,12 @@ static void handle_new_connection(void* arg)
         conn->state = CONNECTED;
 
         tcp_conn_ctx* conn_ctx = malloc(sizeof(tcp_conn_ctx));
-        tmq_vec_init(&conn_ctx->pending_packets, tmq_packet_t);
+        tmq_vec_init(&conn_ctx->pending_packets, tmq_any_packet_t);
         conn_ctx->upstream.broker = group->broker;
         conn_ctx->conn_state = NO_SESSION;
         conn_ctx->parsing_ctx.state = PARSING_FIXED_HEADER;
         conn_ctx->last_msg_time = time_now();
-        tmq_tcp_conn_set_context(conn, conn_ctx);
+        tmq_tcp_conn_set_context(conn, conn_ctx, tcp_conn_ctx_cleanup);
 
         char conn_name[50];
         tmq_tcp_conn_id(conn, conn_name, sizeof(conn_name));
@@ -151,6 +153,11 @@ static void handle_new_session(void* arg)
     tmq_vec_free(resps);
 }
 
+static void send_packets(void* arg)
+{
+
+}
+
 void tmq_io_group_init(tmq_io_group_t* group, tmq_broker_t* broker)
 {
     group->broker = broker;
@@ -164,12 +171,16 @@ void tmq_io_group_init(tmq_io_group_t* group, tmq_broker_t* broker)
         fatal_error("pthread_mutex_init() error %d: %s", errno, strerror(errno));
     if(pthread_mutex_init(&group->connect_resp_lk, NULL))
         fatal_error("pthread_mutex_init() error %d: %s", errno, strerror(errno));
+    if(pthread_mutex_init(&group->sending_packets_lk, NULL))
+        fatal_error("pthread_mutex_init() error %d: %s", errno, strerror(errno));
 
     tmq_vec_init(&group->pending_conns, tmq_socket_t);
     tmq_vec_init(&group->connect_resp, session_connect_resp);
+    tmq_vec_init(&group->sending_packets, tmq_any_packet_t);
 
     tmq_notifier_init(&group->new_conn_notifier, &group->loop, handle_new_connection, group);
     tmq_notifier_init(&group->connect_resp_notifier, &group->loop, handle_new_session, group);
+    tmq_notifier_init(&group->sending_packets_notifier, &group->loop, send_packets, group);
 }
 
 static void* io_group_thread_func(void* arg)

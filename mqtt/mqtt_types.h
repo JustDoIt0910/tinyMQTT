@@ -7,7 +7,7 @@
 #include "base/mqtt_vec.h"
 #include "mqtt/mqtt_codec.h"
 
-typedef tmq_vec(tmq_packet_t) pending_packet_list;
+typedef tmq_vec(tmq_any_packet_t) packet_list;
 typedef enum conn_state_e
 {
     NO_SESSION,
@@ -26,9 +26,8 @@ typedef struct tcp_conn_ctx_s
     } upstream;
     conn_state_e conn_state;
     pkt_parsing_ctx parsing_ctx;
-    pending_packet_list pending_packets;
+    packet_list pending_packets;
 } tcp_conn_ctx;
-
 
 typedef struct session_connect_req
 {

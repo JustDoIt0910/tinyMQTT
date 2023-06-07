@@ -70,7 +70,7 @@ void tmq_tcp_conn_free(tmq_tcp_conn_t* conn)
     tmq_buffer_free(&conn->in_buffer);
     tmq_buffer_free(&conn->out_buffer);
 
-    tmq_tcp_conn_set_context(conn, NULL);
+    tmq_tcp_conn_set_context(conn, NULL, NULL);
     tmq_socket_close(conn->fd);
 
     char conn_name[50];
@@ -161,12 +161,16 @@ int tmq_tcp_conn_id(tmq_tcp_conn_t* conn, char* buf, size_t buf_size)
     return ret;
 }
 
-void tmq_tcp_conn_set_context(tmq_tcp_conn_t* conn, void* ctx)
+void tmq_tcp_conn_set_context(tmq_tcp_conn_t* conn, void* ctx, context_cleanup_cb clean_up)
 {
     if(!conn) return;
     if(conn->context)
+    {
+        conn->ctx_clean_up(conn->context);
         free(conn->context);
+    }
     conn->context = ctx;
+    conn->ctx_clean_up = clean_up;
 }
 
 tmq_tcp_conn_t* get_ref(tmq_tcp_conn_t* conn)

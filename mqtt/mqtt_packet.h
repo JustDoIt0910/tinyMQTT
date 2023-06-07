@@ -17,11 +17,11 @@ typedef enum tmq_packet_type_e
     MQTT_DISCONNECT
 } tmq_packet_type;
 
-typedef struct tmq_packet_t
+typedef struct tmq_any_packet_s
 {
     tmq_packet_type packet_type;
     void* packet;
-} tmq_packet_t;
+} tmq_any_packet_t;
 
 typedef struct tmq_connect_pkt
 {
@@ -127,9 +127,12 @@ typedef struct tmq_disconnect_pkt
 
 } tmq_disconnect_pkt;
 
-void tmq_connect_pkt_cleanup(tmq_connect_pkt* pkt);
-void tmq_subscribe_pkt_cleanup(tmq_subscribe_pkt* pkt);
-void tmq_suback_pkt_cleanup(tmq_suback_pkt* pkt);
+void tmq_connect_pkt_cleanup(void* pkt);
+void tmq_subscribe_pkt_cleanup(void* pkt);
+void tmq_suback_pkt_cleanup(void* pkt);
+
+void tmq_any_pkt_cleanup(tmq_any_packet_t* any_pkt);
+
 /* for debug */
 void tmq_connect_pkt_print(tmq_connect_pkt* pkt);
 void tmq_subsribe_pkt_print(tmq_subscribe_pkt* pkt);
