@@ -24,8 +24,13 @@ void tmq_subscribe_pkt_cleanup(void* pkt)
     tmq_vec_free(sub_pkt->topics);
 }
 
-/* the structure of unsubscribe and subscribe packet is identical  */
-void tmq_unsubscribe_pkt_cleanup(void* pkt) {tmq_subscribe_pkt_cleanup(pkt);}
+void tmq_unsubscribe_pkt_cleanup(void* pkt)
+{
+    tmq_unsubscribe_pkt* unsub_pkt = pkt;
+    for(tmq_str_t* topic = tmq_vec_begin(unsub_pkt->topics); topic != tmq_vec_end(unsub_pkt->topics); topic++)
+        tmq_str_free(*topic);
+    tmq_vec_free(unsub_pkt->topics);
+}
 
 void tmq_suback_pkt_cleanup(void* pkt)
 {

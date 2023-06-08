@@ -213,7 +213,6 @@ static decode_status parse_subscribe_packet(tmq_codec_t* codec, tmq_tcp_conn_t* 
         tmq_vec_push_back(subscribe_pkt.topics, pair);
     }
     tcp_conn_ctx* ctx = conn->context;
-    //tmq_subsribe_pkt_print(&subscribe_pkt);
 
     codec->on_subsribe(ctx->upstream.session, &subscribe_pkt);
     return DECODE_OK;
@@ -231,7 +230,7 @@ static decode_status parse_unsubscribe_packet(tmq_codec_t* codec, tmq_tcp_conn_t
     if(codec->type != SERVER_CODEC)
         return UNEXPECTED_PACKET;
     tmq_unsubscribe_pkt unsubscribe_pkt;
-    tmq_vec_init(&unsubscribe_pkt.topics, topic_filter_qos);
+    tmq_vec_init(&unsubscribe_pkt.topics, tmq_str_t);
 
     tmq_buffer_read16(buffer, &unsubscribe_pkt.packet_id);
     len -= 2;
@@ -241,20 +240,11 @@ static decode_status parse_unsubscribe_packet(tmq_codec_t* codec, tmq_tcp_conn_t
         tmq_buffer_read16(buffer, &tf_len);
         tmq_str_t topic_filter = tmq_str_new_len(NULL, tf_len);
         tmq_buffer_read(buffer, topic_filter, tf_len);
-        uint8_t qos = 0;
-        tmq_buffer_read(buffer, (char*) &qos, 1);
-        len -= 2 + tf_len + 1;
-        if(qos > 2)
-        {
-            tmq_unsubscribe_pkt_cleanup(&unsubscribe_pkt);
-            return PROTOCOL_ERROR;
-        }
-        topic_filter_qos pair = {
-                .topic_filter = topic_filter,
-                .qos = qos
-        };
-        tmq_vec_push_back(unsubscribe_pkt.topics, pair);
+        len -= 2 + tf_len;
+        tmq_vec_push_back(unsubscribe_pkt.topics, topic_filter);
     }
+    tcp_conn_ctx* ctx = conn->context;
+    codec->on_unsubcribe(ctx->upstream.session, &unsubscribe_pkt);
     return DECODE_OK;
 }
 
@@ -357,6 +347,7 @@ extern void mqtt_connect_request(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq
 extern void mqtt_disconnect_request(tmq_broker_t* broker, tmq_session_t* session);
 
 extern void tmq_session_handle_subscribe(tmq_session_t* session, tmq_subscribe_pkt* subscribe_pkt);
+extern void tmq_session_handle_unsubscribe(tmq_session_t* session, tmq_unsubscribe_pkt* unsubscribe_pkt);
 
 void tmq_codec_init(tmq_codec_t* codec, tmq_codec_type type)
 {
@@ -365,6 +356,7 @@ void tmq_codec_init(tmq_codec_t* codec, tmq_codec_type type)
     codec->on_connect = mqtt_connect_request;
     codec->on_disconnect = mqtt_disconnect_request;
     codec->on_subsribe = tmq_session_handle_subscribe;
+    codec->on_unsubcribe = tmq_session_handle_unsubscribe;
 }
 
 typedef tmq_vec(uint8_t) packet_buf;
@@ -468,7 +460,18 @@ void send_unsubscribe_packet(tmq_tcp_conn_t* conn, void* pkt)
 
 void send_unsuback_packet(tmq_tcp_conn_t* conn, void* pkt)
 {
-
+    tmq_unsuback_pkt* unsuback_pkt = pkt;
+    packet_buf buf = tmq_vec_make(uint8_t);
+    if(make_fixed_header(MQTT_UNSUBACK, 0, 2, &buf) < 0)
+    {
+        tmq_vec_free(buf);
+        return;
+    }
+    uint16_t packet_id = htobe16(unsuback_pkt->packet_id);
+    tmq_vec_push_back(buf, packet_id & 0xFF);  /* MSB */
+    tmq_vec_push_back(buf, (packet_id >> 8) & 0xFF);  /* LSB */
+    tmq_tcp_conn_write(conn, (char*) tmq_vec_begin(buf), tmq_vec_size(buf));
+    tmq_vec_free(buf);
 }
 
 void send_pingreq_packet(tmq_tcp_conn_t* conn, void* pkt)

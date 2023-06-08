@@ -157,13 +157,13 @@ static void send_packets(void* arg)
 {
     tmq_io_group_t *group = arg;
 
-    packet_list packets = tmq_vec_make(tmq_any_packet_t);
+    packet_send_list packets = tmq_vec_make(packet_send_req);
     pthread_mutex_lock(&group->sending_packets_lk);
     tmq_vec_swap(packets, group->sending_packets);
     pthread_mutex_unlock(&group->sending_packets_lk);
 
-    packet_send_req* req = tmq_vec_begin(group->sending_packets);
-    for(; req != tmq_vec_end(group->sending_packets); req++)
+    packet_send_req* req = tmq_vec_begin(packets);
+    for(; req != tmq_vec_end(packets); req++)
     {
         tcp_conn_ctx* ctx = req->conn->context;
         if(req->conn->state == CONNECTED && ctx->conn_state == IN_SESSION)

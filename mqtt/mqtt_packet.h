@@ -105,12 +105,12 @@ typedef struct tmq_suback_pkt
 typedef struct tmq_unsubscribe_pkt
 {
     uint16_t packet_id;
-    topic_list topics;
+    str_vec topics;
 } tmq_unsubscribe_pkt;
 
 typedef struct tmq_unsuback_pkt
 {
-
+    uint16_t packet_id;
 } tmq_unsuback_pkt;
 
 typedef struct tmq_pingreq_pkt

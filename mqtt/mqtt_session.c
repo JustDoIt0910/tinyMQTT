@@ -9,7 +9,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern void mqtt_subscribe_unsubscribe_request(tmq_broker_t* broker, subscribe_unsubscribe_req* sub_unsub_req);
+extern void mqtt_subscribe_unsubscribe_request(tmq_broker_t* broker, subscribe_unsubscribe_req* sub_unsub_req,
+                                               message_ctl_op op);
 
 tmq_session_t* tmq_session_new(void* upstream, tmq_tcp_conn_t* conn, tmq_str_t client_id, int clean_session)
 {
@@ -34,7 +35,18 @@ void tmq_session_handle_subscribe(tmq_session_t* session, tmq_subscribe_pkt* sub
             .client_id = tmq_str_new(session->client_id),
             .sub_unsub_pkt.subscribe_pkt = *subscribe_pkt
     };
-    mqtt_subscribe_unsubscribe_request((tmq_broker_t*)session->upstream, &req);
+    mqtt_subscribe_unsubscribe_request((tmq_broker_t*)session->upstream, &req, SUBSCRIBE);
+}
+
+void tmq_session_handle_unsubscribe(tmq_session_t* session, tmq_unsubscribe_pkt* unsubscribe_pkt)
+{
+    for(tmq_str_t* tf = tmq_vec_begin(unsubscribe_pkt->topics); tf != tmq_vec_end(unsubscribe_pkt->topics); tf++)
+        tmq_map_erase(session->subscriptions, *tf);
+    subscribe_unsubscribe_req req = {
+            .client_id = tmq_str_new(session->client_id),
+            .sub_unsub_pkt.unsubscribe_pkt = *unsubscribe_pkt
+    };
+    mqtt_subscribe_unsubscribe_request((tmq_broker_t*)session->upstream, &req, UNSUBSCRIBE);
 }
 
 void tmq_session_send_packet(tmq_session_t* session, tmq_any_packet_t* pkt)

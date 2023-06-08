@@ -191,37 +191,51 @@ static void handle_message_ctl(void* arg)
 
     for(message_ctl * ctl = tmq_vec_begin(ctls); ctl != tmq_vec_end(ctls); ctl++)
     {
-        if(ctl->op == SUBSCRIBE)
+        if(ctl->op == SUBSCRIBE || ctl->op == UNSUBSCRIBE)
         {
             subscribe_unsubscribe_req req = ctl->context.sub_unsub_req;
             tmq_session_t** session = tmq_map_get(broker->sessions, req.client_id);
             if(!session || (*session)->state == CLOSED)
                 continue;
 
-            /* the subscription will always success. */
-            tmq_suback_pkt* sub_ack = malloc(sizeof(tmq_suback_pkt));
-            sub_ack->packet_id = req.sub_unsub_pkt.subscribe_pkt.packet_id;
-
-            topic_filter_qos* tf = tmq_vec_begin(req.sub_unsub_pkt.subscribe_pkt.topics);
-            for(; tf != tmq_vec_end(req.sub_unsub_pkt.subscribe_pkt.topics); tf++)
+            tmq_any_packet_t ack;
+            if(ctl->op == SUBSCRIBE)
             {
-                tlog_info("subscribe{client=%s, topic=%s, qos=%u}", req.client_id, tf->topic_filter, tf->qos);
-                message_ptr_list retain = tmq_topics_add_subscription(&broker->topics_tree, tf->topic_filter,
-                                                                      req.client_id, tf->qos);
-                tmq_vec_push_back(sub_ack->return_codes, tf->qos);
+                /* the subscription will always success. */
+                tmq_suback_pkt* sub_ack = malloc(sizeof(tmq_suback_pkt));
+                sub_ack->packet_id = req.sub_unsub_pkt.subscribe_pkt.packet_id;
+
+                topic_filter_qos* tf = tmq_vec_begin(req.sub_unsub_pkt.subscribe_pkt.topics);
+                for(; tf != tmq_vec_end(req.sub_unsub_pkt.subscribe_pkt.topics); tf++)
+                {
+                    tlog_info("subscribe{client=%s, topic=%s, qos=%u}", req.client_id, tf->topic_filter, tf->qos);
+                    message_ptr_list retain = tmq_topics_add_subscription(&broker->topics_tree, tf->topic_filter,
+                                                                          req.client_id, tf->qos);
+                    tmq_vec_push_back(sub_ack->return_codes, tf->qos);
+                }
+                tmq_subscribe_pkt_cleanup(&req.sub_unsub_pkt.subscribe_pkt);
+                ack.packet_type = MQTT_SUBACK;
+                ack.packet = sub_ack;
+                tmq_session_send_packet(*session, &ack);
+                /* todo: send retain messages */
+            }
+            else
+            {
+                tmq_unsuback_pkt* unsub_ack = malloc(sizeof(tmq_unsuback_pkt));
+                unsub_ack->packet_id = req.sub_unsub_pkt.unsubscribe_pkt.packet_id;
+
+                tmq_str_t* tf = tmq_vec_begin(req.sub_unsub_pkt.unsubscribe_pkt.topics);
+                for(; tf != tmq_vec_end(req.sub_unsub_pkt.unsubscribe_pkt.topics); tf++)
+                {
+                    tlog_info("unsubscribe{client=%s, topic=%s}", req.client_id, *tf);
+                    tmq_topics_remove_subscription(&broker->topics_tree, *tf, req.client_id);
+                }
+                tmq_unsubscribe_pkt_cleanup(&req.sub_unsub_pkt.unsubscribe_pkt);
+                ack.packet_type = MQTT_UNSUBACK;
+                ack.packet = unsub_ack;
+                tmq_session_send_packet(*session, &ack);
             }
             tmq_str_free(req.client_id);
-            tmq_subscribe_pkt_cleanup(&req.sub_unsub_pkt.subscribe_pkt);
-
-            tmq_any_packet_t pkt = {
-                    .packet_type = MQTT_SUBACK,
-                    .packet = sub_ack
-            };
-            tmq_session_send_packet(*session, &pkt);
-        }
-        else if(ctl->op == UNSUBSCRIBE)
-        {
-
         }
         else
         {
@@ -260,10 +274,11 @@ void mqtt_disconnect_request(tmq_broker_t* broker, tmq_session_t* session)
     tmq_notifier_notify(&broker->session_ctl_notifier);
 }
 
-void mqtt_subscribe_unsubscribe_request(tmq_broker_t* broker, subscribe_unsubscribe_req* sub_unsub_req)
+void mqtt_subscribe_unsubscribe_request(tmq_broker_t* broker, subscribe_unsubscribe_req* sub_unsub_req,
+                                        message_ctl_op op)
 {
     message_ctl ctl = {
-            .op = SUBSCRIBE,
+            .op = op,
             .context.sub_unsub_req = *sub_unsub_req
     };
     pthread_mutex_lock(&broker->message_ctl_lk);
