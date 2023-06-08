@@ -20,9 +20,6 @@ typedef struct tmq_fixed_header
 
 #define PACKET_TYPE(header) (((header).type_flags >> 4) & 0x0F)
 #define FLAGS(header)       (((header).type_flags) & 0x0F)
-#define DUP(header)         (((header).type_flags) & 0x08)
-#define QOS(header)         (((header).type_flags) & 0x06)
-#define RETAIN(header)      (((header).type_flags) & 0x01)
 
 typedef void (*tcp_message_decoder_f) (tmq_codec_t* codec, tmq_tcp_conn_t* conn, tmq_buffer_t* buffer);
 typedef void (*connect_pkt_cb) (tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt* connect_pkt);

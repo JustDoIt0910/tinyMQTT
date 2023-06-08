@@ -211,6 +211,7 @@ static void handle_message_ctl(void* arg)
                     tlog_info("subscribe{client=%s, topic=%s, qos=%u}", req.client_id, tf->topic_filter, tf->qos);
                     message_ptr_list retain = tmq_topics_add_subscription(&broker->topics_tree, tf->topic_filter,
                                                                           req.client_id, tf->qos);
+                    tmq_topics_info(&broker->topics_tree);
                     tmq_vec_push_back(sub_ack->return_codes, tf->qos);
                 }
                 tmq_subscribe_pkt_cleanup(&req.sub_unsub_pkt.subscribe_pkt);
@@ -229,6 +230,7 @@ static void handle_message_ctl(void* arg)
                 {
                     tlog_info("unsubscribe{client=%s, topic=%s}", req.client_id, *tf);
                     tmq_topics_remove_subscription(&broker->topics_tree, *tf, req.client_id);
+                    tmq_topics_info(&broker->topics_tree);
                 }
                 tmq_unsubscribe_pkt_cleanup(&req.sub_unsub_pkt.unsubscribe_pkt);
                 ack.packet_type = MQTT_UNSUBACK;

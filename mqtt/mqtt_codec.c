@@ -155,6 +155,27 @@ static decode_status parse_connack_packet(tmq_codec_t* codec, tmq_tcp_conn_t* co
 static decode_status parse_publish_packet(tmq_codec_t* codec, tmq_tcp_conn_t* conn,
                                           tmq_buffer_t* buffer, uint32_t len)
 {
+    tmq_publish_pkt publish_pkt;
+    tcp_conn_ctx* ctx = conn->context;
+    publish_pkt.flags = FLAGS(ctx->parsing_ctx.fixed_header);
+    uint16_t topic_name_len;
+    tmq_buffer_read16(buffer, &topic_name_len);
+    publish_pkt.topic = tmq_str_new_len(NULL, topic_name_len);
+    tmq_buffer_read(buffer, (char*) &publish_pkt.topic, topic_name_len);
+    ssize_t payload_len = len - 2 - topic_name_len;
+
+    if(PUBLISH_QOS(publish_pkt.flags) != 0)
+    {
+        tmq_buffer_read16(buffer, &publish_pkt.packet_id);
+        payload_len -= 2;
+    }
+
+    if(payload_len < 0)
+        return BAD_PACKET_FORMAT;
+    publish_pkt.payload = tmq_str_new_len(NULL, payload_len);
+    tmq_buffer_read(buffer, (char*) &publish_pkt.payload, payload_len);
+
+    codec->on_publish(ctx->upstream.session, &publish_pkt);
     return DECODE_OK;
 }
 
@@ -348,6 +369,7 @@ extern void mqtt_disconnect_request(tmq_broker_t* broker, tmq_session_t* session
 
 extern void tmq_session_handle_subscribe(tmq_session_t* session, tmq_subscribe_pkt* subscribe_pkt);
 extern void tmq_session_handle_unsubscribe(tmq_session_t* session, tmq_unsubscribe_pkt* unsubscribe_pkt);
+extern void tmq_session_handle_publish(tmq_session_t* session, tmq_publish_pkt* publish_pkt);
 
 void tmq_codec_init(tmq_codec_t* codec, tmq_codec_type type)
 {
@@ -357,6 +379,7 @@ void tmq_codec_init(tmq_codec_t* codec, tmq_codec_type type)
     codec->on_disconnect = mqtt_disconnect_request;
     codec->on_subsribe = tmq_session_handle_subscribe;
     codec->on_unsubcribe = tmq_session_handle_unsubscribe;
+    codec->on_publish = tmq_session_handle_publish;
 }
 
 typedef tmq_vec(uint8_t) packet_buf;

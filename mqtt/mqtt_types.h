@@ -18,7 +18,6 @@ typedef enum conn_state_e
 typedef struct tmq_broker_s tmq_broker_t;
 typedef struct tcp_conn_ctx_s
 {
-    int64_t last_msg_time;
     union
     {
         tmq_broker_t* broker;
@@ -26,6 +25,7 @@ typedef struct tcp_conn_ctx_s
     } upstream;
     conn_state_e conn_state;
     pkt_parsing_ctx parsing_ctx;
+    int64_t last_msg_time;
     packet_list pending_packets;
 } tcp_conn_ctx;
 

@@ -49,6 +49,11 @@ void tmq_session_handle_unsubscribe(tmq_session_t* session, tmq_unsubscribe_pkt*
     mqtt_subscribe_unsubscribe_request((tmq_broker_t*)session->upstream, &req, UNSUBSCRIBE);
 }
 
+void tmq_session_handle_publish(tmq_session_t* session, tmq_publish_pkt* publish_pkt)
+{
+
+}
+
 void tmq_session_send_packet(tmq_session_t* session, tmq_any_packet_t* pkt)
 {
     tmq_io_group_t* group = session->conn->group;

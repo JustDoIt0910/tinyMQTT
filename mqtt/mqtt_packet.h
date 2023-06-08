@@ -61,8 +61,15 @@ typedef struct tmq_connack_pkt
 
 typedef struct tmq_publish_pkt
 {
-
+    uint8_t flags;
+    tmq_str_t topic;
+    uint16_t packet_id; /* only for qos 1 and 2 */
+    tmq_str_t payload;
 } tmq_publish_pkt;
+
+#define PUBLISH_QOS(flags)      (((flags) >> 1) & 0x03)
+#define PUBLISH_DUP(flags)      ((flags) & 0x08)
+#define PUBLISH_RETAIN(flags)   ((flags) & 0x01)
 
 typedef struct tmq_puback_pkt
 {
