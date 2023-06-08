@@ -136,6 +136,7 @@ typedef struct tmq_disconnect_pkt
 } tmq_disconnect_pkt;
 
 void tmq_connect_pkt_cleanup(void* pkt);
+void tmq_publish_pkt_cleanup(void* pkt);
 void tmq_subscribe_pkt_cleanup(void* pkt);
 void tmq_unsubscribe_pkt_cleanup(void* pkt);
 void tmq_suback_pkt_cleanup(void* pkt);

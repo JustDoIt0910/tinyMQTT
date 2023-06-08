@@ -5,8 +5,10 @@
 #ifndef TINYMQTT_MQTT_SESSION_H
 #define TINYMQTT_MQTT_SESSION_H
 #include "net/mqtt_tcp_conn.h"
+#include "mqtt/mqtt_types.h"
 
 typedef enum session_state_e{OPEN, CLOSED} session_state_e;
+typedef void(*new_message_cb)(void* upstream, char* topic, tmq_message* message, uint8_t retain);
 
 typedef struct tmq_session_s
 {
@@ -16,9 +18,12 @@ typedef struct tmq_session_s
     int clean_session;
     tmq_map(char*, uint8_t) subscriptions;
     void* upstream;
+    new_message_cb on_new_message;
 } tmq_session_t;
 
-tmq_session_t* tmq_session_new(void* upstream, tmq_tcp_conn_t* conn, tmq_str_t client_id, int clean_session);
+tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message,
+                               tmq_tcp_conn_t* conn, tmq_str_t client_id, int clean_session);
 void tmq_session_send_packet(tmq_session_t* session, tmq_any_packet_t* pkt);
+void tmq_session_publish(tmq_session_t* session, char* topic, char* payload, uint8_t qos, uint8_t retain);
 
 #endif //TINYMQTT_MQTT_SESSION_H

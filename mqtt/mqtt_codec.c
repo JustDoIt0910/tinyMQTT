@@ -427,7 +427,17 @@ void send_connack_packet(tmq_tcp_conn_t* conn, void* pkt)
 
 void send_publish_packet(tmq_tcp_conn_t* conn, void* pkt)
 {
-
+    tmq_publish_pkt* publish_pkt = pkt;
+    packet_buf buf = tmq_vec_make(uint8_t);
+    uint32_t remain_len = 4 + tmq_str_len(publish_pkt->topic) + tmq_str_len(publish_pkt->payload);
+    /* qos o messages have no packet_id */
+    if(PUBLISH_QOS(publish_pkt->flags) == 0)
+        remain_len -= 2;
+    if(make_fixed_header(MQTT_PUBLISH, publish_pkt->flags, remain_len, &buf) < 0)
+    {
+        tmq_vec_free(buf);
+        return;
+    }
 }
 
 void send_puback_packet(tmq_tcp_conn_t* conn, void* pkt)

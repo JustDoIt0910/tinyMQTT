@@ -43,6 +43,8 @@ static void make_connect_respond(tmq_io_group_t* group, tmq_tcp_conn_t* conn,
     tmq_notifier_notify(&group->connect_resp_notifier);
 }
 
+static void mqtt_publish_deliver(void* arg, char* topic, tmq_message* message, uint8_t retain);
+
 static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt* connect_pkt)
 {
     tmq_connect_pkt_print(connect_pkt);
@@ -83,7 +85,8 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
                 assert((*session)->clean_session == 0);
                 /* todo: clear the session data */
                 free(*session);
-                tmq_session_t* new_session = tmq_session_new(broker, conn, connect_pkt->client_id, 1);
+                tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver,
+                                                             conn, connect_pkt->client_id, 1);
                 tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
                 make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, new_session, 1);
             }
@@ -96,7 +99,8 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
         /* no existing session associate with this client id, just create a new one. */
         else
         {
-            tmq_session_t* new_session = tmq_session_new(broker, conn, connect_pkt->client_id, 1);
+            tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver,
+                                                         conn, connect_pkt->client_id, 1);
             tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
             make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, new_session, 0);
         }
@@ -126,7 +130,8 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
         /* no existing session associate with this client id, just create a new one. */
         else
         {
-            tmq_session_t* new_session = tmq_session_new(broker, conn, connect_pkt->client_id, 0);
+            tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver,
+                                                         conn, connect_pkt->client_id, 0);
             tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
             make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, new_session, 0);
         }
@@ -241,7 +246,10 @@ static void handle_message_ctl(void* arg)
         }
         else
         {
-
+            publish_req req = ctl->context.pub_req;
+            tmq_topics_publish(&broker->topics_tree, 0, req.topic, &req.message, req.retain);
+            tmq_str_free(req.topic);
+            tmq_str_free(req.message.message);
         }
     }
 }
@@ -288,6 +296,43 @@ void mqtt_subscribe_unsubscribe_request(tmq_broker_t* broker, subscribe_unsubscr
     pthread_mutex_unlock(&broker->message_ctl_lk);
 
     tmq_notifier_notify(&broker->message_ctl_notifier);
+}
+
+void mqtt_publish_deliver(void* arg, char* topic, tmq_message* message, uint8_t retain)
+{
+    tmq_broker_t* broker = arg;
+
+    message_ctl ctl = {
+            .op = PUBLISH,
+            .context.pub_req ={
+                    .topic = tmq_str_new(topic),
+                    .message = *message,
+                    .retain = retain
+            }
+    };
+
+    pthread_mutex_lock(&broker->message_ctl_lk);
+    tmq_vec_push_back(broker->message_ctl_reqs, ctl);
+    pthread_mutex_unlock(&broker->message_ctl_lk);
+
+    tmq_notifier_notify(&broker->message_ctl_notifier);
+}
+
+static void mqtt_publish_forward(tmq_broker_t* broker, char* client_id,
+                                 char* topic, uint8_t required_qos, tmq_message* message)
+{
+    tmq_session_t** session = tmq_map_get(broker->sessions, client_id);
+    if(!session) return;
+    /* if this session isn't active, save this message in its context */
+    if((*session)->state == CLOSED)
+    {
+
+    }
+    else
+    {
+        uint8_t final_qos = required_qos < message->qos ? required_qos : message->qos;
+        tmq_session_publish(*session, topic, message->message, final_qos, 0);
+    }
 }
 
 int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
@@ -339,7 +384,7 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
     tmq_notifier_init(&broker->message_ctl_notifier, &broker->loop, handle_message_ctl, broker);
 
     tmq_map_str_init(&broker->sessions, tmq_session_t*, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
-    tmq_topics_init(&broker->topics_tree, broker, NULL);
+    tmq_topics_init(&broker->topics_tree, broker, mqtt_publish_forward);
 
     /* ignore SIGPIPE signal */
     signal(SIGPIPE, SIG_IGN);

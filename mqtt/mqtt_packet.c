@@ -15,6 +15,13 @@ void tmq_connect_pkt_cleanup(void* pkt)
     tmq_str_free(connect_pkt->password);
 }
 
+void tmq_publish_pkt_cleanup(void* pkt)
+{
+    tmq_publish_pkt* publish_pkt = pkt;
+    tmq_str_free(publish_pkt->topic);
+    tmq_str_free(publish_pkt->payload);
+}
+
 void tmq_subscribe_pkt_cleanup(void* pkt)
 {
     tmq_subscribe_pkt* sub_pkt = pkt;
@@ -40,7 +47,7 @@ void tmq_suback_pkt_cleanup(void* pkt)
 
 static void(*any_packet_cleanup_fps[])(void* pkt) = {
         NULL, tmq_connect_pkt_cleanup, NULL,
-        NULL, NULL, NULL, NULL, NULL,
+        tmq_publish_pkt_cleanup, NULL, NULL, NULL, NULL,
         tmq_subscribe_pkt_cleanup, tmq_suback_pkt_cleanup,
         tmq_unsubscribe_pkt_cleanup, NULL,
         NULL, NULL,

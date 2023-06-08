@@ -189,7 +189,7 @@ void tmq_topics_remove_subscription(tmq_topics_t* topics, char* topic_filter, ch
 }
 
 static void match(tmq_topics_t* topics, topic_tree_node* node, int n, int is_any_wildcard,
-                  str_vec* levels, tmq_message* message, int retain)
+                  str_vec* levels, char* topic, tmq_message* message, int retain)
 {
     if(n == tmq_vec_size(*levels) || is_any_wildcard)
     {
@@ -198,7 +198,7 @@ static void match(tmq_topics_t* topics, topic_tree_node* node, int n, int is_any
         {
             char* client_id = it.first;
             uint8_t required_qos = *(uint8_t*) it.second;
-            topics->on_match(topics->broker, client_id, required_qos, message);
+            topics->on_match(topics->broker, client_id, topic, required_qos, message);
         }
         if(n == tmq_vec_size(*levels))
         {
@@ -217,7 +217,7 @@ static void match(tmq_topics_t* topics, topic_tree_node* node, int n, int is_any
                 {
                     char* client_id = it.first;
                     uint8_t required_qos = *(uint8_t*) it.second;
-                    topics->on_match(topics->broker, client_id, required_qos, message);
+                    topics->on_match(topics->broker, client_id, topic, required_qos, message);
                 }
             }
         }
@@ -226,17 +226,17 @@ static void match(tmq_topics_t* topics, topic_tree_node* node, int n, int is_any
     topic_tree_node** next;
     char* level = *tmq_vec_at(*levels, n);
     if((next = tmq_map_get(node->childs, level)) != NULL)
-        match(topics, *next, n + 1, 0, levels, message, retain);
+        match(topics, *next, n + 1, 0, levels, topic, message, retain);
     else if(retain)
     {
         topic_tree_node* new_next = topic_tree_node_new(node, level);
         tmq_map_put(node->childs, level, new_next);
-        match(topics, new_next, n + 1, 0, levels, message, retain);
+        match(topics, new_next, n + 1, 0, levels, topic, message, retain);
     }
     if((next = tmq_map_get(node->childs, "+")) != NULL)
-        match(topics, *next, n + 1, 0, levels, message, 0);
+        match(topics, *next, n + 1, 0, levels, topic, message, 0);
     if((next = tmq_map_get(node->childs, "#")) != NULL)
-        match(topics, *next, n + 1, 1, levels, message, 0);
+        match(topics, *next, n + 1, 1, levels, topic, message, 0);
 }
 
 void tmq_topics_publish(tmq_topics_t* topics, int sys, char* topic, tmq_message* message, int retain)
@@ -267,7 +267,7 @@ void tmq_topics_publish(tmq_topics_t* topics, int sys, char* topic, tmq_message*
         }
     }
     topic_tree_node* root = sys ? topics->sys_topic_tree_root : topics->topic_tree_root;
-    match(topics, root, 0, 0, &levels, message, retain);
+    match(topics, root, 0, 0, &levels, topic, message, retain);
     for(tmq_str_t* it = tmq_vec_begin(levels); it != tmq_vec_end(levels); it++)
         tmq_str_free(*it);
     tmq_vec_free(levels);

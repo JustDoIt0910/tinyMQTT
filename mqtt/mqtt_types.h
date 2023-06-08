@@ -81,7 +81,9 @@ typedef struct subscribe_unsubscribe_req
 
 typedef struct publish_req
 {
-
+    tmq_str_t topic;
+    tmq_message message;
+    uint8_t retain;
 } publish_req;
 
 typedef enum message_ctl_op_e

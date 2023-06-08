@@ -19,7 +19,8 @@ typedef struct topic_tree_node
     tmq_message retain_message;
 } topic_tree_node;
 
-typedef void(*match_cb)(tmq_broker_t*, char*, uint8_t, tmq_message*);
+typedef void(*match_cb)(tmq_broker_t* broker, char* client_id,
+                        char* topic, uint8_t required_qos, tmq_message* message);
 typedef struct tmq_topics_s
 {
     topic_tree_node* topic_tree_root;
