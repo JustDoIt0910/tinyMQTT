@@ -161,7 +161,7 @@ static decode_status parse_publish_packet(tmq_codec_t* codec, tmq_tcp_conn_t* co
     uint16_t topic_name_len;
     tmq_buffer_read16(buffer, &topic_name_len);
     publish_pkt.topic = tmq_str_new_len(NULL, topic_name_len);
-    tmq_buffer_read(buffer, (char*) &publish_pkt.topic, topic_name_len);
+    tmq_buffer_read(buffer, publish_pkt.topic, topic_name_len);
     ssize_t payload_len = len - 2 - topic_name_len;
 
     if(PUBLISH_QOS(publish_pkt.flags) != 0)
@@ -173,7 +173,7 @@ static decode_status parse_publish_packet(tmq_codec_t* codec, tmq_tcp_conn_t* co
     if(payload_len < 0)
         return BAD_PACKET_FORMAT;
     publish_pkt.payload = tmq_str_new_len(NULL, payload_len);
-    tmq_buffer_read(buffer, (char*) &publish_pkt.payload, payload_len);
+    tmq_buffer_read(buffer, publish_pkt.payload, payload_len);
 
     codec->on_publish(ctx->upstream.session, &publish_pkt);
     return DECODE_OK;
@@ -429,7 +429,9 @@ void send_publish_packet(tmq_tcp_conn_t* conn, void* pkt)
 {
     tmq_publish_pkt* publish_pkt = pkt;
     packet_buf buf = tmq_vec_make(uint8_t);
-    uint32_t remain_len = 4 + tmq_str_len(publish_pkt->topic) + tmq_str_len(publish_pkt->payload);
+    size_t topic_len = tmq_str_len(publish_pkt->topic);
+    size_t payload_len = tmq_str_len(publish_pkt->payload);
+    uint32_t remain_len = 4 + topic_len + payload_len;
     /* qos o messages have no packet_id */
     if(PUBLISH_QOS(publish_pkt->flags) == 0)
         remain_len -= 2;
@@ -438,6 +440,25 @@ void send_publish_packet(tmq_tcp_conn_t* conn, void* pkt)
         tmq_vec_free(buf);
         return;
     }
+    tmq_vec_reserve(buf, tmq_vec_size(buf) + remain_len);
+    uint16_t topic_len_be = htobe16(topic_len);
+    tmq_vec_push_back(buf, topic_len_be & 0xFF);  /* MSB */
+    tmq_vec_push_back(buf, (topic_len_be >> 8) & 0xFF);  /* LSB */
+
+    memcpy(tmq_vec_end(buf), publish_pkt->topic, topic_len);
+    tmq_vec_resize(buf, tmq_vec_size(buf) + topic_len);
+
+    if(PUBLISH_QOS(publish_pkt->flags) > 0)
+    {
+        uint16_t packet_id = htobe16(publish_pkt->packet_id);
+        tmq_vec_push_back(buf, packet_id & 0xFF);  /* MSB */
+        tmq_vec_push_back(buf, (packet_id >> 8) & 0xFF);  /* LSB */
+    }
+    memcpy(tmq_vec_end(buf), publish_pkt->payload, payload_len);
+    tmq_vec_resize(buf, tmq_vec_size(buf) + payload_len);
+
+    tmq_tcp_conn_write(conn, (char*) tmq_vec_begin(buf), tmq_vec_size(buf));
+    tmq_vec_free(buf);
 }
 
 void send_puback_packet(tmq_tcp_conn_t* conn, void* pkt)

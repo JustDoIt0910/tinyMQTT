@@ -135,6 +135,14 @@ int tmq_vec_empty_(tmq_vec_base_t* v)
 int tmq_vec_resize_(tmq_vec_base_t* v, size_t size)
 {
     if(!v) return -1;
+    if(tmq_vec_reserve_(v, size) < 0)
+        return -1;
+    v->size = size;
+    return 0;
+}
+
+int tmq_vec_reserve_(tmq_vec_base_t* v, size_t size)
+{
     if(size > v->cap)
     {
         size_t cap = 2 * size;
@@ -144,8 +152,6 @@ int tmq_vec_resize_(tmq_vec_base_t* v, size_t size)
         v->data = data;
         v->cap = cap;
     }
-    v->size = size;
-    return 0;
 }
 
 void tmq_vec_swap_(tmq_vec_base_t** v1, tmq_vec_base_t** v2)
