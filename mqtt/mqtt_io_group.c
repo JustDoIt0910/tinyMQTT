@@ -80,7 +80,7 @@ static void handle_new_connection(void* arg)
 
     for(tmq_socket_t* it = tmq_vec_begin(conns); it != tmq_vec_end(conns); it++)
     {
-        tmq_tcp_conn_t* conn = tmq_tcp_conn_new(group, *it, &group->broker->codec);
+        tmq_tcp_conn_t* conn = tmq_tcp_conn_new(&group->loop, group, *it, &group->broker->codec);
         conn->close_cb = tcp_conn_cleanup;
         conn->state = CONNECTED;
 
@@ -155,7 +155,24 @@ static void handle_new_session(void* arg)
 
 static void send_packets(void* arg)
 {
+    tmq_io_group_t *group = arg;
 
+    packet_list packets = tmq_vec_make(tmq_any_packet_t);
+    pthread_mutex_lock(&group->sending_packets_lk);
+    tmq_vec_swap(packets, group->sending_packets);
+    pthread_mutex_unlock(&group->sending_packets_lk);
+
+    packet_send_req* req = tmq_vec_begin(group->sending_packets);
+    for(; req != tmq_vec_end(group->sending_packets); req++)
+    {
+        tcp_conn_ctx* ctx = req->conn->context;
+        if(req->conn->state == CONNECTED && ctx->conn_state == IN_SESSION)
+            send_any_packet(req->conn, &req->pkt);
+        tmq_any_pkt_cleanup(&req->pkt);
+        release_ref(req->conn);
+    }
+
+    tmq_vec_free(packets);
 }
 
 void tmq_io_group_init(tmq_io_group_t* group, tmq_broker_t* broker)
@@ -176,7 +193,7 @@ void tmq_io_group_init(tmq_io_group_t* group, tmq_broker_t* broker)
 
     tmq_vec_init(&group->pending_conns, tmq_socket_t);
     tmq_vec_init(&group->connect_resp, session_connect_resp);
-    tmq_vec_init(&group->sending_packets, tmq_any_packet_t);
+    tmq_vec_init(&group->sending_packets, packet_send_req);
 
     tmq_notifier_init(&group->new_conn_notifier, &group->loop, handle_new_connection, group);
     tmq_notifier_init(&group->connect_resp_notifier, &group->loop, handle_new_session, group);

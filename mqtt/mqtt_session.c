@@ -2,6 +2,7 @@
 // Created by zr on 23-4-20.
 //
 #include "mqtt_session.h"
+#include "mqtt_io_group.h"
 #include "mqtt_types.h"
 #include "net/mqtt_tcp_conn.h"
 #include "base/mqtt_util.h"
@@ -36,4 +37,28 @@ void tmq_session_handle_subscribe(tmq_session_t* session, tmq_subscribe_pkt subs
     tmq_vec_swap(req.topic_filters, subscribe_pkt.topics);
     tmq_subscribe_pkt_cleanup(&subscribe_pkt);
     mqtt_subscribe_request((tmq_broker_t*)session->upstream, &req);
+}
+
+void tmq_session_send_packet(tmq_session_t* session, tmq_any_packet_t* pkt)
+{
+    tmq_io_group_t* group = session->conn->group;
+    /* if the underlying conn doesn't belong to an io-group, send the packet directly */
+    if(!group)
+    {
+        send_any_packet(session->conn, pkt);
+        tmq_any_pkt_cleanup(pkt);
+    }
+    /* otherwise, send the packet in the io-group which the connection belongs to */
+    else
+    {
+        packet_send_req req = {
+                .conn = get_ref(session->conn),
+                .pkt = *pkt
+        };
+        pthread_mutex_lock(&group->sending_packets_lk);
+        tmq_vec_push_back(group->sending_packets, req);
+        pthread_mutex_unlock(&group->sending_packets_lk);
+
+        tmq_notifier_notify(&group->sending_packets_notifier);
+    }
 }

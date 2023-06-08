@@ -19,5 +19,6 @@ typedef struct tmq_session_s
 } tmq_session_t;
 
 tmq_session_t* tmq_session_new(void* upstream, tmq_tcp_conn_t* conn, tmq_str_t client_id, int clean_session);
+void tmq_session_send_packet(tmq_session_t* session, tmq_any_packet_t* pkt);
 
 #endif //TINYMQTT_MQTT_SESSION_H

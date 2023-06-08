@@ -105,4 +105,11 @@ typedef struct message_ctl
 } message_ctl;
 typedef tmq_vec(message_ctl) message_ctl_list;
 
+typedef struct packet_send_req
+{
+    tmq_tcp_conn_t* conn;
+    tmq_any_packet_t pkt;
+} packet_send_req;
+typedef tmq_vec(packet_send_req) packet_send_list;
+
 #endif //TINYMQTT_MQTT_TYPES_H

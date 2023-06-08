@@ -37,7 +37,7 @@ static void write_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
     {
         if(conn->out_buffer.readable_bytes == 0)
         {
-            tmq_handler_unregister(&conn->group->loop, conn->write_event_handler);
+            tmq_handler_unregister(conn->loop, conn->write_event_handler);
             conn->is_writing = 0;
             if(conn->state == DISCONNECTING)
                 tmq_tcp_conn_close(get_ref(conn));
@@ -79,7 +79,8 @@ void tmq_tcp_conn_free(tmq_tcp_conn_t* conn)
     tlog_info("free connection [%s]", conn_name);
 }
 
-tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_io_group_t* group, tmq_socket_t fd, tmq_codec_t* codec)
+tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_event_loop_t* loop, tmq_io_group_t* group,
+                                 tmq_socket_t fd, tmq_codec_t* codec)
 {
     if(fd < 0) return NULL;
     tmq_tcp_conn_t* conn = malloc(sizeof(tmq_tcp_conn_t));
@@ -88,6 +89,7 @@ tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_io_group_t* group, tmq_socket_t fd, tmq_cod
     bzero(conn, sizeof(tmq_tcp_conn_t));
 
     conn->fd = fd;
+    conn->loop = loop;
     conn->group = group;
     conn->codec = codec;
     conn->context = NULL;
@@ -100,8 +102,8 @@ tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_io_group_t* group, tmq_socket_t fd, tmq_cod
 
     conn->read_event_handler = tmq_event_handler_new(fd, EPOLLIN | EPOLLRDHUP, read_cb_, conn);
     conn->error_close_handler = tmq_event_handler_new(fd, EPOLLERR | EPOLLHUP, close_cb_, conn);
-    tmq_handler_register(&conn->group->loop, conn->read_event_handler);
-    tmq_handler_register(&conn->group->loop, conn->error_close_handler);
+    tmq_handler_register(conn->loop, conn->read_event_handler);
+    tmq_handler_register(conn->loop, conn->error_close_handler);
     return conn;
 }
 
@@ -126,7 +128,7 @@ void tmq_tcp_conn_write(tmq_tcp_conn_t* conn, char* data, size_t size)
         {
             if(!conn->write_event_handler)
                 conn->write_event_handler = tmq_event_handler_new(conn->fd, EPOLLOUT, write_cb_, conn);
-            tmq_handler_register(&conn->group->loop, conn->write_event_handler);
+            tmq_handler_register(conn->loop, conn->write_event_handler);
             conn->is_writing = 1;
         }
     }

@@ -27,6 +27,7 @@ typedef struct tmq_tcp_conn_s
     tmq_socket_t fd;
     tmq_tcp_conn_state state;
     int ref_cnt;
+    tmq_event_loop_t* loop;
     tmq_io_group_t* group;
     tmq_codec_t* codec;
 
@@ -44,7 +45,8 @@ typedef struct tmq_tcp_conn_s
     void* context;
 } tmq_tcp_conn_t;
 
-tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_io_group_t* group, tmq_socket_t fd, tmq_codec_t* codec);
+tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_event_loop_t* loop, tmq_io_group_t* group,
+                                 tmq_socket_t fd, tmq_codec_t* codec);
 tmq_tcp_conn_t* get_ref(tmq_tcp_conn_t* conn);
 void release_ref(tmq_tcp_conn_t* conn);
 

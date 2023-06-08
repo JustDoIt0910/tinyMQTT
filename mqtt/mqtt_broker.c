@@ -286,7 +286,7 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
     tmq_str_free(pwd_file_path);
 
     tmq_event_loop_init(&broker->loop);
-    tmq_codec_init(&broker->codec);
+    tmq_codec_init(&broker->codec, SERVER_CODEC);
 
     tmq_str_t port_str = tmq_config_get(&broker->conf, "port");
     unsigned int port = port_str ? strtoul(port_str, NULL, 10): 1883;
