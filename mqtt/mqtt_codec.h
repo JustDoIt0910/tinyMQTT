@@ -25,19 +25,19 @@ typedef struct tmq_fixed_header
 #define RETAIN(header)      (((header).type_flags) & 0x01)
 
 typedef void (*tcp_message_decoder_f) (tmq_codec_t* codec, tmq_tcp_conn_t* conn, tmq_buffer_t* buffer);
-typedef void (*connect_pkt_cb) (tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt connect_pkt);
-typedef void (*connack_pkt_cb) (tmq_session_t* session, tmq_connack_pkt connack_pkt);
-typedef void (*publish_pkt_cb) (tmq_session_t* session, tmq_publish_pkt publish_pkt);
-typedef void (*puback_pkt_cb) (tmq_session_t* session, tmq_puback_pkt puback_pkt);
-typedef void (*pubrec_pkt_cb) (tmq_session_t* session, tmq_pubrec_pkt pubrec_pkt);
-typedef void (*pubrel_pkt_cb) (tmq_session_t* session, tmq_pubrel_pkt pubrel_pkt);
-typedef void (*pubcomp_pkt_cb) (tmq_session_t* session, tmq_pubcomp_pkt pubcomp_pkt);
-typedef void (*subscribe_pkt_cb) (tmq_session_t* session, tmq_subscribe_pkt subscribe_pkt);
-typedef void (*suback_pkt_cb) (tmq_session_t* session, tmq_suback_pkt suback_pkt);
-typedef void (*unsubscribe_pkt_cb) (tmq_session_t* session, tmq_unsubscribe_pkt unsubscribe_pkt);
-typedef void (*unsuback_pkt_cb) (tmq_session_t* session, tmq_unsuback_pkt unsuback_pkt);
-typedef void (*pingreq_pkt_cb) (tmq_session_t* session, tmq_pingreq_pkt pingreq_pkt);
-typedef void (*pingresp_pkt_cb) (tmq_session_t* session, tmq_pingresp_pkt pingresp_pkt);
+typedef void (*connect_pkt_cb) (tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt* connect_pkt);
+typedef void (*connack_pkt_cb) (tmq_session_t* session, tmq_connack_pkt* connack_pkt);
+typedef void (*publish_pkt_cb) (tmq_session_t* session, tmq_publish_pkt* publish_pkt);
+typedef void (*puback_pkt_cb) (tmq_session_t* session, tmq_puback_pkt* puback_pkt);
+typedef void (*pubrec_pkt_cb) (tmq_session_t* session, tmq_pubrec_pkt* pubrec_pkt);
+typedef void (*pubrel_pkt_cb) (tmq_session_t* session, tmq_pubrel_pkt* pubrel_pkt);
+typedef void (*pubcomp_pkt_cb) (tmq_session_t* session, tmq_pubcomp_pkt* pubcomp_pkt);
+typedef void (*subscribe_pkt_cb) (tmq_session_t* session, tmq_subscribe_pkt* subscribe_pkt);
+typedef void (*suback_pkt_cb) (tmq_session_t* session, tmq_suback_pkt* suback_pkt);
+typedef void (*unsubscribe_pkt_cb) (tmq_session_t* session, tmq_unsubscribe_pkt* unsubscribe_pkt);
+typedef void (*unsuback_pkt_cb) (tmq_session_t* session, tmq_unsuback_pkt* unsuback_pkt);
+typedef void (*pingreq_pkt_cb) (tmq_session_t* session, tmq_pingreq_pkt* pingreq_pkt);
+typedef void (*pingresp_pkt_cb) (tmq_session_t* session, tmq_pingresp_pkt* pingresp_pkt);
 typedef void (*disconnect_pkt_cb) (tmq_broker_t* broker, tmq_session_t* session);
 
 typedef enum tmq_codec_type_e {CLIENT_CODEC, SERVER_CODEC} tmq_codec_type;

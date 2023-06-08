@@ -70,16 +70,14 @@ typedef struct tmq_message
 typedef tmq_vec(tmq_message) message_list;
 typedef tmq_vec(tmq_message*) message_ptr_list;
 
-typedef struct subscribe_req
+typedef struct subscribe_unsubscribe_req
 {
     tmq_str_t client_id;
-    topic_list topic_filters;
-} subscribe_req;
-
-typedef struct unsubscribe_req
-{
-
-} unsubscribe_req;
+    union {
+        tmq_subscribe_pkt subscribe_pkt;
+        tmq_unsubscribe_pkt unsubscribe_pkt;
+    } sub_unsub_pkt;
+} subscribe_unsubscribe_req;
 
 typedef struct publish_req
 {
@@ -98,8 +96,7 @@ typedef struct message_ctl
     message_ctl_op op;
     union
     {
-        subscribe_req sub_req;
-        unsubscribe_req unsub_req;
+        subscribe_unsubscribe_req sub_unsub_req;
         publish_req pub_req;
     } context;
 } message_ctl;

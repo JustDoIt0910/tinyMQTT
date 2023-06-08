@@ -193,20 +193,31 @@ static void handle_message_ctl(void* arg)
     {
         if(ctl->op == SUBSCRIBE)
         {
-            subscribe_req req = ctl->context.sub_req;
+            subscribe_unsubscribe_req req = ctl->context.sub_unsub_req;
             tmq_session_t** session = tmq_map_get(broker->sessions, req.client_id);
             if(!session || (*session)->state == CLOSED)
                 continue;
-            topic_filter_qos* tf = tmq_vec_begin(req.topic_filters);
-            for(; tf != tmq_vec_end(req.topic_filters); tf++)
+
+            /* the subscription will always success. */
+            tmq_suback_pkt* sub_ack = malloc(sizeof(tmq_suback_pkt));
+            sub_ack->packet_id = req.sub_unsub_pkt.subscribe_pkt.packet_id;
+
+            topic_filter_qos* tf = tmq_vec_begin(req.sub_unsub_pkt.subscribe_pkt.topics);
+            for(; tf != tmq_vec_end(req.sub_unsub_pkt.subscribe_pkt.topics); tf++)
             {
                 tlog_info("subscribe{client=%s, topic=%s, qos=%u}", req.client_id, tf->topic_filter, tf->qos);
                 message_ptr_list retain = tmq_topics_add_subscription(&broker->topics_tree, tf->topic_filter,
                                                                       req.client_id, tf->qos);
-                tmq_str_free(tf->topic_filter);
+                tmq_vec_push_back(sub_ack->return_codes, tf->qos);
             }
             tmq_str_free(req.client_id);
-            tmq_vec_free(req.topic_filters);
+            tmq_subscribe_pkt_cleanup(&req.sub_unsub_pkt.subscribe_pkt);
+
+            tmq_any_packet_t pkt = {
+                    .packet_type = MQTT_SUBACK,
+                    .packet = sub_ack
+            };
+            tmq_session_send_packet(*session, &pkt);
         }
         else if(ctl->op == UNSUBSCRIBE)
         {
@@ -219,11 +230,11 @@ static void handle_message_ctl(void* arg)
     }
 }
 
-void mqtt_connect_request(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt connect_pkt)
+void mqtt_connect_request(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt* connect_pkt)
 {
     session_connect_req req = {
             .conn = get_ref(conn),
-            .connect_pkt = connect_pkt
+            .connect_pkt = *connect_pkt
     };
     session_ctl ctl = {
             .op = SESSION_CONNECT,
@@ -249,11 +260,11 @@ void mqtt_disconnect_request(tmq_broker_t* broker, tmq_session_t* session)
     tmq_notifier_notify(&broker->session_ctl_notifier);
 }
 
-void mqtt_subscribe_request(tmq_broker_t* broker, subscribe_req* sub_req)
+void mqtt_subscribe_unsubscribe_request(tmq_broker_t* broker, subscribe_unsubscribe_req* sub_unsub_req)
 {
     message_ctl ctl = {
             .op = SUBSCRIBE,
-            .context.sub_req = *sub_req
+            .context.sub_unsub_req = *sub_unsub_req
     };
     pthread_mutex_lock(&broker->message_ctl_lk);
     tmq_vec_push_back(broker->message_ctl_reqs, ctl);

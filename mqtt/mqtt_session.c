@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern void mqtt_subscribe_request(tmq_broker_t* broker, subscribe_req* sub_req);
+extern void mqtt_subscribe_unsubscribe_request(tmq_broker_t* broker, subscribe_unsubscribe_req* sub_unsub_req);
 
 tmq_session_t* tmq_session_new(void* upstream, tmq_tcp_conn_t* conn, tmq_str_t client_id, int clean_session)
 {
@@ -25,18 +25,16 @@ tmq_session_t* tmq_session_new(void* upstream, tmq_tcp_conn_t* conn, tmq_str_t c
     return session;
 }
 
-void tmq_session_handle_subscribe(tmq_session_t* session, tmq_subscribe_pkt subscribe_pkt)
+void tmq_session_handle_subscribe(tmq_session_t* session, tmq_subscribe_pkt* subscribe_pkt)
 {
-    topic_filter_qos* tf = tmq_vec_begin(subscribe_pkt.topics);
-    for(; tf != tmq_vec_end(subscribe_pkt.topics); tf++)
+    topic_filter_qos* tf = tmq_vec_begin(subscribe_pkt->topics);
+    for(; tf != tmq_vec_end(subscribe_pkt->topics); tf++)
         tmq_map_put(session->subscriptions, tf->topic_filter, tf->qos);
-    subscribe_req req = {
+    subscribe_unsubscribe_req req = {
             .client_id = tmq_str_new(session->client_id),
-            .topic_filters = tmq_vec_make(topic_filter_qos)
+            .sub_unsub_pkt.subscribe_pkt = *subscribe_pkt
     };
-    tmq_vec_swap(req.topic_filters, subscribe_pkt.topics);
-    tmq_subscribe_pkt_cleanup(&subscribe_pkt);
-    mqtt_subscribe_request((tmq_broker_t*)session->upstream, &req);
+    mqtt_subscribe_unsubscribe_request((tmq_broker_t*)session->upstream, &req);
 }
 
 void tmq_session_send_packet(tmq_session_t* session, tmq_any_packet_t* pkt)

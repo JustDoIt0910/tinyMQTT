@@ -142,7 +142,7 @@ static decode_status parse_connect_packet(tmq_codec_t* codec, tmq_tcp_conn_t* co
     tcp_conn_ctx* ctx = conn->context;
     /* deliver this CONNECT packet to the broker */
     ctx->conn_state = STARTING_SESSION;
-    codec->on_connect(ctx->upstream.broker, conn, connect_pkt);
+    codec->on_connect(ctx->upstream.broker, conn, &connect_pkt);
     return DECODE_OK;
 }
 
@@ -215,18 +215,7 @@ static decode_status parse_subscribe_packet(tmq_codec_t* codec, tmq_tcp_conn_t* 
     tcp_conn_ctx* ctx = conn->context;
     //tmq_subsribe_pkt_print(&subscribe_pkt);
 
-    /* the subscription will always successs, so just send the ack right here. */
-    tmq_suback_pkt sub_ack = {
-            .packet_id = subscribe_pkt.packet_id,
-            .return_codes = tmq_vec_make(uint8_t)
-    };
-    topic_filter_qos* tf = tmq_vec_begin(subscribe_pkt.topics);
-    for(; tf != tmq_vec_end(subscribe_pkt.topics); tf++)
-        tmq_vec_push_back(sub_ack.return_codes, tf->qos);
-    send_suback_packet(conn, &sub_ack);
-    tmq_suback_pkt_cleanup(&sub_ack);
-
-    codec->on_subsribe(ctx->upstream.session, subscribe_pkt);
+    codec->on_subsribe(ctx->upstream.session, &subscribe_pkt);
     return DECODE_OK;
 }
 
@@ -239,6 +228,33 @@ static decode_status parse_suback_packet(tmq_codec_t* codec, tmq_tcp_conn_t* con
 static decode_status parse_unsubscribe_packet(tmq_codec_t* codec, tmq_tcp_conn_t* conn,
                                               tmq_buffer_t* buffer, uint32_t len)
 {
+    if(codec->type != SERVER_CODEC)
+        return UNEXPECTED_PACKET;
+    tmq_unsubscribe_pkt unsubscribe_pkt;
+    tmq_vec_init(&unsubscribe_pkt.topics, topic_filter_qos);
+
+    tmq_buffer_read16(buffer, &unsubscribe_pkt.packet_id);
+    len -= 2;
+    while(len > 0)
+    {
+        uint16_t tf_len;
+        tmq_buffer_read16(buffer, &tf_len);
+        tmq_str_t topic_filter = tmq_str_new_len(NULL, tf_len);
+        tmq_buffer_read(buffer, topic_filter, tf_len);
+        uint8_t qos = 0;
+        tmq_buffer_read(buffer, (char*) &qos, 1);
+        len -= 2 + tf_len + 1;
+        if(qos > 2)
+        {
+            tmq_unsubscribe_pkt_cleanup(&unsubscribe_pkt);
+            return PROTOCOL_ERROR;
+        }
+        topic_filter_qos pair = {
+                .topic_filter = topic_filter,
+                .qos = qos
+        };
+        tmq_vec_push_back(unsubscribe_pkt.topics, pair);
+    }
     return DECODE_OK;
 }
 
@@ -337,10 +353,10 @@ static void decode_tcp_message_(tmq_codec_t* codec, tmq_tcp_conn_t* conn, tmq_bu
     } while(buffer->readable_bytes > 0 && parsing_ctx->state == PARSING_FIXED_HEADER);
 }
 
-extern void mqtt_connect_request(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt connect_pkt);
+extern void mqtt_connect_request(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt* connect_pkt);
 extern void mqtt_disconnect_request(tmq_broker_t* broker, tmq_session_t* session);
 
-extern void tmq_session_handle_subscribe(tmq_session_t* session, tmq_subscribe_pkt subscribe_pkt);
+extern void tmq_session_handle_subscribe(tmq_session_t* session, tmq_subscribe_pkt* subscribe_pkt);
 
 void tmq_codec_init(tmq_codec_t* codec, tmq_codec_type type)
 {

@@ -104,7 +104,8 @@ typedef struct tmq_suback_pkt
 
 typedef struct tmq_unsubscribe_pkt
 {
-
+    uint16_t packet_id;
+    topic_list topics;
 } tmq_unsubscribe_pkt;
 
 typedef struct tmq_unsuback_pkt
@@ -129,6 +130,7 @@ typedef struct tmq_disconnect_pkt
 
 void tmq_connect_pkt_cleanup(void* pkt);
 void tmq_subscribe_pkt_cleanup(void* pkt);
+void tmq_unsubscribe_pkt_cleanup(void* pkt);
 void tmq_suback_pkt_cleanup(void* pkt);
 
 void tmq_any_pkt_cleanup(tmq_any_packet_t* any_pkt);

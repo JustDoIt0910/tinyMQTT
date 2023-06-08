@@ -24,6 +24,9 @@ void tmq_subscribe_pkt_cleanup(void* pkt)
     tmq_vec_free(sub_pkt->topics);
 }
 
+/* the structure of unsubscribe and subscribe packet is identical  */
+void tmq_unsubscribe_pkt_cleanup(void* pkt) {tmq_subscribe_pkt_cleanup(pkt);}
+
 void tmq_suback_pkt_cleanup(void* pkt)
 {
     tmq_suback_pkt* suback_pkt = pkt;
@@ -34,7 +37,7 @@ static void(*any_packet_cleanup_fps[])(void* pkt) = {
         NULL, tmq_connect_pkt_cleanup, NULL,
         NULL, NULL, NULL, NULL, NULL,
         tmq_subscribe_pkt_cleanup, tmq_suback_pkt_cleanup,
-        NULL, NULL,
+        tmq_unsubscribe_pkt_cleanup, NULL,
         NULL, NULL,
         NULL
 };
