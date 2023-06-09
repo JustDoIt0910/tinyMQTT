@@ -17,11 +17,11 @@ typedef enum tmq_packet_type_e
     MQTT_DISCONNECT
 } tmq_packet_type;
 
-typedef struct tmq_packet_t
+typedef struct tmq_any_packet_s
 {
     tmq_packet_type packet_type;
     void* packet;
-} tmq_packet_t;
+} tmq_any_packet_t;
 
 typedef struct tmq_connect_pkt
 {
@@ -61,8 +61,15 @@ typedef struct tmq_connack_pkt
 
 typedef struct tmq_publish_pkt
 {
-
+    uint8_t flags;
+    tmq_str_t topic;
+    uint16_t packet_id; /* only for qos 1 and 2 */
+    tmq_str_t payload;
 } tmq_publish_pkt;
+
+#define PUBLISH_QOS(flags)      (((flags) >> 1) & 0x03)
+#define PUBLISH_DUP(flags)      ((flags) & 0x08)
+#define PUBLISH_RETAIN(flags)   ((flags) & 0x01)
 
 typedef struct tmq_puback_pkt
 {
@@ -104,32 +111,28 @@ typedef struct tmq_suback_pkt
 
 typedef struct tmq_unsubscribe_pkt
 {
-
+    uint16_t packet_id;
+    str_vec topics;
 } tmq_unsubscribe_pkt;
 
 typedef struct tmq_unsuback_pkt
 {
-
+    uint16_t packet_id;
 } tmq_unsuback_pkt;
-
-typedef struct tmq_pingreq_pkt
-{
-
-} tmq_pingreq_pkt;
-
-typedef struct tmq_pingresp_pkt
-{
-
-} tmq_pingresp_pkt;
 
 typedef struct tmq_disconnect_pkt
 {
 
 } tmq_disconnect_pkt;
 
-void tmq_connect_pkt_cleanup(tmq_connect_pkt* pkt);
-void tmq_subscribe_pkt_cleanup(tmq_subscribe_pkt* pkt);
-void tmq_suback_pkt_cleanup(tmq_suback_pkt* pkt);
+void tmq_connect_pkt_cleanup(void* pkt);
+void tmq_publish_pkt_cleanup(void* pkt);
+void tmq_subscribe_pkt_cleanup(void* pkt);
+void tmq_unsubscribe_pkt_cleanup(void* pkt);
+void tmq_suback_pkt_cleanup(void* pkt);
+
+void tmq_any_pkt_cleanup(tmq_any_packet_t* any_pkt);
+
 /* for debug */
 void tmq_connect_pkt_print(tmq_connect_pkt* pkt);
 void tmq_subsribe_pkt_print(tmq_subscribe_pkt* pkt);

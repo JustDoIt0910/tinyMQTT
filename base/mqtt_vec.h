@@ -31,6 +31,9 @@ struct                      \
 #define tmq_vec_push_back(v, elem) \
 ((v).tmp_elem = (elem), tmq_vec_push_back_((v).base, &(v).tmp_elem))
 
+#define tmq_vec_pop_back(v) \
+((v).elem_ref = tmq_vec_pop_back_((v).base))
+
 #define tmq_vec_insert(v, index, elem) \
 ((v).tmp_elem = (elem), tmq_vec_insert_((v).base, index, &(v).tmp_elem))
 
@@ -55,20 +58,23 @@ struct                      \
 #define tmq_vec_size(v) tmq_vec_size_((v).base)
 #define tmq_vec_empty(v) tmq_vec_empty_((v).base)
 #define tmq_vec_resize(v, size) tmq_vec_resize_((v).base, size)
+#define tmq_vec_reserve(v, size) tmq_vec_reserve_((v).base, size)
 
 tmq_vec_base_t* tmq_base_init_(size_t elem_size);
 int tmq_vec_push_back_(tmq_vec_base_t* v, const void* elem);
-void* tmq_vec_get_(tmq_vec_base_t* v, int index);
-int tmq_vec_set_(tmq_vec_base_t* v, int index, const void* elem);
+void* tmq_vec_pop_back_(tmq_vec_base_t* v);
+void* tmq_vec_get_(tmq_vec_base_t* v, size_t index);
+int tmq_vec_set_(tmq_vec_base_t* v, size_t index, const void* elem);
 void* tmq_vec_begin_(tmq_vec_base_t* v);
 void* tmq_vec_end_(tmq_vec_base_t* v);
-int tmq_vec_insert_(tmq_vec_base_t* v, int index, const void* elem);
-int tmq_vec_erase_(tmq_vec_base_t* v, int index);
+int tmq_vec_insert_(tmq_vec_base_t* v, size_t index, const void* elem);
+int tmq_vec_erase_(tmq_vec_base_t* v, size_t index);
 void tmq_vec_clear_(tmq_vec_base_t* v);
 void tmq_vec_free_(tmq_vec_base_t* v);
 size_t tmq_vec_size_(tmq_vec_base_t* v);
 int tmq_vec_empty_(tmq_vec_base_t* v);
 int tmq_vec_resize_(tmq_vec_base_t* v, size_t size);
+int tmq_vec_reserve_(tmq_vec_base_t* v, size_t size);
 void tmq_vec_swap_(tmq_vec_base_t** v1, tmq_vec_base_t** v2);
 
 #endif //TINYMQTT_MQTT_VEC_H

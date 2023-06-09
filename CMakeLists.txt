@@ -15,6 +15,7 @@ set(TINYMQTT_LIB_SRC
         net/mqtt_acceptor.c
         net/mqtt_tcp_conn.c
         net/mqtt_buffer.c
+        mqtt/mqtt_types.c
         mqtt/mqtt_packet.c
         mqtt/mqtt_session.c
         mqtt/mqtt_topic.c

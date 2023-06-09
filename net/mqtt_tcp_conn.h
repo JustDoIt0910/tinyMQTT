@@ -13,6 +13,7 @@
 typedef struct tmq_io_group_s tmq_io_group_t;
 typedef struct tmq_tcp_conn_s tmq_tcp_conn_t;
 typedef void(*tcp_close_cb)(tmq_tcp_conn_t* conn, void* arg);
+typedef void(*context_cleanup_cb)(void* context);
 
 typedef enum tmq_tcp_conn_state_e
 {
@@ -26,6 +27,7 @@ typedef struct tmq_tcp_conn_s
     tmq_socket_t fd;
     tmq_tcp_conn_state state;
     int ref_cnt;
+    tmq_event_loop_t* loop;
     tmq_io_group_t* group;
     tmq_codec_t* codec;
 
@@ -39,10 +41,12 @@ typedef struct tmq_tcp_conn_s
     tcp_close_cb close_cb;
     void* close_cb_arg;
 
+    context_cleanup_cb ctx_clean_up;
     void* context;
 } tmq_tcp_conn_t;
 
-tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_io_group_t* group, tmq_socket_t fd, tmq_codec_t* codec);
+tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_event_loop_t* loop, tmq_io_group_t* group,
+                                 tmq_socket_t fd, tmq_codec_t* codec);
 tmq_tcp_conn_t* get_ref(tmq_tcp_conn_t* conn);
 void release_ref(tmq_tcp_conn_t* conn);
 
@@ -50,7 +54,7 @@ void release_ref(tmq_tcp_conn_t* conn);
 void tmq_tcp_conn_write(tmq_tcp_conn_t* conn, char* data, size_t size);
 void tmq_tcp_conn_close(tmq_tcp_conn_t* conn);
 int tmq_tcp_conn_id(tmq_tcp_conn_t* conn, char* buf, size_t buf_size);
-void tmq_tcp_conn_set_context(tmq_tcp_conn_t* conn, void* ctx);
+void tmq_tcp_conn_set_context(tmq_tcp_conn_t* conn, void* ctx, context_cleanup_cb cleanup_cb);
 void tmq_tcp_conn_free(tmq_tcp_conn_t* conn);
 
 #endif //TINYMQTT_MQTT_TCP_CONN_H
