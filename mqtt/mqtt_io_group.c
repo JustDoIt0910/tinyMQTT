@@ -243,10 +243,21 @@ static void* io_group_thread_func(void* arg)
     for(; fd_it != tmq_vec_end(group->pending_conns); fd_it++)
         close(*fd_it);
     tmq_vec_free(group->pending_conns);
+    tmq_vec_free(group->connect_resp);
+    packet_send_req* req = tmq_vec_begin(group->sending_packets);
+    for(; req != tmq_vec_end(group->sending_packets); req++)
+        tmq_any_pkt_cleanup(&req->pkt);
+    tmq_vec_free(group->sending_packets);
 
     tmq_notifier_destroy(&group->new_conn_notifier);
-    tmq_event_loop_destroy(&group->loop);
+    tmq_notifier_destroy(&group->connect_resp_notifier);
+    tmq_notifier_destroy(&group->sending_packets_notifier);
+
     pthread_mutex_destroy(&group->pending_conns_lk);
+    pthread_mutex_destroy(&group->connect_resp_lk);
+    pthread_mutex_destroy(&group->sending_packets_lk);
+
+    tmq_event_loop_destroy(&group->loop);
 }
 
 void tmq_io_group_run(tmq_io_group_t* group)
@@ -258,5 +269,6 @@ void tmq_io_group_run(tmq_io_group_t* group)
 void tmq_io_group_stop(tmq_io_group_t* group)
 {
     tmq_event_loop_cancel_timer(&group->loop, group->tcp_checkalive_timer);
+    tmq_event_loop_cancel_timer(&group->loop, group->mqtt_keepalive_timer);
     tmq_event_loop_quit(&group->loop);
 }

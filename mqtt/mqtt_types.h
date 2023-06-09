@@ -67,8 +67,6 @@ typedef struct tmq_message
     tmq_str_t message;
     uint8_t qos;
 } tmq_message;
-typedef tmq_vec(tmq_message) message_list;
-typedef tmq_vec(tmq_message*) message_ptr_list;
 
 typedef struct subscribe_unsubscribe_req
 {

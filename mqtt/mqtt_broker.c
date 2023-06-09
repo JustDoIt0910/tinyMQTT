@@ -118,6 +118,7 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
                 assert((*session)->clean_session == 0);
                 (*session)->conn = get_ref(conn);
                 (*session)->state = OPEN;
+                (*session)->last_pkt_ts = time_now();
                 make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, *session, 1);
             }
             /* if this session is still active, disconnect it
@@ -210,12 +211,22 @@ static void handle_message_ctl(void* arg)
                 tmq_suback_pkt* sub_ack = malloc(sizeof(tmq_suback_pkt));
                 sub_ack->packet_id = req.sub_unsub_pkt.subscribe_pkt.packet_id;
 
+                /* add all the topic filters into the topic tree. */
                 topic_filter_qos* tf = tmq_vec_begin(req.sub_unsub_pkt.subscribe_pkt.topics);
                 for(; tf != tmq_vec_end(req.sub_unsub_pkt.subscribe_pkt.topics); tf++)
                 {
                     tlog_info("subscribe{client=%s, topic=%s, qos=%u}", req.client_id, tf->topic_filter, tf->qos);
-                    message_ptr_list retain = tmq_topics_add_subscription(&broker->topics_tree, tf->topic_filter,
-                                                                          req.client_id, tf->qos);
+                    retain_message_list retain = tmq_topics_add_subscription(&broker->topics_tree, tf->topic_filter,
+                                                                             req.client_id, tf->qos);
+                    /* send the retained messages that match the subscription */
+                    for(retain_message_t** it = tmq_vec_begin(retain); it != tmq_vec_end(retain); it++)
+                    {
+                        retain_message_t* retain_msg = *it;
+                        uint8_t final_qos = tf->qos < retain_msg->retain_msg.qos ? tf->qos :
+                                retain_msg->retain_msg.qos;
+                        tmq_session_publish(*session, retain_msg->retain_topic,
+                                            retain_msg->retain_msg.message, final_qos, 1);
+                    }
                     tmq_topics_info(&broker->topics_tree);
                     tmq_vec_push_back(sub_ack->return_codes, tf->qos);
                 }

@@ -8,6 +8,13 @@
 #include "base/mqtt_map.h"
 #include "mqtt_types.h"
 
+typedef struct retain_message_s
+{
+    tmq_message retain_msg;
+    tmq_str_t retain_topic;
+} retain_message_t;
+typedef tmq_vec(retain_message_t*) retain_message_list;
+
 typedef struct topic_tree_node
 {
     tmq_str_t level_name;
@@ -16,7 +23,7 @@ typedef struct topic_tree_node
     tmq_map(char*, struct topic_tree_node*) childs;
     /* the subscriber's client_id and max qos */
     tmq_map(char*, uint8_t) subscribers;
-    tmq_message retain_message;
+    retain_message_t* retain_message;
 } topic_tree_node;
 
 typedef void(*match_cb)(tmq_broker_t* broker, char* client_id,
@@ -31,7 +38,7 @@ typedef struct tmq_topics_s
 } tmq_topics_t;
 
 void tmq_topics_init(tmq_topics_t* topics, tmq_broker_t* broker, match_cb on_match);
-message_ptr_list tmq_topics_add_subscription(tmq_topics_t* topics, char* topic_filter, char* client_id, uint8_t qos);
+retain_message_list tmq_topics_add_subscription(tmq_topics_t* topics, char* topic_filter, char* client_id, uint8_t qos);
 void tmq_topics_remove_subscription(tmq_topics_t* topics, char* topic_filter, char* client_id);
 void tmq_topics_publish(tmq_topics_t* topics, int sys, char* topic, tmq_message* message, int retain);
 void tmq_topics_info(tmq_topics_t* topics);

@@ -4,9 +4,10 @@
 #include "mqtt/mqtt_topic.h"
 #include <stdio.h>
 
-void on_match(tmq_broker_t* broker, char* client_id, uint8_t qos, tmq_message* message)
+void on_match(tmq_broker_t* broker, char* client_id,
+              char* topic, uint8_t required_qos, tmq_message* message)
 {
-    printf("(%s) => <%s, %u>\n", message->message, client_id, qos);
+    printf("(%s) => <%s, %u>\n", message->message, client_id, required_qos);
 }
 
 int main()
@@ -27,8 +28,4 @@ int main()
     };
     tmq_topics_publish(&topics, 0, "test/topic", &message, 1);
     tmq_topics_info(&topics);
-
-    message_ptr_list retained = tmq_topics_add_subscription(&topics, "test/+", "client6", 1);
-    for(tmq_message** msg = tmq_vec_begin(retained); msg != tmq_vec_end(retained); msg++)
-        printf("%s\n", (*msg)->message);
 }
