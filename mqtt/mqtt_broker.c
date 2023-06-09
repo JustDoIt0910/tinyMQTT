@@ -86,7 +86,7 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
                 /* todo: clear the session data */
                 free(*session);
                 tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver,
-                                                             conn, connect_pkt->client_id, 1);
+                                                             conn, connect_pkt->client_id, 1, connect_pkt->keep_alive);
                 tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
                 make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, new_session, 1);
             }
@@ -100,7 +100,7 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
         else
         {
             tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver,
-                                                         conn, connect_pkt->client_id, 1);
+                                                         conn, connect_pkt->client_id, 1, connect_pkt->keep_alive);
             tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
             make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, new_session, 0);
         }
@@ -131,7 +131,7 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
         else
         {
             tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver,
-                                                         conn, connect_pkt->client_id, 0);
+                                                         conn, connect_pkt->client_id, 0, connect_pkt->keep_alive);
             tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
             make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, new_session, 0);
         }

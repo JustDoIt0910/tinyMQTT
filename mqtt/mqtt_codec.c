@@ -278,6 +278,11 @@ static decode_status parse_unsuback_packet(tmq_codec_t* codec, tmq_tcp_conn_t* c
 static decode_status parse_pingreq_packet(tmq_codec_t* codec, tmq_tcp_conn_t* conn,
                                           tmq_buffer_t* buffer, uint32_t len)
 {
+    if(codec->type != SERVER_CODEC)
+        return UNEXPECTED_PACKET;
+    send_pingresp_packet(conn, NULL);
+    tcp_conn_ctx* ctx = conn->context;
+    codec->on_ping_req(ctx->upstream.session);
     return DECODE_OK;
 }
 
@@ -370,6 +375,7 @@ extern void mqtt_disconnect_request(tmq_broker_t* broker, tmq_session_t* session
 extern void tmq_session_handle_subscribe(tmq_session_t* session, tmq_subscribe_pkt* subscribe_pkt);
 extern void tmq_session_handle_unsubscribe(tmq_session_t* session, tmq_unsubscribe_pkt* unsubscribe_pkt);
 extern void tmq_session_handle_publish(tmq_session_t* session, tmq_publish_pkt* publish_pkt);
+extern void tmq_session_handle_pingreq(tmq_session_t* session);
 
 void tmq_codec_init(tmq_codec_t* codec, tmq_codec_type type)
 {
@@ -380,6 +386,7 @@ void tmq_codec_init(tmq_codec_t* codec, tmq_codec_type type)
     codec->on_subsribe = tmq_session_handle_subscribe;
     codec->on_unsubcribe = tmq_session_handle_unsubscribe;
     codec->on_publish = tmq_session_handle_publish;
+    codec->on_ping_req = tmq_session_handle_pingreq;
 }
 
 typedef tmq_vec(uint8_t) packet_buf;
@@ -535,7 +542,14 @@ void send_pingreq_packet(tmq_tcp_conn_t* conn, void* pkt)
 
 void send_pingresp_packet(tmq_tcp_conn_t* conn, void* pkt)
 {
-
+    packet_buf buf = tmq_vec_make(uint8_t);
+    if(make_fixed_header(MQTT_PINGRESP, 0, 0, &buf) < 0)
+    {
+        tmq_vec_free(buf);
+        return;
+    }
+    tmq_tcp_conn_write(conn, (char*) tmq_vec_begin(buf), tmq_vec_size(buf));
+    tmq_vec_free(buf);
 }
 
 void send_disconnect_packet(tmq_tcp_conn_t* conn, void* pkt)

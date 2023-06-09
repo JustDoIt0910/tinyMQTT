@@ -8,8 +8,8 @@
 #include "mqtt_types.h"
 
 #define MQTT_TCP_CHECKALIVE_INTERVAL    10
-#define MQTT_CONNECT_MAX_PENDING        100
-#define MQTT_TCP_MAX_IDLE               300
+#define MQTT_CONNECT_MAX_PENDING        10
+#define MQTT_TCP_MAX_IDLE               600
 
 typedef tmq_map(char*, tmq_tcp_conn_t*) tcp_conn_map_t;
 typedef struct tmq_io_group_s
@@ -19,6 +19,7 @@ typedef struct tmq_io_group_s
     tmq_event_loop_t loop;
     tcp_conn_map_t tcp_conns;
     tmq_timerid_t tcp_checkalive_timer;
+    tmq_timerid_t mqtt_keepalive_timer;
 
     /* guarded by pending_conns_lk */
     tmq_vec(tmq_socket_t) pending_conns;

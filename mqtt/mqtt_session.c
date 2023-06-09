@@ -12,7 +12,7 @@ extern void mqtt_subscribe_unsubscribe_request(tmq_broker_t* broker, subscribe_u
                                                message_ctl_op op);
 
 tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message,
-                               tmq_tcp_conn_t* conn, tmq_str_t client_id, int clean_session)
+                               tmq_tcp_conn_t* conn, tmq_str_t client_id, int clean_session, uint16_t ka)
 {
     tmq_session_t* session = malloc(sizeof(tmq_session_t));
     if(!session) fatal_error("malloc() error: out of memory");
@@ -23,12 +23,15 @@ tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message,
     session->clean_session = clean_session;
     session->conn = get_ref(conn);
     session->client_id = tmq_str_new(client_id);
+    session->keep_alive = ka;
+    session->last_pkt_ts = time_now();
     tmq_map_str_init(&session->subscriptions, uint8_t, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
     return session;
 }
 
 void tmq_session_handle_subscribe(tmq_session_t* session, tmq_subscribe_pkt* subscribe_pkt)
 {
+    session->last_pkt_ts = time_now();
     topic_filter_qos* tf = tmq_vec_begin(subscribe_pkt->topics);
     for(; tf != tmq_vec_end(subscribe_pkt->topics); tf++)
         tmq_map_put(session->subscriptions, tf->topic_filter, tf->qos);
@@ -41,6 +44,7 @@ void tmq_session_handle_subscribe(tmq_session_t* session, tmq_subscribe_pkt* sub
 
 void tmq_session_handle_unsubscribe(tmq_session_t* session, tmq_unsubscribe_pkt* unsubscribe_pkt)
 {
+    session->last_pkt_ts = time_now();
     for(tmq_str_t* tf = tmq_vec_begin(unsubscribe_pkt->topics); tf != tmq_vec_end(unsubscribe_pkt->topics); tf++)
         tmq_map_erase(session->subscriptions, *tf);
     subscribe_unsubscribe_req req = {
@@ -52,6 +56,7 @@ void tmq_session_handle_unsubscribe(tmq_session_t* session, tmq_unsubscribe_pkt*
 
 void tmq_session_handle_publish(tmq_session_t* session, tmq_publish_pkt* publish_pkt)
 {
+    session->last_pkt_ts = time_now();
     /* qos 0 message, deliver to the upstream(broker/client) directly. */
     if(PUBLISH_QOS(publish_pkt->flags) == 0)
     {
@@ -62,6 +67,11 @@ void tmq_session_handle_publish(tmq_session_t* session, tmq_publish_pkt* publish
         session->on_new_message(session->upstream, publish_pkt->topic, &message, PUBLISH_RETAIN(publish_pkt->flags));
         tmq_publish_pkt_cleanup(publish_pkt);
     }
+}
+
+void tmq_session_handle_pingreq(tmq_session_t* session)
+{
+    session->last_pkt_ts = time_now();
 }
 
 void tmq_session_send_packet(tmq_session_t* session, tmq_any_packet_t* pkt)

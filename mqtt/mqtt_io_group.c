@@ -3,6 +3,7 @@
 //
 #include "mqtt_io_group.h"
 #include "net/mqtt_tcp_conn.h"
+#include "mqtt/mqtt_session.h"
 #include "base/mqtt_util.h"
 #include "mqtt_broker.h"
 #include <stdlib.h>
@@ -55,10 +56,33 @@ static void tcp_checkalive(void* arg)
         tcp_conn_ctx* ctx = conn->context;
         if((ctx->conn_state == NO_SESSION && now - ctx->last_msg_time > SEC_US(MQTT_CONNECT_MAX_PENDING)) ||
            (ctx->conn_state != NO_SESSION && now - ctx->last_msg_time > SEC_US(MQTT_TCP_MAX_IDLE)))
-        {
             tmq_vec_push_back(timeout_conns, conn);
-            tlog_info("connection timeout [%s]", (char*) (it.first));
-        }
+    }
+    /* do remove after iteration to prevent iterator failure */
+    tmq_tcp_conn_t** conn_it = tmq_vec_begin(timeout_conns);
+    for(; conn_it != tmq_vec_end(timeout_conns); conn_it++)
+        tmq_tcp_conn_close(get_ref(*conn_it));
+    tmq_vec_free(timeout_conns);
+}
+
+static void mqtt_keepalive(void* arg)
+{
+    tmq_io_group_t *group = arg;
+
+    int64_t now = time_now();
+    tmq_vec(tmq_tcp_conn_t*) timeout_conns = tmq_vec_make(tmq_tcp_conn_t*);
+    tmq_map_iter_t it = tmq_map_iter(group->tcp_conns);
+    for(; tmq_map_has_next(it); tmq_map_next(group->tcp_conns, it))
+    {
+        tmq_tcp_conn_t* conn = *(tmq_tcp_conn_t**) (it.second);
+        tcp_conn_ctx* ctx = conn->context;
+        if(ctx->conn_state != IN_SESSION)
+            continue;
+        tmq_session_t* session = ctx->upstream.session;
+        if(!session->keep_alive)
+            continue;
+        if(now - session->last_pkt_ts >= (int64_t) SEC_US(session->keep_alive * 1.5))
+            tmq_vec_push_back(timeout_conns, conn);
     }
     /* do remove after iteration to prevent iterator failure */
     tmq_tcp_conn_t** conn_it = tmq_vec_begin(timeout_conns);
@@ -183,6 +207,8 @@ void tmq_io_group_init(tmq_io_group_t* group, tmq_broker_t* broker)
 
     tmq_timer_t* timer = tmq_timer_new(SEC_MS(MQTT_TCP_CHECKALIVE_INTERVAL), 1, tcp_checkalive, group);
     group->tcp_checkalive_timer = tmq_event_loop_add_timer(&group->loop, timer);
+    timer = tmq_timer_new(SEC_MS(1), 1, mqtt_keepalive, group);
+    group->mqtt_keepalive_timer = tmq_event_loop_add_timer(&group->loop, timer);
 
     if(pthread_mutex_init(&group->pending_conns_lk, NULL))
         fatal_error("pthread_mutex_init() error %d: %s", errno, strerror(errno));
