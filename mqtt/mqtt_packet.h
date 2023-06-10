@@ -73,7 +73,7 @@ typedef struct tmq_publish_pkt
 
 typedef struct tmq_puback_pkt
 {
-
+    uint16_t packet_id;
 } tmq_puback_pkt;
 
 typedef struct tmq_pubrec_pkt

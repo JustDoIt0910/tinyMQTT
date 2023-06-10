@@ -82,7 +82,7 @@ static decode_status parse_connect_packet(tmq_codec_t* codec, tmq_tcp_conn_t* co
     tmq_buffer_read(buffer, (char*) &flags, 1);
     if(CONNECT_RESERVED(flags))
         return PROTOCOL_ERROR;
-    /* If will flag is 0, will qos must be set 0. And will qos can't greater than 2 */
+    /* If will-flag is 0, will qos must be set 0. And will qos can't greater than 2 */
     if((!CONNECT_WILL_FLAG(flags) && CONNECT_WILL_QOS(flags)) || CONNECT_WILL_QOS(flags) > 2)
         return PROTOCOL_ERROR;
 
@@ -174,6 +174,15 @@ static decode_status parse_publish_packet(tmq_codec_t* codec, tmq_tcp_conn_t* co
         return BAD_PACKET_FORMAT;
     publish_pkt.payload = tmq_str_new_len(NULL, payload_len);
     tmq_buffer_read(buffer, publish_pkt.payload, payload_len);
+
+    /* qos = 1, respond with a puback message */
+    if(PUBLISH_QOS(publish_pkt.flags) == 1)
+    {
+        tmq_puback_pkt ack = {
+                .packet_id = publish_pkt.packet_id
+        };
+        send_puback_packet(conn, &ack);
+    }
 
     codec->on_publish(ctx->upstream.session, &publish_pkt);
     return DECODE_OK;
@@ -470,7 +479,19 @@ void send_publish_packet(tmq_tcp_conn_t* conn, void* pkt)
 
 void send_puback_packet(tmq_tcp_conn_t* conn, void* pkt)
 {
+    tmq_puback_pkt* puback_pkt = pkt;
+    packet_buf buf = tmq_vec_make(uint8_t);
+    if(make_fixed_header(MQTT_PUBACK, 0, 2, &buf) < 0)
+    {
+        tmq_vec_free(buf);
+        return;
+    }
+    uint16_t packet_id = htobe16(puback_pkt->packet_id);
+    tmq_vec_push_back(buf, packet_id & 0xFF);  /* MSB */
+    tmq_vec_push_back(buf, (packet_id >> 8) & 0xFF);  /* LSB */
 
+    tmq_tcp_conn_write(conn, (char*) tmq_vec_begin(buf), tmq_vec_size(buf));
+    tmq_vec_free(buf);
 }
 
 void send_pubrec_packet(tmq_tcp_conn_t* conn, void* pkt)
