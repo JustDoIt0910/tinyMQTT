@@ -7,12 +7,14 @@
 #include "base/mqtt_util.h"
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 extern void mqtt_subscribe_unsubscribe_request(tmq_broker_t* broker, subscribe_unsubscribe_req* sub_unsub_req,
                                                message_ctl_op op);
 
 tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message,
-                               tmq_tcp_conn_t* conn, tmq_str_t client_id, int clean_session, uint16_t ka)
+                               tmq_tcp_conn_t* conn, tmq_str_t client_id,
+                               uint8_t clean_session, uint16_t ka, uint8_t max_inflight)
 {
     tmq_session_t* session = malloc(sizeof(tmq_session_t));
     if(!session) fatal_error("malloc() error: out of memory");
@@ -25,6 +27,14 @@ tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message,
     session->client_id = tmq_str_new(client_id);
     session->keep_alive = ka;
     session->last_pkt_ts = time_now();
+    session->max_inflight = max_inflight;
+    session->inflight_packets = 0;
+
+    unsigned int rand_seed = time(NULL);
+    session->next_packet_id = rand_r(&rand_seed) % UINT16_MAX;
+
+    session->sending_queue_head = session->sending_queue_tail = NULL;
+
     tmq_map_str_init(&session->subscriptions, uint8_t, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
     return session;
 }
