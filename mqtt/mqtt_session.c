@@ -120,10 +120,12 @@ void tmq_session_publish(tmq_session_t* session, char* topic, char* payload, uin
             .packet_type = MQTT_PUBLISH,
             .packet = publish_pkt
     };
-    /* qos = 0, fire and forget */
-    if(qos == 0)
+    /* if qos = 0, fire and forget */
+    if(qos >= 0)
     {
-        /* DUP flag in qos 0 message is always 0, no packet_id */
-        tmq_session_send_packet(session, &pkt);
+        publish_pkt->packet_id = session->next_packet_id;
+        session->next_packet_id = session->next_packet_id == UINT16_MAX ? 0 : session->next_packet_id++;
+        publish_pkt->flags |= (qos << 1);
     }
+    tmq_session_send_packet(session, &pkt);
 }

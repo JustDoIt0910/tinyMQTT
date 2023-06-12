@@ -11,6 +11,7 @@ typedef struct sending_packet
 {
     struct sending_packet* next;
     int64_t send_time;
+    uint16_t packet_id;
     tmq_any_packet_t* packet;
 } sending_packet;
 
@@ -32,6 +33,8 @@ typedef struct tmq_session_s
     uint8_t max_inflight;
     uint8_t inflight_packets;
     sending_packet* sending_queue_head, *sending_queue_tail;
+    sending_packet* pending_pointer;
+    tmq_timerid_t resend_timer;
 } tmq_session_t;
 
 tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message,
