@@ -191,6 +191,10 @@ static decode_status parse_publish_packet(tmq_codec_t* codec, tmq_tcp_conn_t* co
 static decode_status parse_puback_packet(tmq_codec_t* codec, tmq_tcp_conn_t* conn,
                                          tmq_buffer_t* buffer, uint32_t len)
 {
+    tmq_puback_pkt puback_pkt;
+    tmq_buffer_read16(buffer, &puback_pkt.packet_id);
+    tcp_conn_ctx* ctx = conn->context;
+    codec->on_pub_ack(ctx->upstream.session, &puback_pkt);
     return DECODE_OK;
 }
 
@@ -384,6 +388,7 @@ extern void mqtt_disconnect_request(tmq_broker_t* broker, tmq_session_t* session
 extern void tmq_session_handle_subscribe(tmq_session_t* session, tmq_subscribe_pkt* subscribe_pkt);
 extern void tmq_session_handle_unsubscribe(tmq_session_t* session, tmq_unsubscribe_pkt* unsubscribe_pkt);
 extern void tmq_session_handle_publish(tmq_session_t* session, tmq_publish_pkt* publish_pkt);
+extern void tmq_session_handle_puback(tmq_session_t* session, tmq_puback_pkt* puback_pkt);
 extern void tmq_session_handle_pingreq(tmq_session_t* session);
 
 void tmq_codec_init(tmq_codec_t* codec, tmq_codec_type type)
@@ -395,6 +400,7 @@ void tmq_codec_init(tmq_codec_t* codec, tmq_codec_type type)
     codec->on_subsribe = tmq_session_handle_subscribe;
     codec->on_unsubcribe = tmq_session_handle_unsubscribe;
     codec->on_publish = tmq_session_handle_publish;
+    codec->on_pub_ack = tmq_session_handle_puback;
     codec->on_ping_req = tmq_session_handle_pingreq;
 }
 

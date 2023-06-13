@@ -32,9 +32,11 @@ typedef struct tmq_session_s
     uint16_t next_packet_id;
     uint8_t inflight_window_size;
     uint8_t inflight_packets;
+    tmq_timerid_t resend_timer;
+
+    pthread_mutex_t sending_queue_lk;
     sending_packet* sending_queue_head, *sending_queue_tail;
     sending_packet* pending_pointer;
-    tmq_timerid_t resend_timer;
 } tmq_session_t;
 
 tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message,
