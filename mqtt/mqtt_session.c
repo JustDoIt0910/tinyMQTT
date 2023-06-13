@@ -12,6 +12,18 @@
 extern void mqtt_subscribe_unsubscribe_request(tmq_broker_t* broker, subscribe_unsubscribe_req* sub_unsub_req,
                                                message_ctl_op op);
 
+sending_packet* send_packet_new(tmq_packet_type type, void* pkt, uint16_t packet_id)
+{
+    sending_packet* sending_pkt = malloc(sizeof(sending_packet));
+    if(!sending_pkt) fatal_error("malloc() error: out of memory");
+    sending_pkt->packet_id = packet_id;
+    sending_pkt->packet.packet_type = type;
+    sending_pkt->packet.packet = pkt;
+    sending_pkt->send_time = time_now();
+    sending_pkt->next = NULL;
+    return sending_pkt;
+}
+
 tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message,
                                tmq_tcp_conn_t* conn, tmq_str_t client_id,
                                uint8_t clean_session, uint16_t ka, uint8_t max_inflight)
@@ -27,7 +39,7 @@ tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message,
     session->client_id = tmq_str_new(client_id);
     session->keep_alive = ka;
     session->last_pkt_ts = time_now();
-    session->max_inflight = max_inflight;
+    session->inflight_window_size = max_inflight;
     session->inflight_packets = 0;
 
     unsigned int rand_seed = time(NULL);
@@ -120,12 +132,33 @@ void tmq_session_publish(tmq_session_t* session, char* topic, char* payload, uin
             .packet_type = MQTT_PUBLISH,
             .packet = publish_pkt
     };
+    int send_now = 1;
     /* if qos = 0, fire and forget */
     if(qos >= 0)
     {
         publish_pkt->packet_id = session->next_packet_id;
         session->next_packet_id = session->next_packet_id == UINT16_MAX ? 0 : session->next_packet_id++;
         publish_pkt->flags |= (qos << 1);
+
+        sending_packet* sending_pkt = send_packet_new(MQTT_PUBLISH, tmq_publish_pkt_clone(publish_pkt),
+                                                      publish_pkt->packet_id);
+        /* if the sending queue is empty */
+        if(!session->sending_queue_tail)
+            session->sending_queue_head = session->sending_queue_tail = sending_pkt;
+        else
+        {
+            session->sending_queue_tail->next = sending_pkt;
+            session->sending_queue_tail = sending_pkt;
+        }
+        /* if the number of inflight packets less than the inflight window size,
+         * this packet can be sent immediately */
+        if(session->inflight_packets < session->inflight_window_size)
+            session->inflight_packets++;
+        /* otherwise, it must wait for sending in the sending_queue */
+        else
+        {
+            
+        }
     }
-    tmq_session_send_packet(session, &pkt);
+    if(send_now) tmq_session_send_packet(session, &pkt);
 }

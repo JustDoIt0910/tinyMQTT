@@ -12,7 +12,7 @@ typedef struct sending_packet
     struct sending_packet* next;
     int64_t send_time;
     uint16_t packet_id;
-    tmq_any_packet_t* packet;
+    tmq_any_packet_t packet;
 } sending_packet;
 
 typedef enum session_state_e{OPEN, CLOSED} session_state_e;
@@ -30,7 +30,7 @@ typedef struct tmq_session_s
     uint16_t keep_alive;
     int64_t last_pkt_ts;
     uint16_t next_packet_id;
-    uint8_t max_inflight;
+    uint8_t inflight_window_size;
     uint8_t inflight_packets;
     sending_packet* sending_queue_head, *sending_queue_tail;
     sending_packet* pending_pointer;
