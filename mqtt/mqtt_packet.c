@@ -4,6 +4,7 @@
 #include "mqtt_packet.h"
 #include "tlog.h"
 #include <stdlib.h>
+#include <string.h>
 
 void tmq_connect_pkt_cleanup(void* pkt)
 {
@@ -59,6 +60,15 @@ void tmq_any_pkt_cleanup(tmq_any_packet_t* any_pkt)
     if(any_packet_cleanup_fps[any_pkt->packet_type])
         any_packet_cleanup_fps[any_pkt->packet_type](any_pkt->packet);
     free(any_pkt->packet);
+}
+
+tmq_publish_pkt* tmq_publish_pkt_clone(tmq_publish_pkt* pkt)
+{
+    tmq_publish_pkt* clone = malloc(sizeof(tmq_publish_pkt));
+    memcpy(clone, pkt, sizeof(tmq_publish_pkt));
+    clone->topic = tmq_str_new(pkt->topic);
+    clone->payload = tmq_str_new(pkt->payload);
+    return clone;
 }
 
 void tmq_connect_pkt_print(tmq_connect_pkt* pkt)

@@ -82,7 +82,10 @@ static void mqtt_keepalive(void* arg)
         if(!session->keep_alive)
             continue;
         if(now - session->last_pkt_ts >= (int64_t) SEC_US(session->keep_alive * 1.5))
+        {
+            tlog_info("client[%s] is down", session->client_id);
             tmq_vec_push_back(timeout_conns, conn);
+        }
     }
     /* do remove after iteration to prevent iterator failure */
     tmq_tcp_conn_t** conn_it = tmq_vec_begin(timeout_conns);

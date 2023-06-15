@@ -86,7 +86,8 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
                 /* todo: clear the session data */
                 free(*session);
                 tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver,
-                                                             conn, connect_pkt->client_id, 1, connect_pkt->keep_alive);
+                                                             conn, connect_pkt->client_id, 1,
+                                                             connect_pkt->keep_alive, broker->inflight_window_size);
                 tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
                 make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, new_session, 1);
             }
@@ -100,7 +101,8 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
         else
         {
             tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver,
-                                                         conn, connect_pkt->client_id, 1, connect_pkt->keep_alive);
+                                                         conn, connect_pkt->client_id, 1,
+                                                         connect_pkt->keep_alive, broker->inflight_window_size);
             tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
             make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, new_session, 0);
         }
@@ -132,7 +134,8 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
         else
         {
             tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver,
-                                                         conn, connect_pkt->client_id, 0, connect_pkt->keep_alive);
+                                                         conn, connect_pkt->client_id, 0,
+                                                         connect_pkt->keep_alive, broker->inflight_window_size);
             tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
             make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, new_session, 0);
         }
@@ -227,13 +230,14 @@ static void handle_message_ctl(void* arg)
                         tmq_session_publish(*session, retain_msg->retain_topic,
                                             retain_msg->retain_msg.message, final_qos, 1);
                     }
+                    tmq_vec_free(retain);
                     tmq_topics_info(&broker->topics_tree);
                     tmq_vec_push_back(sub_ack->return_codes, tf->qos);
                 }
                 tmq_subscribe_pkt_cleanup(&req.sub_unsub_pkt.subscribe_pkt);
                 ack.packet_type = MQTT_SUBACK;
                 ack.packet = sub_ack;
-                tmq_session_send_packet(*session, &ack);
+                tmq_session_send_packet(*session, &ack, 0);
                 /* todo: send retain messages */
             }
             else
@@ -251,7 +255,7 @@ static void handle_message_ctl(void* arg)
                 tmq_unsubscribe_pkt_cleanup(&req.sub_unsub_pkt.unsubscribe_pkt);
                 ack.packet_type = MQTT_UNSUBACK;
                 ack.packet = unsub_ack;
-                tmq_session_send_packet(*session, &ack);
+                tmq_session_send_packet(*session, &ack, 0);
             }
             tmq_str_free(req.client_id);
         }
@@ -376,6 +380,11 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
     unsigned int port = port_str ? strtoul(port_str, NULL, 10): 1883;
     tmq_str_free(port_str);
     tlog_info("listening on port %u", port);
+
+    tmq_str_t inflight_window_str = tmq_config_get(&broker->conf, "inflight_window");
+    broker->inflight_window_size = inflight_window_str ? strtoul(inflight_window_str, NULL, 10): 1;
+    tmq_str_free(inflight_window_str);
+
     tmq_acceptor_init(&broker->acceptor, &broker->loop, port);
     tmq_acceptor_set_cb(&broker->acceptor, dispatch_new_connection, broker);
 

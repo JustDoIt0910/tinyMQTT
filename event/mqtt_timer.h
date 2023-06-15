@@ -17,6 +17,12 @@
 #define RIGHT_CHILD_IDX(i)          (((i) << 1) + 1)
 #define PARENT_IDX(i)               ((i) >> 1)
 
+typedef struct tmq_timerid_s
+{
+    int64_t addr;
+    int64_t timestamp;
+} tmq_timerid_t;
+
 typedef void(*tmq_timer_cb)(void* arg);
 
 typedef struct tmq_timer_s
@@ -27,13 +33,8 @@ typedef struct tmq_timer_s
     void* arg;
     int repeat;
     int canceled;
+    tmq_timerid_t timer_id;
 } tmq_timer_t;
-
-typedef struct tmq_timerid_s
-{
-    int64_t addr;
-    int64_t timestamp;
-} tmq_timerid_t;
 
 tmq_timerid_t invalid_timerid();
 
@@ -60,5 +61,6 @@ tmq_timerid_t tmq_timer_heap_add(tmq_timer_heap_t* timer_heap, tmq_timer_t* time
 void tmq_timer_heap_print(tmq_timer_heap_t* timer_heap);
 tmq_timer_t* tmq_timer_new(double timeout_ms, int repeat, tmq_timer_cb cb, void* arg);
 void tmq_cancel_timer(tmq_timer_heap_t* timer_heap, tmq_timerid_t timerid);
+int tmq_resume_timer(tmq_timer_heap_t* timer_heap, tmq_timerid_t timerid);
 
 #endif //TINYMQTT_MQTT_TIMER_H

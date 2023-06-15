@@ -2,6 +2,7 @@
 // Created by zr on 23-4-18.
 //
 #include "mqtt_acceptor.h"
+#include "base/mqtt_util.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>

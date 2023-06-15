@@ -15,12 +15,6 @@
 #define INITIAL_EVENTLIST_SIZE 16
 #define EPOLL_WAIT_TIMEOUT  10 * 1000
 
-#define atomicSet(var, value)       __atomic_store_n(&(var), (value), __ATOMIC_SEQ_CST)
-#define atomicGet(var)              __atomic_load_n (&(var), __ATOMIC_SEQ_CST)
-#define atomicExchange(var, val)    __atomic_exchange_n(&(var), val, __ATOMIC_SEQ_CST)
-#define decrementAndGet(var, val)   __atomic_sub_fetch(&(var), val, __ATOMIC_SEQ_CST)
-#define incrementAndGet(var, val)   __atomic_add_fetch(&(var), val, __ATOMIC_SEQ_CST)
-
 typedef void(*tmq_event_cb)(tmq_socket_t, uint32_t, const void*);
 
 typedef struct tmq_event_handler_s
@@ -69,6 +63,7 @@ void tmq_handler_unregister(tmq_event_loop_t* loop, tmq_event_handler_t* handler
 int tmq_handler_is_registered(tmq_event_loop_t* loop, tmq_event_handler_t* handler);
 tmq_timerid_t tmq_event_loop_add_timer(tmq_event_loop_t* loop, tmq_timer_t* timer);
 void tmq_event_loop_cancel_timer(tmq_event_loop_t* loop, tmq_timerid_t timerid);
+int tmq_event_loop_resume_timer(tmq_event_loop_t* loop, tmq_timerid_t timerid);
 void tmq_event_loop_quit(tmq_event_loop_t* loop);
 void tmq_event_loop_destroy(tmq_event_loop_t* loop);
 

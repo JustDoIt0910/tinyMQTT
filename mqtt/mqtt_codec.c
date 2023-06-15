@@ -82,7 +82,7 @@ static decode_status parse_connect_packet(tmq_codec_t* codec, tmq_tcp_conn_t* co
     tmq_buffer_read(buffer, (char*) &flags, 1);
     if(CONNECT_RESERVED(flags))
         return PROTOCOL_ERROR;
-    /* If will flag is 0, will qos must be set 0. And will qos can't greater than 2 */
+    /* If will-flag is 0, will qos must be set 0. And will qos can't greater than 2 */
     if((!CONNECT_WILL_FLAG(flags) && CONNECT_WILL_QOS(flags)) || CONNECT_WILL_QOS(flags) > 2)
         return PROTOCOL_ERROR;
 
@@ -175,6 +175,15 @@ static decode_status parse_publish_packet(tmq_codec_t* codec, tmq_tcp_conn_t* co
     publish_pkt.payload = tmq_str_new_len(NULL, payload_len);
     tmq_buffer_read(buffer, publish_pkt.payload, payload_len);
 
+    /* qos = 1, respond with a puback message */
+    if(PUBLISH_QOS(publish_pkt.flags) == 1)
+    {
+        tmq_puback_pkt ack = {
+                .packet_id = publish_pkt.packet_id
+        };
+        send_puback_packet(conn, &ack);
+    }
+
     codec->on_publish(ctx->upstream.session, &publish_pkt);
     return DECODE_OK;
 }
@@ -182,6 +191,10 @@ static decode_status parse_publish_packet(tmq_codec_t* codec, tmq_tcp_conn_t* co
 static decode_status parse_puback_packet(tmq_codec_t* codec, tmq_tcp_conn_t* conn,
                                          tmq_buffer_t* buffer, uint32_t len)
 {
+    tmq_puback_pkt puback_pkt;
+    tmq_buffer_read16(buffer, &puback_pkt.packet_id);
+    tcp_conn_ctx* ctx = conn->context;
+    codec->on_pub_ack(ctx->upstream.session, &puback_pkt);
     return DECODE_OK;
 }
 
@@ -375,6 +388,7 @@ extern void mqtt_disconnect_request(tmq_broker_t* broker, tmq_session_t* session
 extern void tmq_session_handle_subscribe(tmq_session_t* session, tmq_subscribe_pkt* subscribe_pkt);
 extern void tmq_session_handle_unsubscribe(tmq_session_t* session, tmq_unsubscribe_pkt* unsubscribe_pkt);
 extern void tmq_session_handle_publish(tmq_session_t* session, tmq_publish_pkt* publish_pkt);
+extern void tmq_session_handle_puback(tmq_session_t* session, tmq_puback_pkt* puback_pkt);
 extern void tmq_session_handle_pingreq(tmq_session_t* session);
 
 void tmq_codec_init(tmq_codec_t* codec, tmq_codec_type type)
@@ -386,6 +400,7 @@ void tmq_codec_init(tmq_codec_t* codec, tmq_codec_type type)
     codec->on_subsribe = tmq_session_handle_subscribe;
     codec->on_unsubcribe = tmq_session_handle_unsubscribe;
     codec->on_publish = tmq_session_handle_publish;
+    codec->on_pub_ack = tmq_session_handle_puback;
     codec->on_ping_req = tmq_session_handle_pingreq;
 }
 
@@ -470,7 +485,19 @@ void send_publish_packet(tmq_tcp_conn_t* conn, void* pkt)
 
 void send_puback_packet(tmq_tcp_conn_t* conn, void* pkt)
 {
+    tmq_puback_pkt* puback_pkt = pkt;
+    packet_buf buf = tmq_vec_make(uint8_t);
+    if(make_fixed_header(MQTT_PUBACK, 0, 2, &buf) < 0)
+    {
+        tmq_vec_free(buf);
+        return;
+    }
+    uint16_t packet_id = htobe16(puback_pkt->packet_id);
+    tmq_vec_push_back(buf, packet_id & 0xFF);  /* MSB */
+    tmq_vec_push_back(buf, (packet_id >> 8) & 0xFF);  /* LSB */
 
+    tmq_tcp_conn_write(conn, (char*) tmq_vec_begin(buf), tmq_vec_size(buf));
+    tmq_vec_free(buf);
 }
 
 void send_pubrec_packet(tmq_tcp_conn_t* conn, void* pkt)

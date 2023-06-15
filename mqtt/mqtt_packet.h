@@ -73,7 +73,7 @@ typedef struct tmq_publish_pkt
 
 typedef struct tmq_puback_pkt
 {
-
+    uint16_t packet_id;
 } tmq_puback_pkt;
 
 typedef struct tmq_pubrec_pkt
@@ -132,6 +132,8 @@ void tmq_unsubscribe_pkt_cleanup(void* pkt);
 void tmq_suback_pkt_cleanup(void* pkt);
 
 void tmq_any_pkt_cleanup(tmq_any_packet_t* any_pkt);
+
+tmq_publish_pkt* tmq_publish_pkt_clone(tmq_publish_pkt* pkt);
 
 /* for debug */
 void tmq_connect_pkt_print(tmq_connect_pkt* pkt);

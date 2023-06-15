@@ -27,6 +27,7 @@ typedef struct tmq_broker_s
     tmq_config_t conf, pwd_conf;
     tmq_session_map sessions;
     tmq_topics_t topics_tree;
+    uint8_t inflight_window_size;
 
     /* guarded by session_ctl_lk */
     session_ctl_list session_ctl_reqs;
