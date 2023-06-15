@@ -20,7 +20,7 @@ typedef struct sending_packet
 typedef enum session_state_e{OPEN, CLOSED} session_state_e;
 typedef void(*new_message_cb)(void* upstream, char* topic, tmq_message* message, uint8_t retain);
 typedef tmq_map(char*, uint8_t) subscription_map;
-typedef tmq_map(uint16_t, uint8_t)  packet_id_set;
+typedef tmq_map(uint32_t, uint8_t)  packet_id_set;
 
 typedef struct tmq_session_s
 {

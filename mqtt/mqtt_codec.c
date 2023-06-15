@@ -189,7 +189,7 @@ static decode_status parse_publish_packet(tmq_codec_t* codec, tmq_tcp_conn_t* co
         tmq_pubrec_pkt rec = {
                 .packet_id = publish_pkt.packet_id
         };
-        send_puback_packet(conn, &rec);
+        send_pubrec_packet(conn, &rec);
     }
 
     codec->on_publish(ctx->upstream.session, &publish_pkt);

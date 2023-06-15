@@ -58,7 +58,6 @@ static int accknowledge(tmq_session_t* session, uint16_t packet_id, tmq_packet_t
     }
     if(session->pending_pointer && ack_success)
     {
-        tlog_info("send packet[%u] -> %s", session->pending_pointer->packet_id, session->client_id);
         tmq_session_send_packet(session, &session->pending_pointer->packet, 1);
         session->pending_pointer->send_time = time_now();
         session->pending_pointer = session->pending_pointer->next;
@@ -108,10 +107,7 @@ static void resend_messages(void* arg)
     while(sending_pkt && cnt < session->inflight_packets)
     {
         if(now - sending_pkt->send_time >= SEC_US(RESEND_INTERVAL))
-        {
-            tlog_info("resending packet[%u] -> %s", sending_pkt->packet_id, session->client_id);
             tmq_session_send_packet(session, &sending_pkt->packet, 1);
-        }
         sending_pkt = sending_pkt->next;
         cnt++;
     }
@@ -142,6 +138,7 @@ tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message,
     session->sending_queue_head = session->sending_queue_tail = NULL;
 
     tmq_map_str_init(&session->subscriptions, uint8_t, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
+    tmq_map_32_init(&session->qos2_packet_ids, uint8_t, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
     pthread_mutex_init(&session->sending_queue_lk, NULL);
     return session;
 }
