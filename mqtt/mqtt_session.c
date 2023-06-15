@@ -80,15 +80,25 @@ void tmq_session_handle_publish(tmq_session_t* session, tmq_publish_pkt* publish
 {
     session->last_pkt_ts = time_now();
     tmq_message message = {
+            .qos = PUBLISH_QOS(publish_pkt->flags),
             .message = tmq_str_new(publish_pkt->payload)
     };
-    /* qos 0 and 1 message, deliver to the upstream(broker/client) directly. */
-    if(PUBLISH_QOS(publish_pkt->flags) < 2)
+    /* for qos2 message, check if it is a redelivery */
+    if(PUBLISH_QOS(publish_pkt->flags) == 2)
     {
-        message.qos = PUBLISH_QOS(publish_pkt->flags);
-        session->on_new_message(session->upstream, publish_pkt->topic, &message, PUBLISH_RETAIN(publish_pkt->flags));
-        tmq_publish_pkt_cleanup(publish_pkt);
+        /* if this is the first time that receive this publish message,
+         * store the packet id and deliver this message */
+        if(tmq_map_get(session->qos2_packet_ids, publish_pkt->packet_id) == NULL)
+            tmq_map_put(session->qos2_packet_ids, publish_pkt->packet_id, 1);
+        /* if it is a redelivered message, just discard it. */
+        else
+        {
+            tmq_publish_pkt_cleanup(publish_pkt);
+            return;
+        }
     }
+    session->on_new_message(session->upstream, publish_pkt->topic, &message, PUBLISH_RETAIN(publish_pkt->flags));
+    tmq_publish_pkt_cleanup(publish_pkt);
 }
 
 void tmq_session_handle_pingreq(tmq_session_t* session)

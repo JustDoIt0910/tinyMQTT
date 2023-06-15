@@ -19,6 +19,8 @@ typedef struct sending_packet
 
 typedef enum session_state_e{OPEN, CLOSED} session_state_e;
 typedef void(*new_message_cb)(void* upstream, char* topic, tmq_message* message, uint8_t retain);
+typedef tmq_map(char*, uint8_t) subscription_map;
+typedef tmq_map(uint16_t, uint8_t)  packet_id_set;
 
 typedef struct tmq_session_s
 {
@@ -26,7 +28,7 @@ typedef struct tmq_session_s
     tmq_tcp_conn_t* conn;
     session_state_e state;
     uint8_t clean_session;
-    tmq_map(char*, uint8_t) subscriptions;
+    subscription_map subscriptions;
     void* upstream;
     new_message_cb on_new_message;
     uint16_t keep_alive;
@@ -39,6 +41,8 @@ typedef struct tmq_session_s
     pthread_mutex_t sending_queue_lk;
     sending_packet* sending_queue_head, *sending_queue_tail;
     sending_packet* pending_pointer;
+
+    packet_id_set qos2_packet_ids;
 } tmq_session_t;
 
 tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message,
