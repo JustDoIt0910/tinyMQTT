@@ -37,6 +37,7 @@ typedef struct tmq_session_s
     uint8_t inflight_window_size;
     uint8_t inflight_packets;
     tmq_timerid_t resend_timer;
+    pthread_mutex_t lk;
 
     pthread_mutex_t sending_queue_lk;
     sending_packet* sending_queue_head, *sending_queue_tail;

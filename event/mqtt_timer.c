@@ -172,9 +172,7 @@ static void timer_heap_timeout(int timer_fd, uint32_t event, const void* arg)
     {
         if((*timer)->canceled == 1)
             continue;
-        pthread_mutex_unlock(&timer_heap->lk);
         (*timer)->cb((*timer)->arg);
-        pthread_mutex_lock(&timer_heap->lk);
     }
     timer = tmq_vec_begin(timer_heap->expired_timers);
     for(; timer != tmq_vec_end(timer_heap->expired_timers); timer++)
