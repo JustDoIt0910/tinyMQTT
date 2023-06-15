@@ -657,5 +657,7 @@ static void(*packet_senders[])(tmq_tcp_conn_t*, void*) = {
 
 void send_any_packet(tmq_tcp_conn_t* conn, tmq_any_packet_t* pkt)
 {
-    packet_senders[pkt->packet_type](conn, pkt->packet);
+    tcp_conn_ctx* ctx = conn->context;
+    if(conn->state == CONNECTED && ctx->conn_state == IN_SESSION)
+        packet_senders[pkt->packet_type](conn, pkt->packet);
 }

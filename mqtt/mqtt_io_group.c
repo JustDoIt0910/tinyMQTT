@@ -192,13 +192,10 @@ static void send_packets(void* arg)
     packet_send_req* req = tmq_vec_begin(packets);
     for(; req != tmq_vec_end(packets); req++)
     {
-        tcp_conn_ctx* ctx = req->conn->context;
-        if(req->conn->state == CONNECTED && ctx->conn_state == IN_SESSION)
-            send_any_packet(req->conn, &req->pkt);
+        send_any_packet(req->conn, &req->pkt);
         tmq_any_pkt_cleanup(&req->pkt);
         release_ref(req->conn);
     }
-
     tmq_vec_free(packets);
 }
 
