@@ -106,29 +106,36 @@ void tmq_session_handle_pingreq(tmq_session_t* session)
     session->last_pkt_ts = time_now();
 }
 
-void tmq_session_handle_puback(tmq_session_t* session, tmq_puback_pkt* puback_pkt)
+static void accknowledge(tmq_session_t* session, uint16_t packet_id, tmq_packet_type type, uint8_t qos)
 {
-    session->last_pkt_ts = time_now();
-
     pthread_mutex_lock(&session->sending_queue_lk);
     sending_packet** p = &session->sending_queue_head;
     int cnt = 0;
-    while(*p && cnt < session->inflight_packets)
+    while(*p && cnt++ < session->inflight_packets)
     {
-        if((*p)->packet_id == puback_pkt->packet_id)
+        if((*p)->packet_id != packet_id || (*p)->packet.packet_type != type)
         {
-            sending_packet* next = (*p)->next;
-            sending_packet* remove = *p;
-            *p = next;
-            if(session->sending_queue_tail == remove)
-                session->sending_queue_tail = session->sending_queue_head ? (sending_packet*) p: NULL;
-            tmq_any_pkt_cleanup(&remove->packet);
-            free(remove);
-            session->inflight_packets--;
-            break;
+            p = &((*p)->next);
+            continue;
         }
-        p = &((*p)->next);
-        cnt++;
+        if(type == MQTT_PUBLISH)
+        {
+            tmq_publish_pkt* pkt = (*p)->packet.packet;
+            if(PUBLISH_QOS(pkt->flags) != qos)
+            {
+                p = &((*p)->next);
+                continue;
+            }
+        }
+        sending_packet* next = (*p)->next;
+        sending_packet* remove = *p;
+        *p = next;
+        if(session->sending_queue_tail == remove)
+            session->sending_queue_tail = session->sending_queue_head ? (sending_packet*) p: NULL;
+        tmq_any_pkt_cleanup(&remove->packet);
+        free(remove);
+        session->inflight_packets--;
+        break;
     }
     if(session->pending_pointer)
     {
@@ -143,9 +150,16 @@ void tmq_session_handle_puback(tmq_session_t* session, tmq_puback_pkt* puback_pk
     pthread_mutex_unlock(&session->sending_queue_lk);
 }
 
+void tmq_session_handle_puback(tmq_session_t* session, tmq_puback_pkt* puback_pkt)
+{
+    session->last_pkt_ts = time_now();
+    accknowledge(session, puback_pkt->packet_id, MQTT_PUBLISH, 1);
+}
+
 void tmq_session_handle_pubrec(tmq_session_t* session, tmq_pubrec_pkt* pubrec_pkt)
 {
-
+    session->last_pkt_ts = time_now();
+    accknowledge(session, pubrec_pkt->packet_id, MQTT_PUBLISH, 2);
 }
 
 void tmq_session_send_packet(tmq_session_t* session, tmq_any_packet_t* pkt, int direct)
