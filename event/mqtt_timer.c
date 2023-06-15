@@ -123,6 +123,7 @@ tmq_timerid_t tmq_timer_heap_add(tmq_timer_heap_t* timer_heap, tmq_timer_t* time
 
     timerid.addr = (int64_t) timer;
     timerid.timestamp = time_now();
+    timer->timer_id = timerid;
     tmq_map_put(timer_heap->registered_timers, timerid, timer);
     pthread_mutex_unlock(&timer_heap->lk);
     return timerid;
@@ -181,7 +182,11 @@ static void timer_heap_timeout(int timer_fd, uint32_t event, const void* arg)
             (*timer)->expire = now + (int64_t) ((*timer)->timeout_ms * 1000);
             timer_heap_insert(timer_heap, *timer);
         }
-        else free(timer);
+        else
+        {
+            tmq_map_erase(timer_heap->registered_timers, (*timer)->timer_id);
+            free(timer);
+        }
     }
     if(timer_heap->size > 0)
         timerfd_set_timeout(timer_heap->timer_fd, timer_heap->heap[1]->expire);
@@ -257,8 +262,21 @@ void tmq_cancel_timer(tmq_timer_heap_t* timer_heap, tmq_timerid_t timerid)
         return;
     }
     (*timer)->canceled = 1;
-    tmq_map_erase(timer_heap->registered_timers, timerid);
     pthread_mutex_unlock(&timer_heap->lk);
+}
+
+int tmq_resume_timer(tmq_timer_heap_t* timer_heap, tmq_timerid_t timerid)
+{
+    pthread_mutex_lock(&timer_heap->lk);
+    tmq_timer_t** timer = tmq_map_get(timer_heap->registered_timers, timerid);
+    if(!timer)
+    {
+        pthread_mutex_unlock(&timer_heap->lk);
+        return -1;
+    }
+    (*timer)->canceled = 0;
+    pthread_mutex_unlock(&timer_heap->lk);
+    return 0;
 }
 
 /* for debug */
