@@ -219,12 +219,27 @@ static decode_status parse_pubrec_packet(tmq_codec_t* codec, tmq_tcp_conn_t* con
 static decode_status parse_pubrel_packet(tmq_codec_t* codec, tmq_tcp_conn_t* conn,
                                          tmq_buffer_t* buffer, uint32_t len)
 {
+    tmq_pubrel_pkt pubrel_pkt;
+    tmq_buffer_read16(buffer, &pubrel_pkt.packet_id);
+    tcp_conn_ctx* ctx = conn->context;
+
+    /* respond pub_rel with a pub_comp message */
+    tmq_pubcomp_pkt comp = {
+            .packet_id = pubrel_pkt.packet_id
+    };
+    send_pubcomp_packet(conn, &comp);
+
+    codec->on_pub_rel(ctx->upstream.session, &pubrel_pkt);
     return DECODE_OK;
 }
 
 static decode_status parse_pubcomp_packet(tmq_codec_t* codec, tmq_tcp_conn_t* conn,
                                           tmq_buffer_t* buffer, uint32_t len)
 {
+    tmq_pubcomp_pkt pubcomp_pkt;
+    tmq_buffer_read16(buffer, &pubcomp_pkt.packet_id);
+    tcp_conn_ctx* ctx = conn->context;
+    codec->on_pub_comp(ctx->upstream.session, &pubcomp_pkt);
     return DECODE_OK;
 }
 
@@ -267,6 +282,8 @@ static decode_status parse_subscribe_packet(tmq_codec_t* codec, tmq_tcp_conn_t* 
 static decode_status parse_suback_packet(tmq_codec_t* codec, tmq_tcp_conn_t* conn,
                                          tmq_buffer_t* buffer, uint32_t len)
 {
+    if(codec->type != CLIENT_CODEC)
+        return UNEXPECTED_PACKET;
     return DECODE_OK;
 }
 
@@ -297,6 +314,8 @@ static decode_status parse_unsubscribe_packet(tmq_codec_t* codec, tmq_tcp_conn_t
 static decode_status parse_unsuback_packet(tmq_codec_t* codec, tmq_tcp_conn_t* conn,
                                            tmq_buffer_t* buffer, uint32_t len)
 {
+    if(codec->type != SERVER_CODEC)
+        return UNEXPECTED_PACKET;
     return DECODE_OK;
 }
 
@@ -402,6 +421,8 @@ extern void tmq_session_handle_unsubscribe(tmq_session_t* session, tmq_unsubscri
 extern void tmq_session_handle_publish(tmq_session_t* session, tmq_publish_pkt* publish_pkt);
 extern void tmq_session_handle_puback(tmq_session_t* session, tmq_puback_pkt* puback_pkt);
 extern void tmq_session_handle_pubrec(tmq_session_t* session, tmq_pubrec_pkt* pubrec_pkt);
+extern void tmq_session_handle_pubrel(tmq_session_t* session, tmq_pubrel_pkt* pubrel_pkt);
+extern void tmq_session_handle_pubcomp(tmq_session_t* session, tmq_pubcomp_pkt* pubcomp_pkt);
 extern void tmq_session_handle_pingreq(tmq_session_t* session);
 
 void tmq_codec_init(tmq_codec_t* codec, tmq_codec_type type)
@@ -415,6 +436,8 @@ void tmq_codec_init(tmq_codec_t* codec, tmq_codec_type type)
     codec->on_publish = tmq_session_handle_publish;
     codec->on_pub_ack = tmq_session_handle_puback;
     codec->on_pub_rec = tmq_session_handle_pubrec;
+    codec->on_pub_rel = tmq_session_handle_pubrel;
+    codec->on_pub_comp = tmq_session_handle_pubcomp;
     codec->on_ping_req = tmq_session_handle_pingreq;
 }
 
@@ -573,9 +596,7 @@ void send_suback_packet(tmq_tcp_conn_t* conn, void* pkt)
         tmq_vec_free(buf);
         return;
     }
-    uint16_t packet_id = htobe16(suback_pkt->packet_id);
-    tmq_vec_push_back(buf, packet_id & 0xFF);  /* MSB */
-    tmq_vec_push_back(buf, (packet_id >> 8) & 0xFF);  /* LSB */
+    pack_uint16(&buf, suback_pkt->packet_id);
 
     uint8_t* code = tmq_vec_begin(suback_pkt->return_codes);
     for(; code != tmq_vec_end(suback_pkt->return_codes); code++)
@@ -598,9 +619,8 @@ void send_unsuback_packet(tmq_tcp_conn_t* conn, void* pkt)
         tmq_vec_free(buf);
         return;
     }
-    uint16_t packet_id = htobe16(unsuback_pkt->packet_id);
-    tmq_vec_push_back(buf, packet_id & 0xFF);  /* MSB */
-    tmq_vec_push_back(buf, (packet_id >> 8) & 0xFF);  /* LSB */
+    pack_uint16(&buf, unsuback_pkt->packet_id);
+
     tmq_tcp_conn_write(conn, (char*) tmq_vec_begin(buf), tmq_vec_size(buf));
     tmq_vec_free(buf);
 }

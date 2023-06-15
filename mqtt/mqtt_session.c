@@ -12,7 +12,7 @@
 extern void mqtt_subscribe_unsubscribe_request(tmq_broker_t* broker, subscribe_unsubscribe_req* sub_unsub_req,
                                                message_ctl_op op);
 
-sending_packet* send_packet_new(tmq_packet_type type, void* pkt, uint16_t packet_id)
+static sending_packet* send_packet_new(tmq_packet_type type, void* pkt, uint16_t packet_id)
 {
     sending_packet* sending_pkt = malloc(sizeof(sending_packet));
     if(!sending_pkt) fatal_error("malloc() error: out of memory");
@@ -21,6 +21,101 @@ sending_packet* send_packet_new(tmq_packet_type type, void* pkt, uint16_t packet
     sending_pkt->packet.packet = pkt;
     sending_pkt->next = NULL;
     return sending_pkt;
+}
+
+static int accknowledge(tmq_session_t* session, uint16_t packet_id, tmq_packet_type type, int qos)
+{
+    int ack_success = 0;
+    pthread_mutex_lock(&session->sending_queue_lk);
+    sending_packet** p = &session->sending_queue_head;
+    int cnt = 0;
+    while(*p && cnt++ < session->inflight_packets)
+    {
+        if((*p)->packet_id != packet_id || (*p)->packet.packet_type != type)
+        {
+            p = &((*p)->next);
+            continue;
+        }
+        if(type == MQTT_PUBLISH)
+        {
+            tmq_publish_pkt* pkt = (*p)->packet.packet;
+            if(PUBLISH_QOS(pkt->flags) != qos)
+            {
+                p = &((*p)->next);
+                continue;
+            }
+        }
+        sending_packet* next = (*p)->next;
+        sending_packet* remove = *p;
+        *p = next;
+        if(session->sending_queue_tail == remove)
+            session->sending_queue_tail = session->sending_queue_head ? (sending_packet*) p: NULL;
+        tmq_any_pkt_cleanup(&remove->packet);
+        free(remove);
+        session->inflight_packets--;
+        ack_success = 1;
+        break;
+    }
+    if(session->pending_pointer && ack_success)
+    {
+        tlog_info("send packet[%u] -> %s", session->pending_pointer->packet_id, session->client_id);
+        tmq_session_send_packet(session, &session->pending_pointer->packet, 1);
+        session->pending_pointer->send_time = time_now();
+        session->pending_pointer = session->pending_pointer->next;
+        session->inflight_packets++;
+    }
+    if(session->inflight_packets == 0)
+        tmq_event_loop_cancel_timer(session->conn->loop, session->resend_timer);
+    pthread_mutex_unlock(&session->sending_queue_lk);
+    return ack_success;
+}
+
+static int store_sending_packet(tmq_session_t* session, sending_packet* sending_pkt)
+{
+    int send_now = 1;
+    /* if the sending queue is empty */
+    if(!session->sending_queue_tail)
+        session->sending_queue_head = session->sending_queue_tail = sending_pkt;
+    else
+    {
+        session->sending_queue_tail->next = sending_pkt;
+        session->sending_queue_tail = sending_pkt;
+    }
+    /* if the number of inflight packets less than the inflight window size,
+     * this packet can be sent immediately */
+    if(session->inflight_packets < session->inflight_window_size)
+    {
+        sending_pkt->send_time = time_now();
+        session->inflight_packets++;
+    }
+        /* otherwise, it must wait for sending in the sending_queue */
+    else
+    {
+        send_now = 0;
+        if(!session->pending_pointer)
+            session->pending_pointer = sending_pkt;
+    }
+    return send_now;
+}
+
+static void resend_messages(void* arg)
+{
+    int64_t now = time_now();
+    tmq_session_t* session = arg;
+    pthread_mutex_lock(&session->sending_queue_lk);
+    sending_packet* sending_pkt = session->sending_queue_head;
+    int cnt = 0;
+    while(sending_pkt && cnt < session->inflight_packets)
+    {
+        if(now - sending_pkt->send_time >= SEC_US(RESEND_INTERVAL))
+        {
+            tlog_info("resending packet[%u] -> %s", sending_pkt->packet_id, session->client_id);
+            tmq_session_send_packet(session, &sending_pkt->packet, 1);
+        }
+        sending_pkt = sending_pkt->next;
+        cnt++;
+    }
+    pthread_mutex_unlock(&session->sending_queue_lk);
 }
 
 tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message,
@@ -90,7 +185,7 @@ void tmq_session_handle_publish(tmq_session_t* session, tmq_publish_pkt* publish
          * store the packet id and deliver this message */
         if(tmq_map_get(session->qos2_packet_ids, publish_pkt->packet_id) == NULL)
             tmq_map_put(session->qos2_packet_ids, publish_pkt->packet_id, 1);
-        /* if it is a redelivered message, just discard it. */
+            /* if it is a redelivered message, just discard it. */
         else
         {
             tmq_publish_pkt_cleanup(publish_pkt);
@@ -106,50 +201,6 @@ void tmq_session_handle_pingreq(tmq_session_t* session)
     session->last_pkt_ts = time_now();
 }
 
-static void accknowledge(tmq_session_t* session, uint16_t packet_id, tmq_packet_type type, uint8_t qos)
-{
-    pthread_mutex_lock(&session->sending_queue_lk);
-    sending_packet** p = &session->sending_queue_head;
-    int cnt = 0;
-    while(*p && cnt++ < session->inflight_packets)
-    {
-        if((*p)->packet_id != packet_id || (*p)->packet.packet_type != type)
-        {
-            p = &((*p)->next);
-            continue;
-        }
-        if(type == MQTT_PUBLISH)
-        {
-            tmq_publish_pkt* pkt = (*p)->packet.packet;
-            if(PUBLISH_QOS(pkt->flags) != qos)
-            {
-                p = &((*p)->next);
-                continue;
-            }
-        }
-        sending_packet* next = (*p)->next;
-        sending_packet* remove = *p;
-        *p = next;
-        if(session->sending_queue_tail == remove)
-            session->sending_queue_tail = session->sending_queue_head ? (sending_packet*) p: NULL;
-        tmq_any_pkt_cleanup(&remove->packet);
-        free(remove);
-        session->inflight_packets--;
-        break;
-    }
-    if(session->pending_pointer)
-    {
-        tlog_info("send packet[%u] -> %s", session->pending_pointer->packet_id, session->client_id);
-        tmq_session_send_packet(session, &session->pending_pointer->packet, 1);
-        session->pending_pointer->send_time = time_now();
-        session->pending_pointer = session->pending_pointer->next;
-        session->inflight_packets++;
-    }
-    if(session->inflight_packets == 0)
-        tmq_event_loop_cancel_timer(session->conn->loop, session->resend_timer);
-    pthread_mutex_unlock(&session->sending_queue_lk);
-}
-
 void tmq_session_handle_puback(tmq_session_t* session, tmq_puback_pkt* puback_pkt)
 {
     session->last_pkt_ts = time_now();
@@ -159,7 +210,42 @@ void tmq_session_handle_puback(tmq_session_t* session, tmq_puback_pkt* puback_pk
 void tmq_session_handle_pubrec(tmq_session_t* session, tmq_pubrec_pkt* pubrec_pkt)
 {
     session->last_pkt_ts = time_now();
-    accknowledge(session, pubrec_pkt->packet_id, MQTT_PUBLISH, 2);
+    if(accknowledge(session, pubrec_pkt->packet_id, MQTT_PUBLISH, 2))
+    {
+        tmq_pubrel_pkt* pubrel_pkt = malloc(sizeof(tmq_pubrel_pkt));
+        pubrel_pkt->packet_id = pubrec_pkt->packet_id;
+
+        pthread_mutex_lock(&session->sending_queue_lk);
+        int start_resend = session->inflight_packets == 0;
+
+        sending_packet* sending_pkt = send_packet_new(MQTT_PUBREL, pubrel_pkt, pubrel_pkt->packet_id);
+        if(store_sending_packet(session, sending_pkt))
+        {
+            tmq_any_packet_t pkt = {
+                    .packet_type = MQTT_PUBREL,
+                    .packet = pubrel_pkt
+            };
+            tmq_session_send_packet(session, &pkt, 1);
+        }
+        if(start_resend && tmq_event_loop_resume_timer(session->conn->loop, session->resend_timer) < 0)
+        {
+            tmq_timer_t* timer = tmq_timer_new(SEC_MS(RESEND_INTERVAL), 1, resend_messages, session);
+            session->resend_timer = tmq_event_loop_add_timer(session->conn->loop, timer);
+        }
+        pthread_mutex_unlock(&session->sending_queue_lk);
+    }
+}
+
+void tmq_session_handle_pubrel(tmq_session_t* session, tmq_pubrel_pkt* pubrel_pkt)
+{
+    session->last_pkt_ts = time_now();
+    tmq_map_erase(session->qos2_packet_ids, pubrel_pkt->packet_id);
+}
+
+void tmq_session_handle_pubcomp(tmq_session_t* session, tmq_pubcomp_pkt* pubcomp_pkt)
+{
+    session->last_pkt_ts = time_now();
+    accknowledge(session, pubcomp_pkt->packet_id, MQTT_PUBREL, -1);
 }
 
 void tmq_session_send_packet(tmq_session_t* session, tmq_any_packet_t* pkt, int direct)
@@ -180,26 +266,6 @@ void tmq_session_send_packet(tmq_session_t* session, tmq_any_packet_t* pkt, int 
 
         tmq_notifier_notify(&group->sending_packets_notifier);
     }
-}
-
-static void resend_messages(void* arg)
-{
-    int64_t now = time_now();
-    tmq_session_t* session = arg;
-    pthread_mutex_lock(&session->sending_queue_lk);
-    sending_packet* sending_pkt = session->sending_queue_head;
-    int cnt = 0;
-    while(sending_pkt && cnt < session->inflight_packets)
-    {
-        if(now - sending_pkt->send_time >= SEC_US(RESEND_INTERVAL))
-        {
-            tlog_info("resending packet[%u] -> %s", sending_pkt->packet_id, session->client_id);
-            tmq_session_send_packet(session, &sending_pkt->packet, 1);
-        }
-        sending_pkt = sending_pkt->next;
-        cnt++;
-    }
-    pthread_mutex_unlock(&session->sending_queue_lk);
 }
 
 void tmq_session_publish(tmq_session_t* session, char* topic, char* payload, uint8_t qos, uint8_t retain)
@@ -228,29 +294,10 @@ void tmq_session_publish(tmq_session_t* session, char* topic, char* payload, uin
         int start_resend = session->inflight_packets == 0;
         if(session->inflight_packets < session->inflight_window_size)
             stored_pkt = tmq_publish_pkt_clone(publish_pkt);
+
         sending_packet* sending_pkt = send_packet_new(MQTT_PUBLISH, stored_pkt, publish_pkt->packet_id);
-        /* if the sending queue is empty */
-        if(!session->sending_queue_tail)
-            session->sending_queue_head = session->sending_queue_tail = sending_pkt;
-        else
-        {
-            session->sending_queue_tail->next = sending_pkt;
-            session->sending_queue_tail = sending_pkt;
-        }
-        /* if the number of inflight packets less than the inflight window size,
-         * this packet can be sent immediately */
-        if(session->inflight_packets < session->inflight_window_size)
-        {
-            sending_pkt->send_time = time_now();
-            session->inflight_packets++;
-        }
-        /* otherwise, it must wait for sending in the sending_queue */
-        else
-        {
-            send_now = 0;
-            if(!session->pending_pointer)
-                session->pending_pointer = sending_pkt;
-        }
+        send_now = store_sending_packet(session, sending_pkt);
+
         if(start_resend && tmq_event_loop_resume_timer(session->conn->loop, session->resend_timer) < 0)
         {
             tmq_timer_t* timer = tmq_timer_new(SEC_MS(RESEND_INTERVAL), 1, resend_messages, session);
