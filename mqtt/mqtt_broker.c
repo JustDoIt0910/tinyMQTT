@@ -230,13 +230,14 @@ static void handle_message_ctl(void* arg)
                         tmq_session_publish(*session, retain_msg->retain_topic,
                                             retain_msg->retain_msg.message, final_qos, 1);
                     }
+                    tmq_vec_free(retain);
                     tmq_topics_info(&broker->topics_tree);
                     tmq_vec_push_back(sub_ack->return_codes, tf->qos);
                 }
                 tmq_subscribe_pkt_cleanup(&req.sub_unsub_pkt.subscribe_pkt);
                 ack.packet_type = MQTT_SUBACK;
                 ack.packet = sub_ack;
-                tmq_session_send_packet(*session, &ack);
+                tmq_session_send_packet(*session, &ack, 0);
                 /* todo: send retain messages */
             }
             else
@@ -254,7 +255,7 @@ static void handle_message_ctl(void* arg)
                 tmq_unsubscribe_pkt_cleanup(&req.sub_unsub_pkt.unsubscribe_pkt);
                 ack.packet_type = MQTT_UNSUBACK;
                 ack.packet = unsub_ack;
-                tmq_session_send_packet(*session, &ack);
+                tmq_session_send_packet(*session, &ack, 0);
             }
             tmq_str_free(req.client_id);
         }

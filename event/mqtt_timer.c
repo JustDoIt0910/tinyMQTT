@@ -172,7 +172,9 @@ static void timer_heap_timeout(int timer_fd, uint32_t event, const void* arg)
     {
         if((*timer)->canceled == 1)
             continue;
+        pthread_mutex_unlock(&timer_heap->lk);
         (*timer)->cb((*timer)->arg);
+        pthread_mutex_lock(&timer_heap->lk);
     }
     timer = tmq_vec_begin(timer_heap->expired_timers);
     for(; timer != tmq_vec_end(timer_heap->expired_timers); timer++)
@@ -185,7 +187,7 @@ static void timer_heap_timeout(int timer_fd, uint32_t event, const void* arg)
         else
         {
             tmq_map_erase(timer_heap->registered_timers, (*timer)->timer_id);
-            free(timer);
+            free(*timer);
         }
     }
     if(timer_heap->size > 0)
@@ -223,13 +225,13 @@ void tmq_timer_heap_init(tmq_timer_heap_t* timer_heap, tmq_event_loop_t* loop)
                         MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR,
                         timerid_hash, timerid_equal);
 
-    pthread_mutexattr_t attr;
-    memset(&attr, 0, sizeof(pthread_mutexattr_t));
-    if(pthread_mutexattr_init(&attr))
-        fatal_error("pthread_mutexattr_init() error %d: %s", errno, strerror(errno));
-
-    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE_NP);
-    if(pthread_mutex_init(&timer_heap->lk, &attr))
+//    pthread_mutexattr_t attr;
+//    memset(&attr, 0, sizeof(pthread_mutexattr_t));
+//    if(pthread_mutexattr_init(&attr))
+//        fatal_error("pthread_mutexattr_init() error %d: %s", errno, strerror(errno));
+//
+//    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE_NP);
+    if(pthread_mutex_init(&timer_heap->lk, NULL))
         fatal_error("pthread_mutex_init() error %d: %s", errno, strerror(errno));
 
     tmq_event_handler_t* handler = tmq_event_handler_new(timer_heap->timer_fd, EPOLLIN,

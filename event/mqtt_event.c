@@ -224,6 +224,12 @@ void tmq_event_loop_cancel_timer(tmq_event_loop_t* loop, tmq_timerid_t timerid)
     tmq_cancel_timer(&loop->timer_heap, timerid);
 }
 
+int tmq_event_loop_resume_timer(tmq_event_loop_t* loop, tmq_timerid_t timerid)
+{
+    if(!loop) -1;
+    return tmq_resume_timer(&loop->timer_heap, timerid);
+}
+
 void tmq_event_loop_quit(tmq_event_loop_t* loop) {atomicSet(loop->quit, 1);}
 
 void tmq_event_loop_destroy(tmq_event_loop_t* loop)

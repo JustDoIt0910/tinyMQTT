@@ -63,6 +63,7 @@ void tmq_handler_unregister(tmq_event_loop_t* loop, tmq_event_handler_t* handler
 int tmq_handler_is_registered(tmq_event_loop_t* loop, tmq_event_handler_t* handler);
 tmq_timerid_t tmq_event_loop_add_timer(tmq_event_loop_t* loop, tmq_timer_t* timer);
 void tmq_event_loop_cancel_timer(tmq_event_loop_t* loop, tmq_timerid_t timerid);
+int tmq_event_loop_resume_timer(tmq_event_loop_t* loop, tmq_timerid_t timerid);
 void tmq_event_loop_quit(tmq_event_loop_t* loop);
 void tmq_event_loop_destroy(tmq_event_loop_t* loop);
 
