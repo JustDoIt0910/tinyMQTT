@@ -143,6 +143,11 @@ void tmq_session_handle_puback(tmq_session_t* session, tmq_puback_pkt* puback_pk
     pthread_mutex_unlock(&session->sending_queue_lk);
 }
 
+void tmq_session_handle_pubrec(tmq_session_t* session, tmq_pubrec_pkt* pubrec_pkt)
+{
+
+}
+
 void tmq_session_send_packet(tmq_session_t* session, tmq_any_packet_t* pkt, int direct)
 {
     /* if direct = 1, send the packet directly in this thread */

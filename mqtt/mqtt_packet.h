@@ -78,17 +78,17 @@ typedef struct tmq_puback_pkt
 
 typedef struct tmq_pubrec_pkt
 {
-
+    uint16_t packet_id;
 } tmq_pubrec_pkt;
 
 typedef struct tmq_pubrel_pkt
 {
-
+    uint16_t packet_id;
 } tmq_pubrel_pkt;
 
 typedef struct tmq_pubcomp_pkt
 {
-
+    uint16_t packet_id;
 } tmq_pubcomp_pkt;
 
 typedef struct topic_filter_qos
