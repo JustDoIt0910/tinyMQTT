@@ -116,7 +116,7 @@ static void resend_messages(void* arg)
     pthread_mutex_unlock(&session->sending_queue_lk);
 }
 
-tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message,
+tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message, close_cb on_close,
                                tmq_tcp_conn_t* conn, tmq_str_t client_id,
                                uint8_t clean_session, uint16_t ka, uint8_t max_inflight)
 {
@@ -125,6 +125,7 @@ tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message,
     bzero(session, sizeof(tmq_session_t));
     session->upstream = upstream;
     session->on_new_message = on_new_message;
+    session->on_close = on_close;
     session->state = OPEN;
     session->clean_session = clean_session;
     session->conn = get_ref(conn);
@@ -146,15 +147,18 @@ tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message,
     return session;
 }
 
-void tmq_session_close(tmq_session_t* session, int cleanup)
+void tmq_session_close(tmq_session_t* session)
 {
     if(session->state == OPEN)
     {
         tmq_event_loop_cancel_timer(session->conn->loop, session->resend_timer);
         session->state = CLOSED;
     }
+    if(session->conn)
+        release_ref(session->conn);
+    session->on_close(session->upstream, session);
     /* if this is a clean-session, or cleanup set to 1, clear all the session states */
-    if(session->clean_session || cleanup)
+    if(session->clean_session)
     {
         tmq_str_free(session->client_id);
         tmq_map_free(session->subscriptions);
@@ -170,8 +174,6 @@ void tmq_session_close(tmq_session_t* session, int cleanup)
         pthread_mutex_destroy(&session->sending_queue_lk);
         pthread_mutex_destroy(&session->lk);
     }
-    if(session->conn)
-        release_ref(session->conn);
 }
 
 void tmq_session_handle_subscribe(tmq_session_t* session, tmq_subscribe_pkt* subscribe_pkt)
