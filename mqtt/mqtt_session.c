@@ -111,7 +111,6 @@ static void resend_messages(void* arg)
     {
         if(now - sending_pkt->send_time >= SEC_US(RESEND_INTERVAL))
         {
-            tlog_info("resend packet[%u] -> %s", sending_pkt->packet_id, session->client_id);
             tmq_any_packet_t send = sending_pkt->packet;
             if(send.packet_type == MQTT_PUBLISH)
                 send.packet = tmq_publish_pkt_clone(sending_pkt->packet.packet);
@@ -123,9 +122,9 @@ static void resend_messages(void* arg)
     pthread_mutex_unlock(&session->sending_queue_lk);
 }
 
-tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message, close_cb on_close,
-                               tmq_tcp_conn_t* conn, tmq_str_t client_id,
-                               uint8_t clean_session, uint16_t ka, uint8_t max_inflight)
+tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message, close_cb on_close, tmq_tcp_conn_t* conn,
+                               tmq_str_t client_id, uint8_t clean_session, uint16_t keep_alive, char* will_topic,
+                               char* will_message, uint8_t will_qos, uint8_t will_retain, uint8_t max_inflight)
 {
     tmq_session_t* session = malloc(sizeof(tmq_session_t));
     if(!session) fatal_error("malloc() error: out of memory");
@@ -137,11 +136,17 @@ tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message, cl
     session->clean_session = clean_session;
     session->conn = get_ref(conn);
     session->client_id = tmq_str_new(client_id);
-    session->keep_alive = ka;
+    session->keep_alive = keep_alive;
     session->last_pkt_ts = time_now();
     session->inflight_window_size = max_inflight;
     session->inflight_packets = 0;
-
+    if(will_topic)
+    {
+        session->will_publish_req.topic = tmq_str_new(will_topic);
+        session->will_publish_req.message.message = tmq_str_new(will_message);
+        session->will_publish_req.message.qos = will_qos;
+        session->will_publish_req.retain = will_retain;
+    }
     unsigned int rand_seed = time(NULL);
     session->next_packet_id = rand_r(&rand_seed) % UINT16_MAX;
 
@@ -174,22 +179,41 @@ void tmq_session_close(tmq_session_t* session)
     if(session->conn)
         release_ref(session->conn);
     session->on_close(session->upstream, session);
-    /* if this is a clean-session, or cleanup set to 1, clear all the session states */
-    if(session->clean_session)
+}
+
+void tmq_session_free(tmq_session_t* session)
+{
+    tmq_str_free(session->client_id);
+    tmq_map_free(session->subscriptions);
+    tmq_map_free(session->qos2_packet_ids);
+    sending_packet* sending_pkt = session->sending_queue_head;
+    while(sending_pkt)
     {
-        tmq_str_free(session->client_id);
-        tmq_map_free(session->subscriptions);
-        tmq_map_free(session->qos2_packet_ids);
-        sending_packet* sending_pkt = session->sending_queue_head;
-        while(sending_pkt)
-        {
-            sending_packet * next = sending_pkt->next;
-            tmq_any_pkt_cleanup(&sending_pkt->packet);
-            free(sending_pkt);
-            sending_pkt = next;
-        }
-        pthread_mutex_destroy(&session->sending_queue_lk);
-        pthread_mutex_destroy(&session->lk);
+        sending_packet * next = sending_pkt->next;
+        tmq_any_pkt_cleanup(&sending_pkt->packet);
+        free(sending_pkt);
+        sending_pkt = next;
+    }
+    pthread_mutex_destroy(&session->sending_queue_lk);
+    pthread_mutex_destroy(&session->lk);
+    free(session);
+}
+
+void tmq_session_resume(tmq_session_t* session, tmq_tcp_conn_t* conn, uint16_t keep_alive, char* will_topic,
+                        char* will_message, uint8_t will_qos, uint8_t will_retain)
+{
+    session->conn = get_ref(conn);
+    session->state = OPEN;
+    session->last_pkt_ts = time_now();
+    session->keep_alive = keep_alive;
+    session->will_publish_req.topic = NULL;
+    session->will_publish_req.message.message = NULL;
+    if(will_topic)
+    {
+        session->will_publish_req.topic = tmq_str_new(will_topic);
+        session->will_publish_req.message.message = tmq_str_new(will_message);
+        session->will_publish_req.message.qos = will_qos;
+        session->will_publish_req.retain = will_retain;
     }
 }
 
@@ -361,10 +385,7 @@ void tmq_session_publish(tmq_session_t* session, char* topic, char* payload, uin
         pthread_mutex_unlock(&session->lk);
     }
     if(send_now)
-    {
-        tlog_info("publish(qos=%u) packet[%u] -> %s", qos, publish_pkt->packet_id, session->client_id);
         tmq_session_send_packet(session, &pkt);
-    }
     else tmq_publish_pkt_cleanup(publish_pkt);
 }
 

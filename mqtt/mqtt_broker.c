@@ -85,6 +85,17 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
         }
     }
     if(!success) goto cleanup;
+
+    char* will_topic = NULL, *will_message = NULL;
+    uint8_t will_qos = 0, will_retain = 0;
+    if(CONNECT_WILL_FLAG(connect_pkt->flags))
+    {
+        will_topic = connect_pkt->will_topic;
+        will_message = connect_pkt->will_message;
+        will_qos = CONNECT_WILL_QOS(connect_pkt->flags);
+        will_retain = (CONNECT_WILL_RETAIN(connect_pkt->flags) != 0);
+    }
+
     tmq_session_t** session = tmq_map_get(broker->sessions, connect_pkt->client_id);
     /* if there is an active session associted with this client id */
     if(session && (*session)->state == OPEN)
@@ -102,19 +113,18 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
         {
             (*session)->clean_session = 1;
             tmq_session_close(*session);
-            free(*session);
-            tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver, session_states_cleanup,
-                                                         conn, connect_pkt->client_id, 1,
-                                                         connect_pkt->keep_alive, broker->inflight_window_size);
+            tmq_session_free(*session);
+            tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver, session_states_cleanup, conn,
+                                                         connect_pkt->client_id, 1, connect_pkt->keep_alive, will_topic,
+                                                         will_message, will_qos, will_retain, broker->inflight_window_size);
             tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
             make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, new_session, 1);
         }
         /* otherwise, resume the old session's state */
         else
         {
-            (*session)->conn = get_ref(conn);
-            (*session)->state = OPEN;
-            (*session)->last_pkt_ts = time_now();
+            tmq_session_resume(*session, conn, connect_pkt->keep_alive,
+                               will_topic, will_message, will_qos, will_retain);
             make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, *session, 1);
         }
     }
@@ -122,9 +132,9 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
     else
     {
         int clean_session = CONNECT_CLEAN_SESSION(connect_pkt->flags) != 0;
-        tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver, session_states_cleanup,
-                                                     conn, connect_pkt->client_id, clean_session,
-                                                     connect_pkt->keep_alive, broker->inflight_window_size);
+        tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver, session_states_cleanup, conn,
+                                                     connect_pkt->client_id, clean_session, connect_pkt->keep_alive, will_topic,
+                                                     will_message, will_qos, will_retain, broker->inflight_window_size);
         tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
         make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, new_session, 0);
     }
@@ -157,14 +167,18 @@ static void handle_session_ctl(void* arg)
         else
         {
             tmq_session_t* session = ctl->context.session;
+            tmq_session_close(session);
             if(ctl->op == SESSION_FORCE_CLOSE)
             {
                 /* send the will-message if session closed without receiving a disconnect packet */
-                /*todo: send will message */
+                if(session->will_publish_req.topic)
+                    tmq_topics_publish(&broker->topics_tree, 0, session->will_publish_req.topic,
+                                       &session->will_publish_req.message, session->will_publish_req.retain);
             }
-            tmq_session_close(session);
+            tmq_str_free(session->will_publish_req.topic);
+            tmq_str_free(session->will_publish_req.message.message);
             if(session->clean_session)
-                free(session);
+                tmq_session_free(session);
         }
     }
     tmq_vec_free(ctls);
@@ -190,6 +204,7 @@ static void handle_message_ctl(void* arg)
                 continue;
 
             tmq_any_packet_t ack;
+            /* handle subscribe request */
             if(ctl->op == SUBSCRIBE)
             {
                 /* the subscription will always success. */
@@ -200,7 +215,7 @@ static void handle_message_ctl(void* arg)
                 topic_filter_qos* tf = tmq_vec_begin(req.sub_unsub_pkt.subscribe_pkt.topics);
                 for(; tf != tmq_vec_end(req.sub_unsub_pkt.subscribe_pkt.topics); tf++)
                 {
-                    tlog_info("subscribe{client=%s, topic=%s, qos=%u}", req.client_id, tf->topic_filter, tf->qos);
+                    //tlog_info("subscribe{client=%s, topic=%s, qos=%u}", req.client_id, tf->topic_filter, tf->qos);
                     retain_message_list retain = tmq_topics_add_subscription(&broker->topics_tree, tf->topic_filter,
                                                                              req.client_id, tf->qos);
                     /* send the retained messages that match the subscription */
@@ -213,7 +228,7 @@ static void handle_message_ctl(void* arg)
                                             retain_msg->retain_msg.message, final_qos, 1);
                     }
                     tmq_vec_free(retain);
-                    tmq_topics_info(&broker->topics_tree);
+                    //tmq_topics_info(&broker->topics_tree);
                     tmq_vec_push_back(sub_ack->return_codes, tf->qos);
                 }
                 tmq_subscribe_pkt_cleanup(&req.sub_unsub_pkt.subscribe_pkt);
@@ -222,6 +237,7 @@ static void handle_message_ctl(void* arg)
                 tmq_session_send_packet(*session, &ack);
                 /* todo: send retain messages */
             }
+            /* handle unsubscribe request */
             else
             {
                 tmq_unsuback_pkt* unsub_ack = malloc(sizeof(tmq_unsuback_pkt));
@@ -230,7 +246,7 @@ static void handle_message_ctl(void* arg)
                 tmq_str_t* tf = tmq_vec_begin(req.sub_unsub_pkt.unsubscribe_pkt.topics);
                 for(; tf != tmq_vec_end(req.sub_unsub_pkt.unsubscribe_pkt.topics); tf++)
                 {
-                    tlog_info("unsubscribe{client=%s, topic=%s}", req.client_id, *tf);
+                    //tlog_info("unsubscribe{client=%s, topic=%s}", req.client_id, *tf);
                     tmq_topics_remove_subscription(&broker->topics_tree, *tf, req.client_id);
                     tmq_topics_info(&broker->topics_tree);
                 }
@@ -241,6 +257,7 @@ static void handle_message_ctl(void* arg)
             }
             tmq_str_free(req.client_id);
         }
+        /* handle publish request */
         else
         {
             publish_req req = ctl->context.pub_req;
