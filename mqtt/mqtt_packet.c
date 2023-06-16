@@ -71,6 +71,13 @@ tmq_publish_pkt* tmq_publish_pkt_clone(tmq_publish_pkt* pkt)
     return clone;
 }
 
+tmq_pubrel_pkt* tmq_pubrel_pkt_clone(tmq_pubrel_pkt* pkt)
+{
+    tmq_pubrel_pkt* clone = malloc(sizeof(tmq_pubrel_pkt));
+    clone->packet_id = pkt->packet_id;
+    return clone;
+}
+
 void tmq_connect_pkt_print(tmq_connect_pkt* pkt)
 {
     tmq_str_t s = tmq_str_new("CONNECT{Username Flag:");

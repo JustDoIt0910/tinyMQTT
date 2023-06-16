@@ -175,6 +175,8 @@ static void handle_new_session(void* arg)
                 .ack_flags = resp->session_present
         };
         send_connack_packet(resp->conn, &pkt);
+        if(resp->return_code == CONNECTION_ACCEPTED)
+            tmq_session_start(resp->session);
         release_ref(resp->conn);
     }
     tmq_vec_free(resps);

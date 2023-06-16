@@ -219,7 +219,7 @@ static void handle_message_ctl(void* arg)
                 tmq_subscribe_pkt_cleanup(&req.sub_unsub_pkt.subscribe_pkt);
                 ack.packet_type = MQTT_SUBACK;
                 ack.packet = sub_ack;
-                tmq_session_send_packet(*session, &ack, 0);
+                tmq_session_send_packet(*session, &ack);
                 /* todo: send retain messages */
             }
             else
@@ -237,7 +237,7 @@ static void handle_message_ctl(void* arg)
                 tmq_unsubscribe_pkt_cleanup(&req.sub_unsub_pkt.unsubscribe_pkt);
                 ack.packet_type = MQTT_UNSUBACK;
                 ack.packet = unsub_ack;
-                tmq_session_send_packet(*session, &ack, 0);
+                tmq_session_send_packet(*session, &ack);
             }
             tmq_str_free(req.client_id);
         }
@@ -320,16 +320,12 @@ static void mqtt_publish_forward(tmq_broker_t* broker, char* client_id,
 {
     tmq_session_t** session = tmq_map_get(broker->sessions, client_id);
     if(!session) return;
+    uint8_t final_qos = required_qos < message->qos ? required_qos : message->qos;
     /* if this session isn't active, save this message in its context */
     if((*session)->state == CLOSED)
-    {
-
-    }
+        tmq_session_store_publish(*session, topic, message->message, final_qos, 0);
     else
-    {
-        uint8_t final_qos = required_qos < message->qos ? required_qos : message->qos;
         tmq_session_publish(*session, topic, message->message, final_qos, 0);
-    }
 }
 
 int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
