@@ -60,7 +60,7 @@ static void session_states_cleanup(void* arg, tmq_session_t* session)
 
 static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt* connect_pkt)
 {
-    tmq_connect_pkt_print(connect_pkt);
+    //tmq_connect_pkt_print(connect_pkt);
     /* validate username and password if anonymous login is not allowed */
     int success = 1;
     tmq_str_t allow_anonymous = tmq_config_get(&broker->conf, "allow_anonymous");
@@ -248,7 +248,7 @@ static void handle_message_ctl(void* arg)
                 {
                     //tlog_info("unsubscribe{client=%s, topic=%s}", req.client_id, *tf);
                     tmq_topics_remove_subscription(&broker->topics_tree, *tf, req.client_id);
-                    tmq_topics_info(&broker->topics_tree);
+                    //tmq_topics_info(&broker->topics_tree);
                 }
                 tmq_unsubscribe_pkt_cleanup(&req.sub_unsub_pkt.unsubscribe_pkt);
                 ack.packet_type = MQTT_UNSUBACK;
