@@ -48,7 +48,7 @@ typedef enum session_ctl_op_e
 {
     SESSION_CONNECT,
     SESSION_DISCONNECT,
-    SESSION_CLOSE
+    SESSION_FORCE_CLOSE
 } session_ctl_op;
 
 typedef struct session_ctl

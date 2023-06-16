@@ -25,7 +25,7 @@ static void tcp_conn_cleanup(tmq_tcp_conn_t* conn, void* arg)
         ctx->conn_state = NO_SESSION;
         tmq_broker_t* broker = group->broker;
         session_ctl ctl = {
-                .op = SESSION_CLOSE,
+                .op = SESSION_FORCE_CLOSE,
                 .context.session = ctx->upstream.session
         };
         pthread_mutex_lock(&broker->session_ctl_lk);
@@ -150,7 +150,7 @@ static void handle_new_session(void* arg)
         {
             tmq_broker_t* broker = group->broker;
             session_ctl ctl = {
-                    .op = conn_ctx->conn_state == NO_SESSION ? SESSION_DISCONNECT : SESSION_CLOSE,
+                    .op = (conn_ctx->conn_state == NO_SESSION) ? SESSION_DISCONNECT : SESSION_FORCE_CLOSE,
                     .context.session = resp->session
             };
             pthread_mutex_lock(&broker->session_ctl_lk);
@@ -175,6 +175,8 @@ static void handle_new_session(void* arg)
                 .ack_flags = resp->session_present
         };
         send_connack_packet(resp->conn, &pkt);
+        if(resp->return_code == CONNECTION_ACCEPTED)
+            tmq_session_start(resp->session);
         release_ref(resp->conn);
     }
     tmq_vec_free(resps);
@@ -192,13 +194,10 @@ static void send_packets(void* arg)
     packet_send_req* req = tmq_vec_begin(packets);
     for(; req != tmq_vec_end(packets); req++)
     {
-        tcp_conn_ctx* ctx = req->conn->context;
-        if(req->conn->state == CONNECTED && ctx->conn_state == IN_SESSION)
-            send_any_packet(req->conn, &req->pkt);
+        send_any_packet(req->conn, &req->pkt);
         tmq_any_pkt_cleanup(&req->pkt);
         release_ref(req->conn);
     }
-
     tmq_vec_free(packets);
 }
 

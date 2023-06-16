@@ -28,6 +28,8 @@ tmq_event_handler_t* tmq_event_handler_new(int fd, short events, tmq_event_cb cb
 void tmq_event_loop_init(tmq_event_loop_t* loop)
 {
     loop->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+    if(loop->epoll_fd <= 0)
+        fatal_error("epoll_create1() error: %s", strerror(errno));
 
     tmq_vec_init(&loop->epoll_events, struct epoll_event);
     tmq_vec_init(&loop->active_handlers, tmq_event_handler_t*);

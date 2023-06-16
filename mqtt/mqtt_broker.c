@@ -45,9 +45,22 @@ static void make_connect_respond(tmq_io_group_t* group, tmq_tcp_conn_t* conn,
 
 static void mqtt_publish_deliver(void* arg, char* topic, tmq_message* message, uint8_t retain);
 
+static void session_states_cleanup(void* arg, tmq_session_t* session)
+{
+    if(!session->clean_session)
+        return;
+    tmq_broker_t* broker = arg;
+    /* unsubsribe all topics */
+    tmq_map_iter_t sub_it = tmq_map_iter(session->subscriptions);
+    for(; tmq_map_has_next(sub_it); tmq_map_next(session->subscriptions, sub_it))
+        tmq_topics_remove_subscription(&broker->topics_tree, (char*) sub_it.first, session->client_id);
+    /* remove this session from the broker */
+    tmq_map_erase(broker->sessions, session->client_id);
+}
+
 static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt* connect_pkt)
 {
-    tmq_connect_pkt_print(connect_pkt);
+    //tmq_connect_pkt_print(connect_pkt);
     /* validate username and password if anonymous login is not allowed */
     int success = 1;
     tmq_str_t allow_anonymous = tmq_config_get(&broker->conf, "allow_anonymous");
@@ -72,73 +85,58 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
         }
     }
     if(!success) goto cleanup;
-    /* try to start a clean session */
-    if(CONNECT_CLEAN_SESSION(connect_pkt->flags))
-    {
-        tmq_session_t** session = tmq_map_get(broker->sessions, connect_pkt->client_id);
-        /* if there is a session in the broker associate with this client id */
-        if(session)
-        {
-            /* if this session has already closed, just clean it up and create a new one. */
-            if((*session)->state == CLOSED)
-            {
-                assert((*session)->clean_session == 0);
-                /* todo: clear the session data */
-                free(*session);
-                tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver,
-                                                             conn, connect_pkt->client_id, 1,
-                                                             connect_pkt->keep_alive, broker->inflight_window_size);
-                tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
-                make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, new_session, 1);
-            }
-            /* if this session is still active, disconnect it and create a new one in the callback. */
-            else
-            {
 
-            }
+    char* will_topic = NULL, *will_message = NULL;
+    uint8_t will_qos = 0, will_retain = 0;
+    if(CONNECT_WILL_FLAG(connect_pkt->flags))
+    {
+        will_topic = connect_pkt->will_topic;
+        will_message = connect_pkt->will_message;
+        will_qos = CONNECT_WILL_QOS(connect_pkt->flags);
+        will_retain = (CONNECT_WILL_RETAIN(connect_pkt->flags) != 0);
+    }
+
+    tmq_session_t** session = tmq_map_get(broker->sessions, connect_pkt->client_id);
+    /* if there is an active session associted with this client id */
+    if(session && (*session)->state == OPEN)
+    {
+
+    }
+    /* if there is a closed session associated with this client id,
+     * it must not be a clean-session */
+    else if(session)
+    {
+        assert((*session)->clean_session == 0);
+        /* if the client try to start a clean-session,
+         * clean up the old session's state and start a new clean-session */
+        if(CONNECT_CLEAN_SESSION(connect_pkt->flags))
+        {
+            (*session)->clean_session = 1;
+            tmq_session_close(*session);
+            tmq_session_free(*session);
+            tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver, session_states_cleanup, conn,
+                                                         connect_pkt->client_id, 1, connect_pkt->keep_alive, will_topic,
+                                                         will_message, will_qos, will_retain, broker->inflight_window_size);
+            tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
+            make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, new_session, 1);
         }
-        /* no existing session associate with this client id, just create a new one. */
+        /* otherwise, resume the old session's state */
         else
         {
-            tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver,
-                                                         conn, connect_pkt->client_id, 1,
-                                                         connect_pkt->keep_alive, broker->inflight_window_size);
-            tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
-            make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, new_session, 0);
+            tmq_session_resume(*session, conn, connect_pkt->keep_alive,
+                               will_topic, will_message, will_qos, will_retain);
+            make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, *session, 1);
         }
     }
-    /* try to start a session */
+    /* if no stored session in the broker, just create a new one */
     else
     {
-        tmq_session_t** session = tmq_map_get(broker->sessions, connect_pkt->client_id);
-        /* if there is a session in the broker associate with this client id */
-        if(session)
-        {
-            /* if the session is closed, resume the old session. */
-            if((*session)->state == CLOSED)
-            {
-                assert((*session)->clean_session == 0);
-                (*session)->conn = get_ref(conn);
-                (*session)->state = OPEN;
-                (*session)->last_pkt_ts = time_now();
-                make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, *session, 1);
-            }
-            /* if this session is still active, disconnect it
-             * and bind it with the new tcp connection in the callback. */
-            else
-            {
-
-            }
-        }
-        /* no existing session associate with this client id, just create a new one. */
-        else
-        {
-            tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver,
-                                                         conn, connect_pkt->client_id, 0,
-                                                         connect_pkt->keep_alive, broker->inflight_window_size);
-            tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
-            make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, new_session, 0);
-        }
+        int clean_session = CONNECT_CLEAN_SESSION(connect_pkt->flags) != 0;
+        tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver, session_states_cleanup, conn,
+                                                     connect_pkt->client_id, clean_session, connect_pkt->keep_alive, will_topic,
+                                                     will_message, will_qos, will_retain, broker->inflight_window_size);
+        tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
+        make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, new_session, 0);
     }
     cleanup:
     tmq_str_free(allow_anonymous);
@@ -165,24 +163,22 @@ static void handle_session_ctl(void* arg)
             start_session(broker, connect_req->conn, &connect_req->connect_pkt);
             release_ref(connect_req->conn);
         }
-        /* handle disconnect request */
-        else if(ctl->op == SESSION_DISCONNECT)
-        {
-            tmq_session_t* session = ctl->context.session;
-            session->state = CLOSED;
-            release_ref(session->conn);
-            session->conn = NULL;
-            /* todo: clean up the session context and remove the session if it is a clean session */
-            tlog_info("session %p closed", session);
-        }
+        /* handle session disconnect or force-close */
         else
         {
             tmq_session_t* session = ctl->context.session;
-            session->state = CLOSED;
-            release_ref(session->conn);
-            session->conn = NULL;
-            /* todo: clean up the session context and remove the session if it is a clean session */
-            tlog_info("session %p force closed", session);
+            tmq_session_close(session);
+            if(ctl->op == SESSION_FORCE_CLOSE)
+            {
+                /* send the will-message if session closed without receiving a disconnect packet */
+                if(session->will_publish_req.topic)
+                    tmq_topics_publish(&broker->topics_tree, 0, session->will_publish_req.topic,
+                                       &session->will_publish_req.message, session->will_publish_req.retain);
+            }
+            tmq_str_free(session->will_publish_req.topic);
+            tmq_str_free(session->will_publish_req.message.message);
+            if(session->clean_session)
+                tmq_session_free(session);
         }
     }
     tmq_vec_free(ctls);
@@ -208,6 +204,7 @@ static void handle_message_ctl(void* arg)
                 continue;
 
             tmq_any_packet_t ack;
+            /* handle subscribe request */
             if(ctl->op == SUBSCRIBE)
             {
                 /* the subscription will always success. */
@@ -218,7 +215,7 @@ static void handle_message_ctl(void* arg)
                 topic_filter_qos* tf = tmq_vec_begin(req.sub_unsub_pkt.subscribe_pkt.topics);
                 for(; tf != tmq_vec_end(req.sub_unsub_pkt.subscribe_pkt.topics); tf++)
                 {
-                    tlog_info("subscribe{client=%s, topic=%s, qos=%u}", req.client_id, tf->topic_filter, tf->qos);
+                    //tlog_info("subscribe{client=%s, topic=%s, qos=%u}", req.client_id, tf->topic_filter, tf->qos);
                     retain_message_list retain = tmq_topics_add_subscription(&broker->topics_tree, tf->topic_filter,
                                                                              req.client_id, tf->qos);
                     /* send the retained messages that match the subscription */
@@ -231,15 +228,16 @@ static void handle_message_ctl(void* arg)
                                             retain_msg->retain_msg.message, final_qos, 1);
                     }
                     tmq_vec_free(retain);
-                    tmq_topics_info(&broker->topics_tree);
+                    //tmq_topics_info(&broker->topics_tree);
                     tmq_vec_push_back(sub_ack->return_codes, tf->qos);
                 }
                 tmq_subscribe_pkt_cleanup(&req.sub_unsub_pkt.subscribe_pkt);
                 ack.packet_type = MQTT_SUBACK;
                 ack.packet = sub_ack;
-                tmq_session_send_packet(*session, &ack, 0);
+                tmq_session_send_packet(*session, &ack);
                 /* todo: send retain messages */
             }
+            /* handle unsubscribe request */
             else
             {
                 tmq_unsuback_pkt* unsub_ack = malloc(sizeof(tmq_unsuback_pkt));
@@ -248,17 +246,18 @@ static void handle_message_ctl(void* arg)
                 tmq_str_t* tf = tmq_vec_begin(req.sub_unsub_pkt.unsubscribe_pkt.topics);
                 for(; tf != tmq_vec_end(req.sub_unsub_pkt.unsubscribe_pkt.topics); tf++)
                 {
-                    tlog_info("unsubscribe{client=%s, topic=%s}", req.client_id, *tf);
+                    //tlog_info("unsubscribe{client=%s, topic=%s}", req.client_id, *tf);
                     tmq_topics_remove_subscription(&broker->topics_tree, *tf, req.client_id);
-                    tmq_topics_info(&broker->topics_tree);
+                    //tmq_topics_info(&broker->topics_tree);
                 }
                 tmq_unsubscribe_pkt_cleanup(&req.sub_unsub_pkt.unsubscribe_pkt);
                 ack.packet_type = MQTT_UNSUBACK;
                 ack.packet = unsub_ack;
-                tmq_session_send_packet(*session, &ack, 0);
+                tmq_session_send_packet(*session, &ack);
             }
             tmq_str_free(req.client_id);
         }
+        /* handle publish request */
         else
         {
             publish_req req = ctl->context.pub_req;
@@ -338,16 +337,12 @@ static void mqtt_publish_forward(tmq_broker_t* broker, char* client_id,
 {
     tmq_session_t** session = tmq_map_get(broker->sessions, client_id);
     if(!session) return;
+    uint8_t final_qos = required_qos < message->qos ? required_qos : message->qos;
     /* if this session isn't active, save this message in its context */
     if((*session)->state == CLOSED)
-    {
-
-    }
+        tmq_session_store_publish(*session, topic, message->message, final_qos, 0);
     else
-    {
-        uint8_t final_qos = required_qos < message->qos ? required_qos : message->qos;
         tmq_session_publish(*session, topic, message->message, final_qos, 0);
-    }
 }
 
 int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
