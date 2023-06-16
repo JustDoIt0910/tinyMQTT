@@ -85,74 +85,48 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
         }
     }
     if(!success) goto cleanup;
-    /* try to start a clean session */
-    if(CONNECT_CLEAN_SESSION(connect_pkt->flags))
+    tmq_session_t** session = tmq_map_get(broker->sessions, connect_pkt->client_id);
+    /* if there is an active session associted with this client id */
+    if(session && (*session)->state == OPEN)
     {
-        tmq_session_t** session = tmq_map_get(broker->sessions, connect_pkt->client_id);
-        /* if there is a session in the broker associate with this client id */
-        if(session)
-        {
-            /* if this session has already closed, just clean it up and create a new one. */
-            if((*session)->state == CLOSED)
-            {
-                assert((*session)->clean_session == 0);
-                (*session)->clean_session = 1;
-                tmq_session_close(*session);
-                free(*session);
-                tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver, session_states_cleanup,
-                                                             conn, connect_pkt->client_id, 1,
-                                                             connect_pkt->keep_alive, broker->inflight_window_size);
-                tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
-                make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, new_session, 1);
-            }
-            /* if this session is still active, disconnect it and create a new one in the callback. */
-            else
-            {
 
-            }
-        }
-        /* no existing session associate with this client id, just create a new one. */
-        else
+    }
+    /* if there is a closed session associated with this client id,
+     * it must not be a clean-session */
+    else if(session)
+    {
+        assert((*session)->clean_session == 0);
+        /* if the client try to start a clean-session,
+         * clean up the old session's state and start a new clean-session */
+        if(CONNECT_CLEAN_SESSION(connect_pkt->flags))
         {
+            (*session)->clean_session = 1;
+            tmq_session_close(*session);
+            free(*session);
             tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver, session_states_cleanup,
                                                          conn, connect_pkt->client_id, 1,
                                                          connect_pkt->keep_alive, broker->inflight_window_size);
             tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
-            make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, new_session, 0);
+            make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, new_session, 1);
         }
-    }
-    /* try to start a session */
-    else
-    {
-        tmq_session_t** session = tmq_map_get(broker->sessions, connect_pkt->client_id);
-        /* if there is a session in the broker associate with this client id */
-        if(session)
-        {
-            /* if the session is closed, resume the old session. */
-            if((*session)->state == CLOSED)
-            {
-                assert((*session)->clean_session == 0);
-                (*session)->conn = get_ref(conn);
-                (*session)->state = OPEN;
-                (*session)->last_pkt_ts = time_now();
-                make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, *session, 1);
-            }
-            /* if this session is still active, disconnect it
-             * and bind it with the new tcp connection in the callback. */
-            else
-            {
-
-            }
-        }
-        /* no existing session associate with this client id, just create a new one. */
+        /* otherwise, resume the old session's state */
         else
         {
-            tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver, session_states_cleanup,
-                                                         conn, connect_pkt->client_id, 0,
-                                                         connect_pkt->keep_alive, broker->inflight_window_size);
-            tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
-            make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, new_session, 0);
+            (*session)->conn = get_ref(conn);
+            (*session)->state = OPEN;
+            (*session)->last_pkt_ts = time_now();
+            make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, *session, 1);
         }
+    }
+    /* if no stored session in the broker, just create a new one */
+    else
+    {
+        int clean_session = CONNECT_CLEAN_SESSION(connect_pkt->flags) != 0;
+        tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver, session_states_cleanup,
+                                                     conn, connect_pkt->client_id, clean_session,
+                                                     connect_pkt->keep_alive, broker->inflight_window_size);
+        tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
+        make_connect_respond(conn->group, conn, CONNECTION_ACCEPTED, new_session, 0);
     }
     cleanup:
     tmq_str_free(allow_anonymous);
