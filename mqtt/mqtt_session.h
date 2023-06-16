@@ -49,6 +49,7 @@ typedef struct tmq_session_s
 tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message,
                                tmq_tcp_conn_t* conn, tmq_str_t client_id,
                                uint8_t clean_session, uint16_t keep_alive, uint8_t max_inflight);
+void tmq_session_close(tmq_session_t* session, int cleanup);
 void tmq_session_send_packet(tmq_session_t* session, tmq_any_packet_t* pkt, int direct);
 void tmq_session_publish(tmq_session_t* session, char* topic, char* payload, uint8_t qos, uint8_t retain);
 

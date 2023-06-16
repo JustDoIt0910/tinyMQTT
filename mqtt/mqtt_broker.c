@@ -83,7 +83,7 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
             if((*session)->state == CLOSED)
             {
                 assert((*session)->clean_session == 0);
-                /* todo: clear the session data */
+                tmq_session_close(*session, 1);
                 free(*session);
                 tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_deliver,
                                                              conn, connect_pkt->client_id, 1,
@@ -169,19 +169,14 @@ static void handle_session_ctl(void* arg)
         else if(ctl->op == SESSION_DISCONNECT)
         {
             tmq_session_t* session = ctl->context.session;
-            session->state = CLOSED;
-            release_ref(session->conn);
-            session->conn = NULL;
-            /* todo: clean up the session context and remove the session if it is a clean session */
+            tmq_session_close(session, 0);
             tlog_info("session %p closed", session);
         }
         else
         {
             tmq_session_t* session = ctl->context.session;
-            session->state = CLOSED;
-            release_ref(session->conn);
-            session->conn = NULL;
-            /* todo: clean up the session context and remove the session if it is a clean session */
+            /*todo: send will message */
+            tmq_session_close(session, 0);
             tlog_info("session %p force closed", session);
         }
     }

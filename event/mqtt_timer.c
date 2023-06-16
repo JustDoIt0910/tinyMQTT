@@ -223,12 +223,12 @@ void tmq_timer_heap_init(tmq_timer_heap_t* timer_heap, tmq_event_loop_t* loop)
                         MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR,
                         timerid_hash, timerid_equal);
 
-//    pthread_mutexattr_t attr;
-//    memset(&attr, 0, sizeof(pthread_mutexattr_t));
-//    if(pthread_mutexattr_init(&attr))
-//        fatal_error("pthread_mutexattr_init() error %d: %s", errno, strerror(errno));
-//
-//    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE_NP);
+    pthread_mutexattr_t attr;
+    memset(&attr, 0, sizeof(pthread_mutexattr_t));
+    if(pthread_mutexattr_init(&attr))
+        fatal_error("pthread_mutexattr_init() error %d: %s", errno, strerror(errno));
+
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE_NP);
     if(pthread_mutex_init(&timer_heap->lk, NULL))
         fatal_error("pthread_mutex_init() error %d: %s", errno, strerror(errno));
 
@@ -257,7 +257,6 @@ void tmq_cancel_timer(tmq_timer_heap_t* timer_heap, tmq_timerid_t timerid)
     tmq_timer_t** timer = tmq_map_get(timer_heap->registered_timers, timerid);
     if(!timer)
     {
-        tlog_warn("invalid timerid (timer already canceled)");
         pthread_mutex_unlock(&timer_heap->lk);
         return;
     }

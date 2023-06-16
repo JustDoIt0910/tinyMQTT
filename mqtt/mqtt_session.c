@@ -146,6 +146,34 @@ tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message,
     return session;
 }
 
+void tmq_session_close(tmq_session_t* session, int cleanup)
+{
+    if(session->state == OPEN)
+    {
+        tmq_event_loop_cancel_timer(session->conn->loop, session->resend_timer);
+        session->state = CLOSED;
+    }
+    /* if this is a clean-session, or cleanup set to 1, clear all the session states */
+    if(session->clean_session || cleanup)
+    {
+        tmq_str_free(session->client_id);
+        tmq_map_free(session->subscriptions);
+        tmq_map_free(session->qos2_packet_ids);
+        sending_packet* sending_pkt = session->sending_queue_head;
+        while(sending_pkt)
+        {
+            sending_packet * next = sending_pkt->next;
+            tmq_any_pkt_cleanup(&sending_pkt->packet);
+            free(sending_pkt);
+            sending_pkt = next;
+        }
+        pthread_mutex_destroy(&session->sending_queue_lk);
+        pthread_mutex_destroy(&session->lk);
+    }
+    if(session->conn)
+        release_ref(session->conn);
+}
+
 void tmq_session_handle_subscribe(tmq_session_t* session, tmq_subscribe_pkt* subscribe_pkt)
 {
     session->last_pkt_ts = time_now();
