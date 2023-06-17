@@ -21,6 +21,14 @@ void timeout3(void* arg)
     tlog_info("timeout3");
 }
 
+void quit(void* arg)
+{
+    tmq_event_loop_t* loop = arg;
+    tlog_info("quit loop");
+    tmq_event_loop_quit(loop);
+}
+
+
 int main()
 {
     tlog_init("broker.log", 1024 * 1024, 10, 0, TLOG_SCREEN);
@@ -28,12 +36,15 @@ int main()
     tmq_event_loop_t loop;
     tmq_event_loop_init(&loop);
 
-    tmq_timer_t* timer1 = tmq_timer_new(2000, 1, timeout1, NULL);
-    tmq_timer_t* timer2 = tmq_timer_new(1000, 1, timeout2, NULL);
-    tmq_timer_t* timer3 = tmq_timer_new(500, 1, timeout3, NULL);
-    tmq_event_loop_add_timer(&loop, timer1);
-    tmq_event_loop_add_timer(&loop, timer2);
-    tmq_event_loop_add_timer(&loop, timer3);
+//    tmq_timer_t* timer1 = tmq_timer_new(2000, 1, timeout1, NULL);
+//    tmq_timer_t* timer2 = tmq_timer_new(1000, 1, timeout2, NULL);
+//    tmq_timer_t* timer3 = tmq_timer_new(500, 1, timeout3, NULL);
+//    tmq_event_loop_add_timer(&loop, timer1);
+//    tmq_event_loop_add_timer(&loop, timer2);
+//    tmq_event_loop_add_timer(&loop, timer3);
+
+    tmq_timer_t* timer_quit = tmq_timer_new(1000, 0, quit, &loop);
+    tmq_event_loop_add_timer(&loop, timer_quit);
 
     tmq_event_loop_run(&loop);
     tmq_event_loop_destroy(&loop);

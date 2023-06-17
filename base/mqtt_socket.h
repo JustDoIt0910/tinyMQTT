@@ -22,6 +22,7 @@ int tmq_socket_peer_addr(tmq_socket_t fd, tmq_socket_addr_t* addr);
 void tmq_socket_bind(tmq_socket_t fd, const char* ip, int port);
 void tmq_socket_listen(tmq_socket_t fd);
 tmq_socket_t tmq_socket_accept(tmq_socket_t fd, tmq_socket_addr_t* clientAddr);
+int tmq_socket_connect(tmq_socket_t fd, tmq_socket_addr_t addr);
 ssize_t tmq_socket_read(tmq_socket_t fd, char* buf, size_t len);
 ssize_t tmq_socket_write(tmq_socket_t fd, const char* buf, size_t len);
 
