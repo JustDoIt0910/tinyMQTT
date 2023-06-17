@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
-static void read_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
+static void read_cb_(tmq_socket_t fd, uint32_t event, void* arg)
 {
     if(!arg) return;
     tmq_tcp_conn_t* conn = (tmq_tcp_conn_t*) arg;
@@ -27,7 +27,7 @@ static void read_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
     }
 }
 
-static void write_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
+static void write_cb_(tmq_socket_t fd, uint32_t event, void* arg)
 {
     if(!arg) return;
     tmq_tcp_conn_t* conn = (tmq_tcp_conn_t*) arg;
@@ -47,7 +47,7 @@ static void write_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
         tlog_error("tmq_buffer_write_fd() error");
 }
 
-static void close_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
+static void close_cb_(tmq_socket_t fd, uint32_t event, void* arg)
 {
     if(!arg) return;
     tmq_tcp_conn_t* conn = (tmq_tcp_conn_t*) arg;

@@ -15,7 +15,7 @@
 #define INITIAL_EVENTLIST_SIZE 16
 #define EPOLL_WAIT_TIMEOUT  10 * 1000
 
-typedef void(*tmq_event_cb)(tmq_socket_t, uint32_t, const void*);
+typedef void(*tmq_event_cb)(tmq_socket_t, uint32_t, void*);
 
 typedef struct tmq_event_handler_s
 {

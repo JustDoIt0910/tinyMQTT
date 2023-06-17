@@ -258,7 +258,7 @@ void tmq_event_loop_destroy(tmq_event_loop_t* loop)
     tmq_timer_heap_destroy(&loop->timer_heap);
 }
 
-static void tmq_notifier_on_notify(tmq_socket_t fd, uint32_t events, const void* arg)
+static void tmq_notifier_on_notify(tmq_socket_t fd, uint32_t events, void* arg)
 {
     int buf[4096];
     ssize_t n = read(fd, buf, sizeof(buf));
