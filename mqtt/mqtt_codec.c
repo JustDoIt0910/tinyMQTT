@@ -466,6 +466,13 @@ int make_fixed_header(tmq_packet_type type, uint8_t flags, uint32_t remain_lengt
     return 0;
 }
 
+static void pack_uint16(packet_buf* buf, uint16_t value)
+{
+    uint16_t value_be = htobe16(value);
+    tmq_vec_push_back(*buf, value_be & 0xFF);  /* MSB */
+    tmq_vec_push_back(*buf, (value_be >> 8) & 0xFF);  /* LSB */
+}
+
 void send_connect_packet(tmq_tcp_conn_t* conn, void* pkt)
 {
     tmq_connect_pkt* connect_pkt = pkt;
@@ -488,7 +495,44 @@ void send_connect_packet(tmq_tcp_conn_t* conn, void* pkt)
         tmq_vec_free(buf);
         return;
     }
+    tmq_vec_reserve(buf, tmq_vec_size(buf) + remain_len);
+    /* variable header */
+    pack_uint16(&buf, 4);
+    strcpy((char*) tmq_vec_end(buf), "MQTT");
+    tmq_vec_resize(buf, tmq_vec_size(buf) + 4);
+    tmq_vec_push_back(buf, 4);
+    tmq_vec_push_back(buf, connect_pkt->flags);
+    pack_uint16(&buf, connect_pkt->keep_alive);
 
+    /* payload */
+    pack_uint16(&buf, tmq_str_len(connect_pkt->client_id));
+    strcpy((char*) tmq_vec_end(buf), connect_pkt->client_id);
+    tmq_vec_resize(buf, tmq_vec_size(buf) + tmq_str_len(connect_pkt->client_id));
+    if(CONNECT_WILL_FLAG(connect_pkt->flags))
+    {
+        pack_uint16(&buf, tmq_str_len(connect_pkt->will_topic));
+        strcpy((char*) tmq_vec_end(buf), connect_pkt->will_topic);
+        tmq_vec_resize(buf, tmq_vec_size(buf) + tmq_str_len(connect_pkt->will_topic));
+
+        pack_uint16(&buf, tmq_str_len(connect_pkt->will_message));
+        strcpy((char*) tmq_vec_end(buf), connect_pkt->will_message);
+        tmq_vec_resize(buf, tmq_vec_size(buf) + tmq_str_len(connect_pkt->will_message));
+    }
+    if(CONNECT_USERNAME_FLAG(connect_pkt->flags))
+    {
+        pack_uint16(&buf, tmq_str_len(connect_pkt->username));
+        strcpy((char*) tmq_vec_end(buf), connect_pkt->username);
+        tmq_vec_resize(buf, tmq_vec_size(buf) + tmq_str_len(connect_pkt->username));
+    }
+    if(CONNECT_PASSWORD_FLAG(connect_pkt->flags))
+    {
+        pack_uint16(&buf, tmq_str_len(connect_pkt->password));
+        strcpy((char*) tmq_vec_end(buf), connect_pkt->password);
+        tmq_vec_resize(buf, tmq_vec_size(buf) + tmq_str_len(connect_pkt->password));
+    }
+
+    tmq_tcp_conn_write(conn, (char*) tmq_vec_begin(buf), tmq_vec_size(buf));
+    tmq_vec_free(buf);
 }
 
 void send_connack_packet(tmq_tcp_conn_t* conn, void* pkt)
@@ -504,13 +548,6 @@ void send_connack_packet(tmq_tcp_conn_t* conn, void* pkt)
     tmq_vec_push_back(buf, connack_pkt->return_code);
     tmq_tcp_conn_write(conn, (char*) tmq_vec_begin(buf), tmq_vec_size(buf));
     tmq_vec_free(buf);
-}
-
-static void pack_uint16(packet_buf* buf, uint16_t value)
-{
-    uint16_t value_be = htobe16(value);
-    tmq_vec_push_back(*buf, value_be & 0xFF);  /* MSB */
-    tmq_vec_push_back(*buf, (value_be >> 8) & 0xFF);  /* LSB */
 }
 
 void send_publish_packet(tmq_tcp_conn_t* conn, void* pkt)
