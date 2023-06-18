@@ -1,7 +1,6 @@
 //
 // Created by zr on 23-6-18.
 //
-#include "event/mqtt_event.h"
 #include "mqtt/mqtt_client.h"
 #include "tlog.h"
 #include <stdio.h>
@@ -12,7 +11,7 @@ int main()
 
     tiny_mqtt* mqtt = tiny_mqtt_new("127.0.0.1", 9999);
     connect_options ops = {};
-    int res = tiny_mqtt_connect(mqtt, ops);
+    int res = tiny_mqtt_connect(mqtt, &ops);
     printf("%d\n", res);
 
     tlog_exit();

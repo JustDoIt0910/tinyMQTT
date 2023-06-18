@@ -11,16 +11,6 @@
 
 #define NETWORK_ERROR -1
 
-typedef struct tmq_client_s
-{
-    tmq_event_loop_t loop;
-    tmq_connector_t connector;
-    tmq_tcp_conn_t* conn;
-    tmq_session_t* session;
-    tmq_codec_t codec;
-    int connect_res;
-} tiny_mqtt;
-
 typedef struct connect_options
 {
     char* username, *password, *client_id;
@@ -31,8 +21,20 @@ typedef struct connect_options
     int will_retain;
 } connect_options;
 
+typedef struct tmq_client_s
+{
+    tmq_event_loop_t loop;
+    tmq_tcp_conn_t* conn;
+    tmq_session_t* session;
+    tmq_codec_t codec;
+
+    tmq_connector_t connector;
+    connect_options connect_ops;
+    int connect_res;
+} tiny_mqtt;
+
 tiny_mqtt* tiny_mqtt_new(const char* ip, uint16_t port);
-int tiny_mqtt_connect(tiny_mqtt* mqtt, connect_options options);
+int tiny_mqtt_connect(tiny_mqtt* mqtt, connect_options* options);
 void tiny_mqtt_loop(tiny_mqtt* mqtt);
 
 #endif //TINYMQTT_MQTT_CLIENT_H

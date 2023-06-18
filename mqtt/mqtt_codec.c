@@ -468,6 +468,26 @@ int make_fixed_header(tmq_packet_type type, uint8_t flags, uint32_t remain_lengt
 
 void send_connect_packet(tmq_tcp_conn_t* conn, void* pkt)
 {
+    tmq_connect_pkt* connect_pkt = pkt;
+    packet_buf buf = tmq_vec_make(uint8_t);
+    /* the length of the variable is 10 */
+    uint32_t remain_len = 10;
+    /* add the length of the payload */
+    remain_len += tmq_str_len(connect_pkt->client_id) + 2;
+    if(CONNECT_USERNAME_FLAG(connect_pkt->flags))
+        remain_len += tmq_str_len(connect_pkt->username) + 2;
+    if(CONNECT_PASSWORD_FLAG(connect_pkt->flags))
+        remain_len += tmq_str_len(connect_pkt->password) + 2;
+    if(CONNECT_WILL_FLAG(connect_pkt->flags))
+    {
+        remain_len += tmq_str_len(connect_pkt->will_topic) + 2;
+        remain_len += tmq_str_len(connect_pkt->will_message) + 2;
+    }
+    if(make_fixed_header(MQTT_CONNECT, 0, remain_len, &buf) < 0)
+    {
+        tmq_vec_free(buf);
+        return;
+    }
 
 }
 
