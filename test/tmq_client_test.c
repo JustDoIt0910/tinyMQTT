@@ -9,11 +9,22 @@ int main()
 {
     tlog_init("broker.log", 1024 * 1024, 10, 0, TLOG_SCREEN);
 
-    tiny_mqtt* mqtt = tiny_mqtt_new("127.0.0.1", 9999);
-    connect_options ops = {};
+    tiny_mqtt* mqtt = tiny_mqtt_new("192.168.3.7", 1883);
+    connect_options ops = {
+        "username",
+        "password",
+        "tmq_client_test_client",
+        0,
+        60,
+        NULL
+    };
     int res = tiny_mqtt_connect(mqtt, &ops);
-    printf("%d\n", res);
+    if(res == CONNECTION_ACCEPTED)
+    {
 
+    }
+
+    tiny_mqtt_loop(mqtt);
     tlog_exit();
     return 0;
 }
