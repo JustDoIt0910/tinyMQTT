@@ -5,12 +5,17 @@
 #include "tlog.h"
 #include <errno.h>
 #include <string.h>
+#include <stdlib.h>
 
 static void reconnect(void* arg) { tmq_connector_connect((tmq_connector_t*) arg);}
 static void retry(tmq_connector_t* connector)
 {
     if(connector->retry_times >= connector->max_retry)
+    {
+        if(connector->on_connect_failed)
+            connector->on_connect_failed(connector->cb_arg);
         return;
+    }
     tlog_info("reconnecting to server...");
     tmq_timer_t* timer = tmq_timer_new(SEC_MS(connector->retry_interval), 0, reconnect, connector);
     tmq_event_loop_add_timer(connector->loop, timer);
@@ -23,6 +28,8 @@ static void handle_write(tmq_socket_t sock, uint32_t events, void* arg)
     tmq_connector_t* connector = arg;
     tmq_handler_unregister(connector->loop, connector->write_handler);
     tmq_handler_unregister(connector->loop, connector->error_handler);
+    free(connector->write_handler);
+    free(connector->error_handler);
 
     /* check if connect successfully */
     int err = tmq_socket_get_error(sock);
@@ -32,7 +39,7 @@ static void handle_write(tmq_socket_t sock, uint32_t events, void* arg)
         tmq_socket_close(sock);
         retry(connector);
     }
-    else connector->on_tcp_connect(sock);
+    else connector->on_tcp_connect(connector->cb_arg, sock);
 }
 
 static void handle_error(tmq_socket_t sock, uint32_t events, void* arg)
@@ -40,6 +47,8 @@ static void handle_error(tmq_socket_t sock, uint32_t events, void* arg)
     tmq_connector_t* connector = arg;
     tmq_handler_unregister(connector->loop, connector->write_handler);
     tmq_handler_unregister(connector->loop, connector->error_handler);
+    free(connector->write_handler);
+    free(connector->error_handler);
 
     tlog_error("connect error: %s", strerror(errno));
     tmq_socket_close(sock);
@@ -55,10 +64,13 @@ static void continue_connect(tmq_connector_t* connector, tmq_socket_t sock)
 }
 
 void tmq_connector_init(tmq_connector_t* connector, tmq_event_loop_t* loop, const char* server_ip, uint16_t server_port,
-                        tcp_connected_cb on_connect, int max_retry)
+                        tcp_connected_cb on_connect, tcp_connect_failed_cb on_failed, void* cb_arg, int max_retry)
 {
+    bzero(connector, sizeof(tmq_connector_t));
     connector->loop = loop;
     connector->on_tcp_connect = on_connect;
+    connector->on_connect_failed = on_failed;
+    connector->cb_arg = cb_arg;
     connector->server_addr = tmq_addr_from_ip_port(server_ip, server_port);
     connector->max_retry = max_retry;
     connector->retry_interval = INITIAL_RETRY_INTERVAL;

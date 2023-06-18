@@ -314,7 +314,7 @@ static decode_status parse_unsubscribe_packet(tmq_codec_t* codec, tmq_tcp_conn_t
 static decode_status parse_unsuback_packet(tmq_codec_t* codec, tmq_tcp_conn_t* conn,
                                            tmq_buffer_t* buffer, uint32_t len)
 {
-    if(codec->type != SERVER_CODEC)
+    if(codec->type != CLIENT_CODEC)
         return UNEXPECTED_PACKET;
     return DECODE_OK;
 }
@@ -333,6 +333,8 @@ static decode_status parse_pingreq_packet(tmq_codec_t* codec, tmq_tcp_conn_t* co
 static decode_status parse_pingresp_packet(tmq_codec_t* codec, tmq_tcp_conn_t* conn,
                                            tmq_buffer_t* buffer, uint32_t len)
 {
+    if(codec->type != CLIENT_CODEC)
+        return UNEXPECTED_PACKET;
     return DECODE_OK;
 }
 
