@@ -141,17 +141,19 @@ int tmq_vec_resize_(tmq_vec_base_t* v, size_t size)
     return 0;
 }
 
+#include <stdio.h>
+
 int tmq_vec_reserve_(tmq_vec_base_t* v, size_t size)
 {
     if(size > v->cap)
     {
         size_t cap = 2 * size;
         void* data = realloc(v->data, cap * v->elem_size);
-        if(!data)
-            return -1;
+        if(!data) return -1;
         v->data = data;
         v->cap = cap;
     }
+    return 0;
 }
 
 void tmq_vec_swap_(tmq_vec_base_t** v1, tmq_vec_base_t** v2)

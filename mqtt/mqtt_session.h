@@ -55,7 +55,7 @@ typedef struct tmq_session_s
 } tmq_session_t;
 
 tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message, close_cb on_close, tmq_tcp_conn_t* conn,
-                               tmq_str_t client_id, uint8_t clean_session, uint16_t keep_alive, char* will_topic,
+                               char* client_id, uint8_t clean_session, uint16_t keep_alive, char* will_topic,
                                char* will_message, uint8_t will_qos, uint8_t will_retain, uint8_t max_inflight);
 void tmq_session_close(tmq_session_t* session);
 void tmq_session_free(tmq_session_t* session);

@@ -10,6 +10,7 @@ typedef struct tmq_codec_s tmq_codec_t;
 typedef struct tmq_tcp_conn_s tmq_tcp_conn_t;
 typedef struct tmq_buffer_s tmq_buffer_t;
 typedef struct tmq_broker_s tmq_broker_t;
+typedef struct tmq_client_s tiny_mqtt;
 typedef struct tmq_session_s tmq_session_t;
 
 typedef struct tmq_fixed_header
@@ -23,7 +24,7 @@ typedef struct tmq_fixed_header
 
 typedef void (*tcp_message_decoder_f) (tmq_codec_t* codec, tmq_tcp_conn_t* conn, tmq_buffer_t* buffer);
 typedef void (*connect_pkt_cb) (tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt* connect_pkt);
-typedef void (*connack_pkt_cb) (tmq_session_t* session, tmq_connack_pkt* connack_pkt);
+typedef void (*connack_pkt_cb) (tiny_mqtt* client, tmq_connack_pkt* connack_pkt);
 typedef void (*publish_pkt_cb) (tmq_session_t* session, tmq_publish_pkt* publish_pkt);
 typedef void (*puback_pkt_cb) (tmq_session_t* session, tmq_puback_pkt* puback_pkt);
 typedef void (*pubrec_pkt_cb) (tmq_session_t* session, tmq_pubrec_pkt* pubrec_pkt);

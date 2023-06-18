@@ -123,7 +123,7 @@ static void resend_messages(void* arg)
 }
 
 tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message, close_cb on_close, tmq_tcp_conn_t* conn,
-                               tmq_str_t client_id, uint8_t clean_session, uint16_t keep_alive, char* will_topic,
+                               char* client_id, uint8_t clean_session, uint16_t keep_alive, char* will_topic,
                                char* will_message, uint8_t will_qos, uint8_t will_retain, uint8_t max_inflight)
 {
     tmq_session_t* session = malloc(sizeof(tmq_session_t));
@@ -178,7 +178,8 @@ void tmq_session_close(tmq_session_t* session)
     }
     if(session->conn)
         release_ref(session->conn);
-    session->on_close(session->upstream, session);
+    if(session->on_close)
+        session->on_close(session->upstream, session);
 }
 
 void tmq_session_free(tmq_session_t* session)

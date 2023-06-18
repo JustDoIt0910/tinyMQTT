@@ -2,13 +2,21 @@
 // Created by zr on 23-4-9.
 //
 #include "mqtt_client.h"
+#include "base/mqtt_util.h"
 #include <stdlib.h>
 #include <string.h>
 
 static void on_tcp_connected(void* arg, tmq_socket_t sock)
 {
     tiny_mqtt* mqtt = arg;
-    mqtt->conn = tmq_tcp_conn_new(&mqtt->loop, NULL, sock, &mqtt->codec);
+    mqtt->conn = get_ref(tmq_tcp_conn_new(&mqtt->loop, NULL, sock, &mqtt->codec));
+    tcp_conn_ctx* conn_ctx = malloc(sizeof(tcp_conn_ctx));
+    conn_ctx->upstream.client = mqtt;
+    conn_ctx->conn_state = NO_SESSION;
+    conn_ctx->parsing_ctx.state = PARSING_FIXED_HEADER;
+    conn_ctx->last_msg_time = time_now();
+    tmq_tcp_conn_set_context(mqtt->conn, conn_ctx, NULL);
+
     tmq_connect_pkt pkt;
     bzero(&pkt, sizeof(tmq_connect_pkt));
     if(mqtt->connect_ops.clean_session) pkt.flags |= 0x02;
@@ -39,6 +47,23 @@ static void on_tcp_connect_failed(void* arg)
 {
     tiny_mqtt* mqtt = arg;
     mqtt->connect_res = NETWORK_ERROR;
+    tmq_event_loop_quit(&mqtt->loop);
+}
+
+void on_message(void* arg, char* topic, tmq_message* message, uint8_t retain)
+{
+
+}
+
+void mqtt_connect_response(tiny_mqtt* mqtt, tmq_connack_pkt* connack_pkt)
+{
+    mqtt->connect_res = connack_pkt->return_code;
+    tcp_conn_ctx* ctx = mqtt->conn->context;
+    ctx->conn_state = IN_SESSION;
+    mqtt->session = tmq_session_new(mqtt, on_message, NULL, mqtt->conn, mqtt->connect_ops.client_id,
+                                    mqtt->connect_ops.clean_session, mqtt->connect_ops.keep_alive,
+                                    mqtt->connect_ops.will_topic, mqtt->connect_ops.will_message,
+                                    mqtt->connect_ops.will_qos, mqtt->connect_ops.will_retain, 1);
     tmq_event_loop_quit(&mqtt->loop);
 }
 

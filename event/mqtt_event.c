@@ -35,7 +35,8 @@ void tmq_event_loop_init(tmq_event_loop_t* loop)
     tmq_vec_init(&loop->active_handlers, tmq_event_handler_t*);
     tmq_map_64_init(&loop->removing_handlers, int, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
     tmq_map_32_init(&loop->handler_map, epoll_handler_ctx, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
-    tmq_vec_resize(loop->epoll_events, INITIAL_EVENTLIST_SIZE);
+    if(tmq_vec_resize(loop->epoll_events, INITIAL_EVENTLIST_SIZE) < 0)
+        fatal_error("tmq_vec_resize() error");
 
     loop->running = 0;
     loop->quit = 0;
@@ -58,6 +59,7 @@ void tmq_event_loop_run(tmq_event_loop_t* loop)
     if(atomicExchange(loop->running, 1) == 1)
         return;
     pthread_mutex_lock(&loop->lk);
+    loop->quit = 0;
     while(!loop->quit)
     {
         pthread_mutex_unlock(&loop->lk);
