@@ -251,7 +251,7 @@ static void handle_message_ctl(void* arg)
                 tmq_str_t* tf = tmq_vec_begin(req.sub_unsub_pkt.unsubscribe_pkt.topics);
                 for(; tf != tmq_vec_end(req.sub_unsub_pkt.unsubscribe_pkt.topics); tf++)
                 {
-                    //tlog_info("unsubscribe{client=%s, topic=%s}", req.client_id, *tf);
+                    tlog_info("unsubscribe{client=%s, topic=%s}", req.client_id, *tf);
                     tmq_topics_remove_subscription(&broker->topics_tree, *tf, req.client_id);
                     //tmq_topics_info(&broker->topics_tree);
                 }

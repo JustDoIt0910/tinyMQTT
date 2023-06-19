@@ -339,6 +339,11 @@ static decode_status parse_unsuback_packet(tmq_codec_t* codec, tmq_tcp_conn_t* c
 {
     if(codec->type != CLIENT_CODEC)
         return UNEXPECTED_PACKET;
+    tmq_unsuback_pkt unsuback_pkt;
+    tmq_buffer_read16(buffer, &unsuback_pkt.packet_id);
+
+    tcp_conn_ctx* ctx = conn->context;
+    codec->on_unsub_ack(ctx->upstream.session, &unsuback_pkt);
     return DECODE_OK;
 }
 
@@ -456,7 +461,8 @@ extern void tmq_session_handle_pingreq(tmq_session_t* session);
 /* callbacks for client */
 extern void on_mqtt_connect_response(tiny_mqtt* client, tmq_connack_pkt* connack_pkt);
 
-void tmq_session_handle_suback(tmq_session_t* session, tmq_suback_pkt* suback_pkt);
+extern void tmq_session_handle_suback(tmq_session_t* session, tmq_suback_pkt* suback_pkt);
+extern void tmq_session_handle_unsuback(tmq_session_t* session, tmq_unsuback_pkt* unsuback_pkt);
 
 void tmq_codec_init(tmq_codec_t* codec, tmq_codec_type type)
 {
@@ -474,6 +480,7 @@ void tmq_codec_init(tmq_codec_t* codec, tmq_codec_type type)
     codec->on_ping_req = tmq_session_handle_pingreq;
     codec->on_conn_ack = on_mqtt_connect_response;
     codec->on_sub_ack = tmq_session_handle_suback;
+    codec->on_unsub_ack = tmq_session_handle_unsuback;
 }
 
 typedef tmq_vec(uint8_t) packet_buf;
@@ -720,7 +727,27 @@ void send_suback_packet(tmq_tcp_conn_t* conn, void* pkt)
 
 void send_unsubscribe_packet(tmq_tcp_conn_t* conn, void* pkt)
 {
+    tmq_unsubscribe_pkt* unsubscribe_pkt = pkt;
+    packet_buf buf = tmq_vec_make(uint8_t);
+    uint32_t remain_length = 2;
+    for(tmq_str_t* it = tmq_vec_begin(unsubscribe_pkt->topics); it != tmq_vec_end(unsubscribe_pkt->topics); it++)
+        remain_length += tmq_str_len(*it) + 2;
+    if(make_fixed_header(MQTT_UNSUBSCRIBE, 2, remain_length, &buf) < 0)
+    {
+        tmq_vec_free(buf);
+        return;
+    }
+    tmq_vec_reserve(buf, remain_length);
+    pack_uint16(&buf, unsubscribe_pkt->packet_id);
+    for(tmq_str_t* it = tmq_vec_begin(unsubscribe_pkt->topics); it != tmq_vec_end(unsubscribe_pkt->topics); it++)
+    {
+        pack_uint16(&buf, tmq_str_len(*it));
+        strcpy((char*) tmq_vec_end(buf), *it);
+        tmq_vec_resize(buf, tmq_vec_size(buf) + tmq_str_len(*it));
+    }
 
+    tmq_tcp_conn_write(conn, (char*) tmq_vec_begin(buf), tmq_vec_size(buf));
+    tmq_vec_free(buf);
 }
 
 void send_unsuback_packet(tmq_tcp_conn_t* conn, void* pkt)

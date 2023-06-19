@@ -39,6 +39,7 @@ typedef struct tmq_client_s
 tiny_mqtt* tinymqtt_new(const char* ip, uint16_t port);
 int tinymqtt_connect(tiny_mqtt* mqtt, connect_options* options);
 int tinymqtt_subscribe(tiny_mqtt* mqtt, const char* topic_filter, uint8_t qos);
+void tinymqtt_unsubscribe(tiny_mqtt* mqtt, const char* topic_filter);
 void tinymqtt_set_message_callback(tiny_mqtt* mqtt, mqtt_message_cb cb);
 void tinymqtt_publish(tiny_mqtt* mqtt, const char* topic, const char* message, uint8_t qos, int retain);
 void tinymqtt_loop(tiny_mqtt* mqtt);

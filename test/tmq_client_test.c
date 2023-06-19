@@ -27,6 +27,8 @@ int main()
     if(res == CONNECTION_ACCEPTED)
     {
         tinymqtt_subscribe(mqtt, "test/sub", 1);
+        //tinymqtt_unsubscribe(mqtt, "test/sub");
+
         tinymqtt_set_message_callback(mqtt, on_message);
 
         tinymqtt_publish(mqtt, "test/pub", "hello!", 1, 0);

@@ -65,6 +65,7 @@ void tmq_session_publish(tmq_session_t* session, const char* topic, const char* 
 void tmq_session_store_publish(tmq_session_t* session, const char* topic, const char* payload,
                                uint8_t qos, uint8_t retain);
 void tmq_session_subscribe(tmq_session_t* session, const char* topic_filter, uint8_t qos);
+void tmq_session_unsubscribe(tmq_session_t* session, const char* topic_filter);
 void tmq_session_send_packet(tmq_session_t* session, tmq_any_packet_t* pkt);
 void tmq_session_start(tmq_session_t* session);
 void tmq_session_resume(tmq_session_t* session, tmq_tcp_conn_t* conn, uint16_t keep_alive, char* will_topic,

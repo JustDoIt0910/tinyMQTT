@@ -77,9 +77,14 @@ void on_mqtt_connect_response(tiny_mqtt* mqtt, tmq_connack_pkt* connack_pkt)
     tmq_event_loop_quit(&mqtt->loop);
 }
 
-void on_mqtt_subscribe_response(tiny_mqtt* mqtt, tmq_suback_pkt * suback_pkt)
+void on_mqtt_subscribe_response(tiny_mqtt* mqtt, tmq_suback_pkt* suback_pkt)
 {
     mqtt->subscribe_res = suback_pkt->return_codes;
+    tmq_event_loop_quit(&mqtt->loop);
+}
+
+void on_mqtt_unsubscribe_response(tiny_mqtt* mqtt, tmq_unsuback_pkt* unsuback_pkt)
+{
     tmq_event_loop_quit(&mqtt->loop);
 }
 
@@ -112,6 +117,13 @@ int tinymqtt_subscribe(tiny_mqtt* mqtt, const char* topic_filter, uint8_t qos)
         ret = *tmq_vec_at(mqtt->subscribe_res, 0);
     tmq_vec_free(mqtt->subscribe_res);
     return ret;
+}
+
+void tinymqtt_unsubscribe(tiny_mqtt* mqtt, const char* topic_filter)
+{
+    if(!mqtt->session) return;
+    tmq_session_unsubscribe(mqtt->session, topic_filter);
+    tmq_event_loop_run(&mqtt->loop);
 }
 
 void tinymqtt_publish(tiny_mqtt* mqtt, const char* topic, const char* message, uint8_t qos, int retain)

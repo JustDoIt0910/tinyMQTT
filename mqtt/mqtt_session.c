@@ -12,6 +12,7 @@
 extern void mqtt_subscribe_unsubscribe_request(tmq_broker_t* broker, subscribe_unsubscribe_req* sub_unsub_req,
                                                message_ctl_op op);
 extern void on_mqtt_subscribe_response(tiny_mqtt* mqtt, tmq_suback_pkt * suback_pkt);
+extern void on_mqtt_unsubscribe_response(tiny_mqtt* mqtt, tmq_unsuback_pkt* unsuback_pkt);
 
 static sending_packet* sending_packet_new(tmq_packet_type type, void* pkt, uint16_t packet_id)
 {
@@ -251,6 +252,11 @@ void tmq_session_handle_suback(tmq_session_t* session, tmq_suback_pkt* suback_pk
     on_mqtt_subscribe_response((tiny_mqtt*) session->upstream, suback_pkt);
 }
 
+void tmq_session_handle_unsuback(tmq_session_t* session, tmq_unsuback_pkt* unsuback_pkt)
+{
+    on_mqtt_unsubscribe_response((tiny_mqtt*) session->upstream, unsuback_pkt);
+}
+
 void tmq_session_handle_publish(tmq_session_t* session, tmq_publish_pkt* publish_pkt)
 {
     session->last_pkt_ts = time_now();
@@ -422,6 +428,7 @@ void tmq_session_subscribe(tmq_session_t* session, const char* topic_filter, uin
             .qos = qos
     };
     tmq_vec_push_back(topics, topic);
+
     tmq_subscribe_pkt* subscribe_pkt = malloc(sizeof(tmq_subscribe_pkt));
     subscribe_pkt->packet_id = session->next_packet_id;
     subscribe_pkt->topics = topics;
@@ -429,6 +436,22 @@ void tmq_session_subscribe(tmq_session_t* session, const char* topic_filter, uin
     tmq_any_packet_t pkt = {
             .packet_type = MQTT_SUBSCRIBE,
             .packet = subscribe_pkt
+    };
+    tmq_session_send_packet(session, &pkt);
+}
+
+void tmq_session_unsubscribe(tmq_session_t* session, const char* topic_filter)
+{
+    str_vec topics = tmq_vec_make(tmq_str_t);
+    tmq_vec_push_back(topics, tmq_str_new(topic_filter));
+
+    tmq_unsubscribe_pkt* unsubscribe_pkt = malloc(sizeof(tmq_unsubscribe_pkt));
+    unsubscribe_pkt->packet_id =  session->next_packet_id;
+    unsubscribe_pkt->topics = topics;
+    session->next_packet_id = session->next_packet_id == UINT16_MAX ? 0 : session->next_packet_id + 1;
+    tmq_any_packet_t pkt = {
+            .packet_type = MQTT_UNSUBSCRIBE,
+            .packet = unsubscribe_pkt
     };
     tmq_session_send_packet(session, &pkt);
 }
