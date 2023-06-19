@@ -141,8 +141,6 @@ int tmq_vec_resize_(tmq_vec_base_t* v, size_t size)
     return 0;
 }
 
-#include <stdio.h>
-
 int tmq_vec_reserve_(tmq_vec_base_t* v, size_t size)
 {
     if(size > v->cap)
@@ -163,4 +161,15 @@ void tmq_vec_swap_(tmq_vec_base_t** v1, tmq_vec_base_t** v2)
     tmq_vec_base_t* tmp = *v1;
     *v1 = *v2;
     *v2 = tmp;
+}
+
+int tmq_vec_extend_(tmq_vec_base_t* v1, tmq_vec_base_t* v2)
+{
+    if(!v1 || !v2 || v1->elem_size != v2->elem_size) return -1;
+    size_t size = tmq_vec_size_(v1) + tmq_vec_size_(v2);
+    if(tmq_vec_reserve_(v1, size) < 0)
+        return -1;
+    memcpy(tmq_vec_end_(v1), v2->data, tmq_vec_size_(v2) * v2->elem_size);
+    tmq_vec_resize_(v1, size);
+    return 0;
 }

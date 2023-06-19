@@ -5,11 +5,16 @@
 #include "tlog.h"
 #include <stdio.h>
 
+void on_message(char* topic, char* message, uint8_t qos, uint8_t retain)
+{
+    tlog_info("received message [%s] topic=%s, qos=%u, retain=%u", message, topic, qos, retain);
+}
+
 int main()
 {
     tlog_init("broker.log", 1024 * 1024, 10, 0, TLOG_SCREEN);
 
-    tiny_mqtt* mqtt = tiny_mqtt_new("192.168.3.7", 1883);
+    tiny_mqtt* mqtt = tinymqtt_new("192.168.3.7", 1883);
     connect_options ops = {
         "username",
         "password",
@@ -18,14 +23,14 @@ int main()
         60,
         NULL
     };
-    int res = tiny_mqtt_connect(mqtt, &ops);
+    int res = tinymqtt_connect(mqtt, &ops);
     if(res == CONNECTION_ACCEPTED)
     {
-        int ret = tiny_mqtt_subscribe(mqtt, "test", 1);
-        tlog_info("%d", ret);
+        tinymqtt_subscribe(mqtt, "test", 1);
+        tinymqtt_set_message_callback(mqtt, on_message);
     }
 
-    tiny_mqtt_loop(mqtt);
+    tinymqtt_loop(mqtt);
     tlog_exit();
     return 0;
 }
