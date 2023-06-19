@@ -46,6 +46,8 @@ static int accknowledge(tmq_session_t* session, uint16_t packet_id, tmq_packet_t
                 p = &((*p)->next);
                 continue;
             }
+            if(session->on_publish_finish)
+                session->on_publish_finish(session->upstream);
         }
         sending_packet* next = (*p)->next;
         sending_packet* remove = *p;
@@ -429,4 +431,10 @@ void tmq_session_subscribe(tmq_session_t* session, const char* topic_filter, uin
             .packet = subscribe_pkt
     };
     tmq_session_send_packet(session, &pkt);
+}
+
+void tmq_session_set_publish_finish_callback(tmq_session_t* session, publish_finish_cb cb)
+{
+    if(!session) return;
+    session->on_publish_finish = cb;
 }

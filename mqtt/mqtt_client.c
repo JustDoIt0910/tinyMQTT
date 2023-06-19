@@ -49,12 +49,18 @@ static void on_tcp_connect_failed(void* arg)
     tmq_event_loop_quit(&mqtt->loop);
 }
 
-void on_mqtt_message(void* arg, char* topic, tmq_message* message, uint8_t retain)
+static void on_mqtt_message(void* arg, char* topic, tmq_message* message, uint8_t retain)
 {
     tiny_mqtt* mqtt = arg;
     if(mqtt->on_message)
         mqtt->on_message(topic, message->message, message->qos, retain);
     tmq_str_free(message->message);
+}
+
+static void on_publish_finish(void* arg)
+{
+    tiny_mqtt* mqtt = arg;
+    tmq_event_loop_quit(&mqtt->loop);
 }
 
 void on_mqtt_connect_response(tiny_mqtt* mqtt, tmq_connack_pkt* connack_pkt)
@@ -66,6 +72,7 @@ void on_mqtt_connect_response(tiny_mqtt* mqtt, tmq_connack_pkt* connack_pkt)
                                     mqtt->connect_ops.clean_session, mqtt->connect_ops.keep_alive,
                                     mqtt->connect_ops.will_topic, mqtt->connect_ops.will_message,
                                     mqtt->connect_ops.will_qos, mqtt->connect_ops.will_retain, 1);
+    tmq_session_set_publish_finish_callback(mqtt->session, on_publish_finish);
     ctx->upstream.session = mqtt->session;
     tmq_event_loop_quit(&mqtt->loop);
 }
@@ -105,6 +112,13 @@ int tinymqtt_subscribe(tiny_mqtt* mqtt, const char* topic_filter, uint8_t qos)
         ret = *tmq_vec_at(mqtt->subscribe_res, 0);
     tmq_vec_free(mqtt->subscribe_res);
     return ret;
+}
+
+void tinymqtt_publish(tiny_mqtt* mqtt, const char* topic, const char* message, uint8_t qos, int retain)
+{
+    if(!message || !topic || qos > 2 || !mqtt->session) return;
+    tmq_session_publish(mqtt->session, topic, message, qos, retain);
+    tmq_event_loop_run(&mqtt->loop);
 }
 
 void tinymqtt_set_message_callback(tiny_mqtt* mqtt, mqtt_message_cb cb)

@@ -26,8 +26,10 @@ int main()
     int res = tinymqtt_connect(mqtt, &ops);
     if(res == CONNECTION_ACCEPTED)
     {
-        tinymqtt_subscribe(mqtt, "test", 1);
+        tinymqtt_subscribe(mqtt, "test/sub", 1);
         tinymqtt_set_message_callback(mqtt, on_message);
+
+        tinymqtt_publish(mqtt, "test/pub", "hello!", 1, 0);
     }
 
     tinymqtt_loop(mqtt);
