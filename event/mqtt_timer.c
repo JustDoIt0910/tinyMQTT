@@ -141,7 +141,7 @@ static tmq_timer_t* timer_heap_pop(tmq_timer_heap_t* timer_heap)
     return top;
 }
 
-static void timer_heap_timeout(int timer_fd, uint32_t event, const void* arg)
+static void timer_heap_timeout(int timer_fd, uint32_t event, void* arg)
 {
     int64_t now = time_now();
     uint64_t timeout_cnt;
@@ -158,7 +158,6 @@ static void timer_heap_timeout(int timer_fd, uint32_t event, const void* arg)
         return;
     }
     tmq_timer_t* top = timer_heap->heap[1];
-    tmq_vec_clear(timer_heap->expired_timers);
     while(top->expire <= now)
     {
         timer_heap_pop(timer_heap);
@@ -188,6 +187,7 @@ static void timer_heap_timeout(int timer_fd, uint32_t event, const void* arg)
             free(*timer);
         }
     }
+    tmq_vec_clear(timer_heap->expired_timers);
     if(timer_heap->size > 0)
         timerfd_set_timeout(timer_heap->timer_fd, timer_heap->heap[1]->expire);
     pthread_mutex_unlock(&timer_heap->lk);

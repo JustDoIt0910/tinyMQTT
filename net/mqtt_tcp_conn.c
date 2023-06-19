@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
-static void read_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
+static void read_cb_(tmq_socket_t fd, uint32_t event, void* arg)
 {
     if(!arg) return;
     tmq_tcp_conn_t* conn = (tmq_tcp_conn_t*) arg;
@@ -27,7 +27,7 @@ static void read_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
     }
 }
 
-static void write_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
+static void write_cb_(tmq_socket_t fd, uint32_t event, void* arg)
 {
     if(!arg) return;
     tmq_tcp_conn_t* conn = (tmq_tcp_conn_t*) arg;
@@ -47,7 +47,7 @@ static void write_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
         tlog_error("tmq_buffer_write_fd() error");
 }
 
-static void close_cb_(tmq_socket_t fd, uint32_t event, const void* arg)
+static void close_cb_(tmq_socket_t fd, uint32_t event, void* arg)
 {
     if(!arg) return;
     tmq_tcp_conn_t* conn = (tmq_tcp_conn_t*) arg;
@@ -143,11 +143,11 @@ void tmq_tcp_conn_close(tmq_tcp_conn_t* conn)
         conn->state = DISCONNECTING;
         return;
     }
-    tmq_handler_unregister(&conn->group->loop, conn->read_event_handler);
-    tmq_handler_unregister(&conn->group->loop, conn->error_close_handler);
+    tmq_handler_unregister(conn->loop, conn->read_event_handler);
+    tmq_handler_unregister(conn->loop, conn->error_close_handler);
 
-    if(tmq_handler_is_registered(&conn->group->loop, conn->write_event_handler))
-        tmq_handler_unregister(&conn->group->loop, conn->write_event_handler);
+    if(tmq_handler_is_registered(conn->loop, conn->write_event_handler))
+        tmq_handler_unregister(conn->loop, conn->write_event_handler);
 
     if(conn->close_cb)
         conn->close_cb(get_ref(conn), conn->close_cb_arg);
@@ -168,7 +168,8 @@ void tmq_tcp_conn_set_context(tmq_tcp_conn_t* conn, void* ctx, context_cleanup_c
     if(!conn) return;
     if(conn->context)
     {
-        conn->ctx_clean_up(conn->context);
+        if(conn->ctx_clean_up)
+            conn->ctx_clean_up(conn->context);
         free(conn->context);
     }
     conn->context = ctx;

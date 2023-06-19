@@ -137,9 +137,24 @@ tmq_socket_t tmq_socket_accept(tmq_socket_t fd, tmq_socket_addr_t* clientAddr)
     return clientFd;
 }
 
+int tmq_socket_connect(tmq_socket_t fd, tmq_socket_addr_t addr)
+{
+    socklen_t len = sizeof(tmq_socket_addr_t);
+    return connect(fd, (struct sockaddr*)&addr, len);
+}
+
 ssize_t tmq_socket_read(tmq_socket_t fd, char* buf, size_t len) { return read(fd, buf, len);}
 
 ssize_t tmq_socket_write(tmq_socket_t fd, const char* buf, size_t len) { return write(fd, buf, len);}
+
+int tmq_socket_get_error(tmq_socket_t fd)
+{
+    int opt;
+    socklen_t len = sizeof(opt);
+    if(getsockopt(fd, SOL_SOCKET, SO_ERROR, &opt, &len) < 0)
+        return errno;
+    return opt;
+}
 
 tmq_socket_addr_t tmq_addr_from_ip_port(const char* ip, uint16_t port)
 {

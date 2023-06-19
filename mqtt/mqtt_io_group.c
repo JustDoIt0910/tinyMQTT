@@ -94,7 +94,7 @@ static void mqtt_keepalive(void* arg)
     tmq_vec_free(timeout_conns);
 }
 
-extern void tcp_conn_ctx_cleanup(void* arg);
+extern void tcp_conn_broker_ctx_cleanup(void* arg);
 
 static void handle_new_connection(void* arg)
 {
@@ -111,13 +111,13 @@ static void handle_new_connection(void* arg)
         conn->close_cb = tcp_conn_cleanup;
         conn->state = CONNECTED;
 
-        tcp_conn_ctx* conn_ctx = malloc(sizeof(tcp_conn_ctx));
+        tcp_conn_broker_ctx* conn_ctx = malloc(sizeof(tcp_conn_broker_ctx));
         tmq_vec_init(&conn_ctx->pending_packets, tmq_any_packet_t);
         conn_ctx->upstream.broker = group->broker;
         conn_ctx->conn_state = NO_SESSION;
         conn_ctx->parsing_ctx.state = PARSING_FIXED_HEADER;
         conn_ctx->last_msg_time = time_now();
-        tmq_tcp_conn_set_context(conn, conn_ctx, tcp_conn_ctx_cleanup);
+        tmq_tcp_conn_set_context(conn, conn_ctx, tcp_conn_broker_ctx_cleanup);
 
         char conn_name[50];
         tmq_tcp_conn_id(conn, conn_name, sizeof(conn_name));

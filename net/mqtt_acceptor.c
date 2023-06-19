@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-static void acceptor_cb(tmq_socket_t fd, uint32_t event, const void* arg)
+static void acceptor_cb(tmq_socket_t fd, uint32_t event, void* arg)
 {
     tmq_acceptor_t* acceptor = (tmq_acceptor_t*) arg;
     tmq_socket_addr_t peer_addr;

@@ -210,23 +210,19 @@ static void handle_message_ctl(void* arg)
                 /* the subscription will always success. */
                 tmq_suback_pkt* sub_ack = malloc(sizeof(tmq_suback_pkt));
                 sub_ack->packet_id = req.sub_unsub_pkt.subscribe_pkt.packet_id;
+                tmq_vec_init(&sub_ack->return_codes, uint8_t);
+
+                retain_message_list all_retain = tmq_vec_make(retain_message_t*);
 
                 /* add all the topic filters into the topic tree. */
                 topic_filter_qos* tf = tmq_vec_begin(req.sub_unsub_pkt.subscribe_pkt.topics);
                 for(; tf != tmq_vec_end(req.sub_unsub_pkt.subscribe_pkt.topics); tf++)
                 {
-                    //tlog_info("subscribe{client=%s, topic=%s, qos=%u}", req.client_id, tf->topic_filter, tf->qos);
+                    tlog_info("subscribe{client=%s, topic=%s, qos=%u}", req.client_id, tf->topic_filter, tf->qos);
                     retain_message_list retain = tmq_topics_add_subscription(&broker->topics_tree, tf->topic_filter,
                                                                              req.client_id, tf->qos);
-                    /* send the retained messages that match the subscription */
-                    for(retain_message_t** it = tmq_vec_begin(retain); it != tmq_vec_end(retain); it++)
-                    {
-                        retain_message_t* retain_msg = *it;
-                        uint8_t final_qos = tf->qos < retain_msg->retain_msg.qos ? tf->qos :
-                                retain_msg->retain_msg.qos;
-                        tmq_session_publish(*session, retain_msg->retain_topic,
-                                            retain_msg->retain_msg.message, final_qos, 1);
-                    }
+
+                    tmq_vec_extend(all_retain, retain);
                     tmq_vec_free(retain);
                     //tmq_topics_info(&broker->topics_tree);
                     tmq_vec_push_back(sub_ack->return_codes, tf->qos);
@@ -235,7 +231,16 @@ static void handle_message_ctl(void* arg)
                 ack.packet_type = MQTT_SUBACK;
                 ack.packet = sub_ack;
                 tmq_session_send_packet(*session, &ack);
-                /* todo: send retain messages */
+                /* send all the retained messages that match the subscription */
+                for(retain_message_t** it = tmq_vec_begin(all_retain); it != tmq_vec_end(all_retain); it++)
+                {
+                    retain_message_t* retain_msg = *it;
+                    uint8_t final_qos = tf->qos < retain_msg->retain_msg.qos ? tf->qos :
+                                        retain_msg->retain_msg.qos;
+                    tmq_session_publish(*session, retain_msg->retain_topic,
+                                        retain_msg->retain_msg.message, final_qos, 1);
+                }
+                tmq_vec_free(all_retain);
             }
             /* handle unsubscribe request */
             else
@@ -246,7 +251,7 @@ static void handle_message_ctl(void* arg)
                 tmq_str_t* tf = tmq_vec_begin(req.sub_unsub_pkt.unsubscribe_pkt.topics);
                 for(; tf != tmq_vec_end(req.sub_unsub_pkt.unsubscribe_pkt.topics); tf++)
                 {
-                    //tlog_info("unsubscribe{client=%s, topic=%s}", req.client_id, *tf);
+                    tlog_info("unsubscribe{client=%s, topic=%s}", req.client_id, *tf);
                     tmq_topics_remove_subscription(&broker->topics_tree, *tf, req.client_id);
                     //tmq_topics_info(&broker->topics_tree);
                 }

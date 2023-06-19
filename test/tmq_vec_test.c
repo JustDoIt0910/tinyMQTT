@@ -49,16 +49,28 @@ int main()
 //
 //    tmq_vec_free(v);
 
-    tmq_vec(struct Test) v = tmq_vec_make(struct Test);
+//    tmq_vec(struct Test) v = tmq_vec_make(struct Test);
+//
+//    tmq_vec_resize(v, 10);
+//    for(int i = 0; i < 6; i++)
+//        tmq_vec_push_back(v, elems[i]);
+//    tmq_vec_set(v, 0, elems[6]);
+//
+//    for(struct Test* e = tmq_vec_begin(v); e != tmq_vec_end(v); e++)
+//        printf("{a = %d, b = %d, c = %d, str = %s}\n", e->a, e->b, e->c, e->str);
+//
+//    tmq_vec_free(v);
 
-    tmq_vec_resize(v, 10);
-    for(int i = 0; i < 6; i++)
-        tmq_vec_push_back(v, elems[i]);
-    tmq_vec_set(v, 0, elems[6]);
+    tmq_vec(int) v1 = tmq_vec_make(int);
+    for(int i = 1; i < 10; i++)
+        tmq_vec_push_back(v1, i);
 
-    for(struct Test* e = tmq_vec_begin(v); e != tmq_vec_end(v); e++)
-        printf("{a = %d, b = %d, c = %d, str = %s}\n", e->a, e->b, e->c, e->str);
+    tmq_vec(int) v2 = tmq_vec_make(int);
+    for(int i = 10; i < 20; i++)
+        tmq_vec_push_back(v2, i);
 
-    tmq_vec_free(v);
+    tmq_vec_extend(v1, v2);
+    for(int* p = tmq_vec_begin(v1); p != tmq_vec_end(v1); p++)
+        printf("%d ", *p);
     return 0;
 }

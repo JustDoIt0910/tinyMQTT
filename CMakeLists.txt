@@ -13,6 +13,7 @@ set(TINYMQTT_LIB_SRC
         event/mqtt_event.c
         event/mqtt_timer.c
         net/mqtt_acceptor.c
+        net/mqtt_connector.c
         net/mqtt_tcp_conn.c
         net/mqtt_buffer.c
         mqtt/mqtt_types.c
