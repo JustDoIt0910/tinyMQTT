@@ -249,11 +249,13 @@ void tmq_session_handle_unsubscribe(tmq_session_t* session, tmq_unsubscribe_pkt*
 
 void tmq_session_handle_suback(tmq_session_t* session, tmq_suback_pkt* suback_pkt)
 {
+    session->last_pkt_ts = time_now();
     on_mqtt_subscribe_response((tiny_mqtt*) session->upstream, suback_pkt);
 }
 
 void tmq_session_handle_unsuback(tmq_session_t* session, tmq_unsuback_pkt* unsuback_pkt)
 {
+    session->last_pkt_ts = time_now();
     on_mqtt_unsubscribe_response((tiny_mqtt*) session->upstream, unsuback_pkt);
 }
 
@@ -282,10 +284,9 @@ void tmq_session_handle_publish(tmq_session_t* session, tmq_publish_pkt* publish
     tmq_publish_pkt_cleanup(publish_pkt);
 }
 
-void tmq_session_handle_pingreq(tmq_session_t* session)
-{
-    session->last_pkt_ts = time_now();
-}
+void tmq_session_handle_pingreq(tmq_session_t* session) {session->last_pkt_ts = time_now();}
+
+void tmq_session_handle_pingresp(tmq_session_t* session) {session->last_pkt_ts = time_now();}
 
 void tmq_session_handle_puback(tmq_session_t* session, tmq_puback_pkt* puback_pkt)
 {

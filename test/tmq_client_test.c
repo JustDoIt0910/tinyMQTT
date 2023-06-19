@@ -20,7 +20,7 @@ int main()
         "password",
         "tmq_client_test_client",
         0,
-        60,
+        10,
         NULL
     };
     int res = tinymqtt_connect(mqtt, &ops);

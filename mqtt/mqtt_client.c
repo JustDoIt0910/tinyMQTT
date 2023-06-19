@@ -2,6 +2,7 @@
 // Created by zr on 23-4-9.
 //
 #include "mqtt_client.h"
+#include "tlog.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -139,4 +140,25 @@ void tinymqtt_set_message_callback(tiny_mqtt* mqtt, mqtt_message_cb cb)
     mqtt->on_message = cb;
 }
 
-void tinymqtt_loop(tiny_mqtt* mqtt){tmq_event_loop_run(&mqtt->loop);}
+static void ping(void* arg)
+{
+    tiny_mqtt* mqtt = arg;
+    int64_t now = time_now();
+    if(now - mqtt->session->last_pkt_ts > 2 * SEC_US(mqtt->connect_ops.keep_alive))
+    {
+        tlog_info("can not receive ping respond from server");
+        tmq_event_loop_quit(&mqtt->loop);
+        return;
+    }
+    send_pingreq_packet(mqtt->conn, NULL);
+}
+
+void tinymqtt_loop(tiny_mqtt* mqtt)
+{
+    if(mqtt->connect_ops.keep_alive > 0)
+    {
+        tmq_timer_t* ping_timer = tmq_timer_new(SEC_MS(mqtt->connect_ops.keep_alive), 1, ping, mqtt);
+        tmq_event_loop_add_timer(&mqtt->loop, ping_timer);
+    }
+    tmq_event_loop_run(&mqtt->loop);
+}
