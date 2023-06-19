@@ -103,10 +103,11 @@ typedef struct tmq_subscribe_pkt
     topic_list topics;
 } tmq_subscribe_pkt;
 
+typedef tmq_vec(uint8_t) sub_return_codes;
 typedef struct tmq_suback_pkt
 {
     uint16_t packet_id;
-    tmq_vec(uint8_t) return_codes;
+    sub_return_codes return_codes;
 } tmq_suback_pkt;
 
 typedef struct tmq_unsubscribe_pkt

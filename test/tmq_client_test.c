@@ -21,7 +21,8 @@ int main()
     int res = tiny_mqtt_connect(mqtt, &ops);
     if(res == CONNECTION_ACCEPTED)
     {
-
+        int ret = tiny_mqtt_subscribe(mqtt, "test", 1);
+        tlog_info("%d", ret);
     }
 
     tiny_mqtt_loop(mqtt);

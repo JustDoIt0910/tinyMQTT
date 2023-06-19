@@ -55,7 +55,7 @@ void on_message(void* arg, char* topic, tmq_message* message, uint8_t retain)
 
 }
 
-void mqtt_connect_response(tiny_mqtt* mqtt, tmq_connack_pkt* connack_pkt)
+void on_mqtt_connect_response(tiny_mqtt* mqtt, tmq_connack_pkt* connack_pkt)
 {
     mqtt->connect_res = connack_pkt->return_code;
     tcp_conn_ctx* ctx = mqtt->conn->context;
@@ -64,6 +64,13 @@ void mqtt_connect_response(tiny_mqtt* mqtt, tmq_connack_pkt* connack_pkt)
                                     mqtt->connect_ops.clean_session, mqtt->connect_ops.keep_alive,
                                     mqtt->connect_ops.will_topic, mqtt->connect_ops.will_message,
                                     mqtt->connect_ops.will_qos, mqtt->connect_ops.will_retain, 1);
+    ctx->upstream.session = mqtt->session;
+    tmq_event_loop_quit(&mqtt->loop);
+}
+
+void on_mqtt_subscribe_response(tiny_mqtt* mqtt, tmq_suback_pkt * suback_pkt)
+{
+    mqtt->subscribe_res = suback_pkt->return_codes;
     tmq_event_loop_quit(&mqtt->loop);
 }
 
@@ -84,6 +91,18 @@ int tiny_mqtt_connect(tiny_mqtt* mqtt, connect_options* options)
     tmq_connector_connect(&mqtt->connector);
     tmq_event_loop_run(&mqtt->loop);
     return mqtt->connect_res;
+}
+
+int tiny_mqtt_subscribe(tiny_mqtt* mqtt, const char* topic_filter, uint8_t qos)
+{
+    if(!mqtt->session) return -1;
+    tmq_session_subscribe(mqtt->session, topic_filter, qos);
+    tmq_event_loop_run(&mqtt->loop);
+    int ret = -1;
+    if(tmq_vec_size(mqtt->subscribe_res) > 0)
+        ret = *tmq_vec_at(mqtt->subscribe_res, 0);
+    tmq_vec_free(mqtt->subscribe_res);
+    return ret;
 }
 
 void tiny_mqtt_loop(tiny_mqtt* mqtt){tmq_event_loop_run(&mqtt->loop);}

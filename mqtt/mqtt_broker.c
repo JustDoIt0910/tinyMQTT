@@ -210,12 +210,13 @@ static void handle_message_ctl(void* arg)
                 /* the subscription will always success. */
                 tmq_suback_pkt* sub_ack = malloc(sizeof(tmq_suback_pkt));
                 sub_ack->packet_id = req.sub_unsub_pkt.subscribe_pkt.packet_id;
+                tmq_vec_init(&sub_ack->return_codes, uint8_t);
 
                 /* add all the topic filters into the topic tree. */
                 topic_filter_qos* tf = tmq_vec_begin(req.sub_unsub_pkt.subscribe_pkt.topics);
                 for(; tf != tmq_vec_end(req.sub_unsub_pkt.subscribe_pkt.topics); tf++)
                 {
-                    //tlog_info("subscribe{client=%s, topic=%s, qos=%u}", req.client_id, tf->topic_filter, tf->qos);
+                    tlog_info("subscribe{client=%s, topic=%s, qos=%u}", req.client_id, tf->topic_filter, tf->qos);
                     retain_message_list retain = tmq_topics_add_subscription(&broker->topics_tree, tf->topic_filter,
                                                                              req.client_id, tf->qos);
                     /* send the retained messages that match the subscription */

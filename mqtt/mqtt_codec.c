@@ -293,6 +293,20 @@ static decode_status parse_suback_packet(tmq_codec_t* codec, tmq_tcp_conn_t* con
 {
     if(codec->type != CLIENT_CODEC)
         return UNEXPECTED_PACKET;
+    tmq_suback_pkt suback_pkt;
+    tmq_vec_init(&suback_pkt.return_codes, uint8_t);
+    tmq_buffer_read16(buffer, &suback_pkt.packet_id);
+    len -= 2;
+    while(len > 0)
+    {
+        uint8_t ret;
+        tmq_buffer_read(buffer, (char*) &ret, 1);
+        tmq_vec_push_back(suback_pkt.return_codes, ret);
+        len -= 1;
+    }
+    tcp_conn_ctx* ctx = conn->context;
+
+    codec->on_sub_ack(ctx->upstream.session, &suback_pkt);
     return DECODE_OK;
 }
 
@@ -440,7 +454,9 @@ extern void tmq_session_handle_pubcomp(tmq_session_t* session, tmq_pubcomp_pkt* 
 extern void tmq_session_handle_pingreq(tmq_session_t* session);
 
 /* callbacks for client */
-extern void mqtt_connect_response(tiny_mqtt* client, tmq_connack_pkt* connack_pkt);
+extern void on_mqtt_connect_response(tiny_mqtt* client, tmq_connack_pkt* connack_pkt);
+
+void tmq_session_handle_suback(tmq_session_t* session, tmq_suback_pkt* suback_pkt);
 
 void tmq_codec_init(tmq_codec_t* codec, tmq_codec_type type)
 {
@@ -456,7 +472,8 @@ void tmq_codec_init(tmq_codec_t* codec, tmq_codec_type type)
     codec->on_pub_rel = tmq_session_handle_pubrel;
     codec->on_pub_comp = tmq_session_handle_pubcomp;
     codec->on_ping_req = tmq_session_handle_pingreq;
-    codec->on_conn_ack = mqtt_connect_response;
+    codec->on_conn_ack = on_mqtt_connect_response;
+    codec->on_sub_ack = tmq_session_handle_suback;
 }
 
 typedef tmq_vec(uint8_t) packet_buf;
@@ -658,7 +675,28 @@ void send_pubcomp_packet(tmq_tcp_conn_t* conn, void* pkt)
 
 void send_subscribe_packet(tmq_tcp_conn_t* conn, void* pkt)
 {
+    tmq_subscribe_pkt* subscribe_pkt = pkt;
+    packet_buf buf = tmq_vec_make(uint8_t);
+    uint32_t remain_length = 2;
+    for(topic_filter_qos* it = tmq_vec_begin(subscribe_pkt->topics); it != tmq_vec_end(subscribe_pkt->topics); it++)
+        remain_length += tmq_str_len(it->topic_filter) + 3;
+    if(make_fixed_header(MQTT_SUBSCRIBE, 2, remain_length, &buf) < 0)
+    {
+        tmq_vec_free(buf);
+        return;
+    }
+    tmq_vec_reserve(buf, remain_length);
+    pack_uint16(&buf, subscribe_pkt->packet_id);
+    for(topic_filter_qos* it = tmq_vec_begin(subscribe_pkt->topics); it != tmq_vec_end(subscribe_pkt->topics); it++)
+    {
+        pack_uint16(&buf, tmq_str_len(it->topic_filter));
+        strcpy((char*) tmq_vec_end(buf), it->topic_filter);
+        tmq_vec_resize(buf, tmq_vec_size(buf) + tmq_str_len(it->topic_filter));
+        tmq_vec_push_back(buf, it->qos);
+    }
 
+    tmq_tcp_conn_write(conn, (char*) tmq_vec_begin(buf), tmq_vec_size(buf));
+    tmq_vec_free(buf);
 }
 
 void send_suback_packet(tmq_tcp_conn_t* conn, void* pkt)

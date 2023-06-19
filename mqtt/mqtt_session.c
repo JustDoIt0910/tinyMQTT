@@ -11,6 +11,7 @@
 
 extern void mqtt_subscribe_unsubscribe_request(tmq_broker_t* broker, subscribe_unsubscribe_req* sub_unsub_req,
                                                message_ctl_op op);
+extern void on_mqtt_subscribe_response(tiny_mqtt* mqtt, tmq_suback_pkt * suback_pkt);
 
 static sending_packet* sending_packet_new(tmq_packet_type type, void* pkt, uint16_t packet_id)
 {
@@ -228,7 +229,7 @@ void tmq_session_handle_subscribe(tmq_session_t* session, tmq_subscribe_pkt* sub
             .client_id = tmq_str_new(session->client_id),
             .sub_unsub_pkt.subscribe_pkt = *subscribe_pkt
     };
-    mqtt_subscribe_unsubscribe_request((tmq_broker_t*)session->upstream, &req, SUBSCRIBE);
+    mqtt_subscribe_unsubscribe_request((tmq_broker_t*) session->upstream, &req, SUBSCRIBE);
 }
 
 void tmq_session_handle_unsubscribe(tmq_session_t* session, tmq_unsubscribe_pkt* unsubscribe_pkt)
@@ -240,7 +241,12 @@ void tmq_session_handle_unsubscribe(tmq_session_t* session, tmq_unsubscribe_pkt*
             .client_id = tmq_str_new(session->client_id),
             .sub_unsub_pkt.unsubscribe_pkt = *unsubscribe_pkt
     };
-    mqtt_subscribe_unsubscribe_request((tmq_broker_t*)session->upstream, &req, UNSUBSCRIBE);
+    mqtt_subscribe_unsubscribe_request((tmq_broker_t*) session->upstream, &req, UNSUBSCRIBE);
+}
+
+void tmq_session_handle_suback(tmq_session_t* session, tmq_suback_pkt* suback_pkt)
+{
+    on_mqtt_subscribe_response((tiny_mqtt*) session->upstream, suback_pkt);
 }
 
 void tmq_session_handle_publish(tmq_session_t* session, tmq_publish_pkt* publish_pkt)
@@ -349,7 +355,7 @@ void tmq_session_send_packet(tmq_session_t* session, tmq_any_packet_t* pkt)
     }
 }
 
-void tmq_session_publish(tmq_session_t* session, char* topic, char* payload, uint8_t qos, uint8_t retain)
+void tmq_session_publish(tmq_session_t* session, const char* topic, const char* payload, uint8_t qos, uint8_t retain)
 {
     tmq_publish_pkt* publish_pkt = malloc(sizeof(tmq_publish_pkt));
     bzero(publish_pkt, sizeof(tmq_publish_pkt));
@@ -390,7 +396,7 @@ void tmq_session_publish(tmq_session_t* session, char* topic, char* payload, uin
     else tmq_publish_pkt_cleanup(publish_pkt);
 }
 
-void tmq_session_store_publish(tmq_session_t* session, char* topic, char* payload, uint8_t qos, uint8_t retain)
+void tmq_session_store_publish(tmq_session_t* session, const char* topic, const char* payload, uint8_t qos, uint8_t retain)
 {
     if(qos == 0) return;
     tmq_publish_pkt* publish_pkt = malloc(sizeof(tmq_publish_pkt));
@@ -404,4 +410,23 @@ void tmq_session_store_publish(tmq_session_t* session, char* topic, char* payloa
 
     sending_packet* sending_pkt = sending_packet_new(MQTT_PUBLISH, publish_pkt, publish_pkt->packet_id);
     store_sending_packet(session, sending_pkt);
+}
+
+void tmq_session_subscribe(tmq_session_t* session, const char* topic_filter, uint8_t qos)
+{
+    topic_list topics = tmq_vec_make(topic_filter_qos);
+    topic_filter_qos topic = {
+            .topic_filter = tmq_str_new(topic_filter),
+            .qos = qos
+    };
+    tmq_vec_push_back(topics, topic);
+    tmq_subscribe_pkt* subscribe_pkt = malloc(sizeof(tmq_subscribe_pkt));
+    subscribe_pkt->packet_id = session->next_packet_id;
+    subscribe_pkt->topics = topics;
+    session->next_packet_id = session->next_packet_id == UINT16_MAX ? 0 : session->next_packet_id + 1;
+    tmq_any_packet_t pkt = {
+            .packet_type = MQTT_SUBSCRIBE,
+            .packet = subscribe_pkt
+    };
+    tmq_session_send_packet(session, &pkt);
 }
