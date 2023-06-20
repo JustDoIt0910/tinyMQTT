@@ -15,8 +15,8 @@ void on_connect(tiny_mqtt* mqtt, int return_code)
     if(return_code == CONNECTION_ACCEPTED)
     {
         tlog_info("CONNECTION_ACCEPTED");
-        tinymqtt_publish(mqtt, "test/pub", "hello!", 2, 0);
-        //tinymqtt_subscribe(mqtt, "test/sub", 2);
+        //tinymqtt_publish(mqtt, "test/pub", "hello!", 2, 0);
+        tinymqtt_subscribe(mqtt, "test/sub", 2);
     }
     else
         tlog_error("connect falied. return code=%d", return_code);

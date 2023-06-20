@@ -114,6 +114,14 @@ static void on_disconnected(void* arg)
     else tmq_event_loop_quit(&mqtt->loop);
 }
 
+static void on_qos0_publish_finished(void* arg)
+{
+    tiny_mqtt* mqtt = arg;
+    mqtt->conn->on_write_complete = NULL;
+    mqtt->conn->cb_arg = NULL;
+    tmq_event_loop_quit(&mqtt->loop);
+}
+
 void on_mqtt_connect_response(tiny_mqtt* mqtt, tmq_connack_pkt* connack_pkt)
 {
     mqtt->connect_res = connack_pkt->return_code;
@@ -322,8 +330,14 @@ void tinymqtt_publish(tiny_mqtt* mqtt, const char* topic, const char* message, u
         tmq_notifier_notify(&mqtt->async_op_notifier);
         return;
     }
+    if(qos == 0)
+    {
+        mqtt->conn->on_write_complete = on_qos0_publish_finished;
+        mqtt->conn->cb_arg = mqtt;
+    }
     tmq_session_publish(mqtt->session, topic, message, qos, retain);
-    tmq_event_loop_run(&mqtt->loop);
+    if(!mqtt->loop.quit)
+        tmq_event_loop_run(&mqtt->loop);
 }
 
 void tinymqtt_set_message_callback(tiny_mqtt* mqtt, mqtt_message_cb cb) {if(mqtt) mqtt->on_message = cb;}

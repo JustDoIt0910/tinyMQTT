@@ -100,7 +100,7 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
     /* if there is an active session associted with this client id */
     if(session && (*session)->state == OPEN)
     {
-
+        make_connect_respond(conn->group, conn, IDENTIFIER_REJECTED, NULL, 0);
     }
     /* if there is a closed session associated with this client id,
      * it must not be a clean-session */

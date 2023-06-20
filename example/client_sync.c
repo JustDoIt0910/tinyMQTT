@@ -35,6 +35,7 @@ int main()
     }
 
     tinymqtt_loop(mqtt);
+    tinymqtt_destroy(mqtt);
     tlog_exit();
     return 0;
 }
