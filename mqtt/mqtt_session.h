@@ -21,7 +21,7 @@ typedef struct tmq_session_s tmq_session_t;
 typedef enum session_state_e{OPEN, CLOSED} session_state_e;
 
 typedef void(*new_message_cb)(void* upstream, char* topic, tmq_message* message, uint8_t retain);
-typedef void(*publish_finish_cb)(void* upstream);
+typedef void(*publish_finish_cb)(void* upstream, uint16_t packet_id, uint8_t qos);
 typedef void(*close_cb)(void* upstream, tmq_session_t* session);
 
 typedef tmq_map(char*, uint8_t) subscription_map;
