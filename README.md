@@ -40,6 +40,8 @@ inflight_window=1
 
 如果设置了allow_anonymous 为true, broker将不再检查用户密码。
 
+![p1](https://github.com/JustDoIt0910/MarkDownPictures/blob/main/tinyMQTT/p1.png)
+
 #### 使用客户端库
 
 客户端提供了同步和异步两种使用方式，详见example中的client_sync.c和client_async.c,，默认是采用同步模式的，所有操作(connect/subscribe/unsubscribe/publish)都是同步阻塞的，如果要持续监听消息，可以在程序最后调用tinymqtt_loop()，这会阻塞当前线程，收到消息会调用on_message回调。
