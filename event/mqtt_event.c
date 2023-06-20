@@ -107,6 +107,7 @@ void tmq_event_loop_run(tmq_event_loop_t* loop)
         else if(events_num < 0)
             tlog_error("epoll_wait() error %d: %s", errno, strerror(errno));
     }
+    pthread_mutex_unlock(&loop->lk);
     atomicSet(loop->running, 0);
 }
 

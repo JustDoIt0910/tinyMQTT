@@ -21,7 +21,14 @@ void tcp_conn_close_cb(tmq_tcp_conn_t* conn, void* arg)
     mqtt->conn = NULL;
     tcp_conn_ctx* ctx = conn->context;
     if(ctx->conn_state == IN_SESSION)
+    {
         tmq_session_close(ctx->upstream.session);
+        if(mqtt->session->clean_session)
+        {
+            tmq_session_free(mqtt->session);
+            mqtt->session = NULL;
+        }
+    }
 }
 
 static void on_tcp_connected(void* arg, tmq_socket_t sock)
@@ -211,6 +218,16 @@ tiny_mqtt* tinymqtt_new(const char* ip, uint16_t port)
     return mqtt;
 }
 
+void tinymqtt_destroy(tiny_mqtt* mqtt)
+{
+    tmq_notifier_destroy(&mqtt->async_op_notifier);
+    tmq_event_loop_destroy(&mqtt->loop);
+    tmq_vec_free(mqtt->async_ops);
+    pthread_mutex_destroy(&mqtt->lk);
+    pthread_cond_destroy(&mqtt->cond);
+    free(mqtt);
+}
+
 void tinymqtt_set_connect_callback(tiny_mqtt* mqtt, mqtt_connect_cb cb) {if(mqtt) mqtt->on_connect = cb;}
 
 int tinymqtt_connect(tiny_mqtt* mqtt, connect_options* options)
@@ -351,8 +368,6 @@ void tinymqtt_disconnect(tiny_mqtt* mqtt)
     if(!mqtt->loop.quit)
         tmq_event_loop_run(&mqtt->loop);
     tmq_tcp_conn_close(mqtt->conn);
-    if(mqtt->session->clean_session)
-        tmq_session_free(mqtt->session);
 }
 
 void tinymqtt_loop(tiny_mqtt* mqtt)
@@ -374,7 +389,6 @@ static void* io_thread_func(void* arg)
     pthread_cond_signal(&mqtt->cond);
     pthread_mutex_unlock(&mqtt->lk);
     tinymqtt_loop(mqtt);
-    tmq_event_loop_destroy(&mqtt->loop);
     return NULL;
 }
 
@@ -386,3 +400,7 @@ void tinymqtt_loop_threaded(tiny_mqtt* mqtt)
         pthread_cond_wait(&mqtt->cond, &mqtt->lk);
     pthread_mutex_unlock(&mqtt->lk);
 }
+
+void tinymqtt_quit(tiny_mqtt* mqtt) { tmq_event_loop_quit(&mqtt->loop);}
+
+void tinymqtt_async_wait(tiny_mqtt* mqtt){ pthread_join(mqtt->io_thread, NULL);}

@@ -1,9 +1,6 @@
 //
 // Created by zr on 23-6-20.
 //
-//
-// Created by zr on 23-6-18.
-//
 #include "mqtt/mqtt_client.h"
 #include "tlog.h"
 #include <stdio.h>
@@ -19,6 +16,7 @@ void on_connect(tiny_mqtt* mqtt, int return_code)
     {
         tlog_info("CONNECTION_ACCEPTED");
         tinymqtt_publish(mqtt, "test/pub", "hello!", 2, 0);
+        //tinymqtt_subscribe(mqtt, "test/sub", 2);
     }
     else
         tlog_error("connect falied. return code=%d", return_code);
@@ -27,11 +25,13 @@ void on_connect(tiny_mqtt* mqtt, int return_code)
 void on_disconnect(tiny_mqtt* mqtt)
 {
     tlog_info("disconnected");
+    tinymqtt_quit(mqtt);
 }
 
 void on_publish_finished(tiny_mqtt* mqtt, uint16_t packet_id, uint8_t qos)
 {
     tlog_info("publish[id=%u, qos=%u] finished", packet_id, qos);
+    tinymqtt_disconnect(mqtt);
 }
 
 int main()
@@ -48,6 +48,7 @@ int main()
             NULL
     };
 
+    tinymqtt_set_message_callback(mqtt, on_message);
     tinymqtt_set_connect_callback(mqtt, on_connect);
     tinymqtt_set_disconnect_callback(mqtt, on_disconnect);
     tinymqtt_set_publish_callback(mqtt, on_publish_finished);
@@ -56,7 +57,9 @@ int main()
 
     tinymqtt_connect(mqtt, &ops);
 
-    while(1);
+    tinymqtt_async_wait(mqtt);
+    tinymqtt_destroy(mqtt);
+
     tlog_exit();
     return 0;
 }

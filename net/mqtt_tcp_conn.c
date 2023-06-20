@@ -75,10 +75,7 @@ void tmq_tcp_conn_free(tmq_tcp_conn_t* conn)
     tmq_tcp_conn_set_context(conn, NULL, NULL);
     tmq_socket_close(conn->fd);
 
-    char conn_name[50];
-    tmq_tcp_conn_id(conn, conn_name, sizeof(conn_name));
     free(conn);
-    tlog_info("free connection [%s]", conn_name);
 }
 
 tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_event_loop_t* loop, tmq_io_group_t* group,
