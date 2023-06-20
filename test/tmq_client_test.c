@@ -19,22 +19,24 @@ int main()
         "username",
         "password",
         "tmq_client_test_client",
-        0,
-        10,
+        1,
+        60,
         NULL
     };
     int res = tinymqtt_connect(mqtt, &ops);
     if(res == CONNECTION_ACCEPTED)
     {
-        tinymqtt_subscribe(mqtt, "test/sub", 1);
+        //tinymqtt_subscribe(mqtt, "test/sub", 1);
         //tinymqtt_unsubscribe(mqtt, "test/sub");
 
-        tinymqtt_set_message_callback(mqtt, on_message);
+        //tinymqtt_set_message_callback(mqtt, on_message);
 
         tinymqtt_publish(mqtt, "test/pub", "hello!", 1, 0);
+
+        tinymqtt_disconnect(mqtt);
     }
 
-    tinymqtt_loop(mqtt);
+    //tinymqtt_loop(mqtt);
     tlog_exit();
     return 0;
 }

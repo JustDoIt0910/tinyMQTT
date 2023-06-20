@@ -14,6 +14,7 @@ typedef struct tmq_io_group_s tmq_io_group_t;
 typedef struct tmq_tcp_conn_s tmq_tcp_conn_t;
 typedef void(*tcp_close_cb)(tmq_tcp_conn_t* conn, void* arg);
 typedef void(*context_cleanup_cb)(void* context);
+typedef void(*write_complete_cb)(void* arg);
 
 typedef enum tmq_tcp_conn_state_e
 {
@@ -38,8 +39,9 @@ typedef struct tmq_tcp_conn_s
     *write_event_handler, *error_close_handler;
     int is_writing;
 
-    tcp_close_cb close_cb;
-    void* close_cb_arg;
+    tcp_close_cb on_close;
+    write_complete_cb on_write_complete;
+    void* cb_arg;
 
     context_cleanup_cb ctx_clean_up;
     void* context;

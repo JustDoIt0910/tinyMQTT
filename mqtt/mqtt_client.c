@@ -64,6 +64,12 @@ static void on_publish_finish(void* arg)
     tmq_event_loop_quit(&mqtt->loop);
 }
 
+static void on_disconnected(void* arg)
+{
+    tiny_mqtt* mqtt = arg;
+    tmq_event_loop_quit(&mqtt->loop);
+}
+
 void on_mqtt_connect_response(tiny_mqtt* mqtt, tmq_connack_pkt* connack_pkt)
 {
     mqtt->connect_res = connack_pkt->return_code;
@@ -151,6 +157,19 @@ static void ping(void* arg)
         return;
     }
     send_pingreq_packet(mqtt->conn, NULL);
+}
+
+void tinymqtt_disconnect(tiny_mqtt* mqtt)
+{
+    mqtt->conn->on_write_complete = on_disconnected;
+    mqtt->conn->cb_arg = mqtt;
+    send_disconnect_packet(mqtt->conn, NULL);
+    if(!mqtt->loop.quit)
+        tmq_event_loop_run(&mqtt->loop);
+    release_ref(mqtt->conn);
+    tmq_session_close(mqtt->session);
+    if(mqtt->session->clean_session)
+        tmq_session_free(mqtt->session);
 }
 
 void tinymqtt_loop(tiny_mqtt* mqtt)
