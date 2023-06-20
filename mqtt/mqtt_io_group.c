@@ -108,7 +108,7 @@ static void handle_new_connection(void* arg)
     for(tmq_socket_t* it = tmq_vec_begin(conns); it != tmq_vec_end(conns); it++)
     {
         tmq_tcp_conn_t* conn = tmq_tcp_conn_new(&group->loop, group, *it, &group->broker->codec);
-        conn->close_cb = tcp_conn_cleanup;
+        conn->on_close = tcp_conn_cleanup;
         conn->state = CONNECTED;
 
         tcp_conn_broker_ctx* conn_ctx = malloc(sizeof(tcp_conn_broker_ctx));

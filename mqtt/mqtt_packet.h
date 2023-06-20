@@ -121,11 +121,6 @@ typedef struct tmq_unsuback_pkt
     uint16_t packet_id;
 } tmq_unsuback_pkt;
 
-typedef struct tmq_disconnect_pkt
-{
-
-} tmq_disconnect_pkt;
-
 void tmq_connect_pkt_cleanup(void* pkt);
 void tmq_publish_pkt_cleanup(void* pkt);
 void tmq_subscribe_pkt_cleanup(void* pkt);

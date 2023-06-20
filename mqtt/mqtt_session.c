@@ -48,7 +48,7 @@ static int accknowledge(tmq_session_t* session, uint16_t packet_id, tmq_packet_t
                 continue;
             }
             if(session->on_publish_finish)
-                session->on_publish_finish(session->upstream);
+                session->on_publish_finish(session->upstream, pkt->packet_id, qos);
         }
         sending_packet* next = (*p)->next;
         sending_packet* remove = *p;

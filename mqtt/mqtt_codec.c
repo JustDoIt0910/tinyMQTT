@@ -795,7 +795,14 @@ void send_pingresp_packet(tmq_tcp_conn_t* conn, void* pkt)
 
 void send_disconnect_packet(tmq_tcp_conn_t* conn, void* pkt)
 {
-
+    packet_buf buf = tmq_vec_make(uint8_t);
+    if(make_fixed_header(MQTT_DISCONNECT, 0, 0, &buf) < 0)
+    {
+        tmq_vec_free(buf);
+        return;
+    }
+    tmq_tcp_conn_write(conn, (char*) tmq_vec_begin(buf), tmq_vec_size(buf));
+    tmq_vec_free(buf);
 }
 
 static void(*packet_senders[])(tmq_tcp_conn_t*, void*) = {

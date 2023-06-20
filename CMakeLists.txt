@@ -40,7 +40,9 @@ link_directories(${CMAKE_BINARY_DIR})
 link_libraries(mqtt pthread)
 
 add_subdirectory(test)
+add_subdirectory(example)
 add_executable(broker broker.c)
-add_executable(tinymqtt_ctl mqtt_ctl.c)
-add_executable(client client.c)
+add_executable(tinymqtt_pwd tinymqtt_pwd.c)
+add_executable(tinymqtt_pub tinymqtt_pub.c)
+add_executable(tinymqtt_sub tinymqtt_sub.c)
 

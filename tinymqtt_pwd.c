@@ -6,6 +6,7 @@
 #include "base/mqtt_util.h"
 #include <termios.h>
 #include <string.h>
+#include <fcntl.h>
 
 void password_mode(int on)
 {
@@ -51,6 +52,13 @@ int main(int argc, char* argv[])
     {
         tmq_config_t pwd_cfg;
         tmq_str_t pwd_path = tmq_cmd_get_string(&cmd, "config");
+        /* if pwd config file not found, create a new one */
+        struct stat st;
+        if(stat(pwd_path, &st) < 0)
+        {
+            FILE* f = fopen(pwd_path, "w");
+            fclose(f);
+        }
         if(tmq_config_init(&pwd_cfg, pwd_path, ":") < 0)
         {
             tmq_str_free(pwd_path);
