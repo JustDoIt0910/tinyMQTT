@@ -96,6 +96,15 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
         will_retain = (CONNECT_WILL_RETAIN(connect_pkt->flags) != 0);
     }
 
+    /* if the client doesn't provide a client id, generate a temporary id for it. */
+    if(connect_pkt->client_id == NULL || tmq_str_len(connect_pkt->client_id) == 0)
+    {
+        connect_pkt->client_id = tmq_str_assign(connect_pkt->client_id, "tmp_client[");
+        char conn_id[50];
+        tmq_tcp_conn_id(conn, conn_id, sizeof(conn_id));
+        connect_pkt->client_id = tmq_str_append_str(connect_pkt->client_id, conn_id);
+        connect_pkt->client_id = tmq_str_append_char(connect_pkt->client_id, ']');
+    }
     tmq_session_t** session = tmq_map_get(broker->sessions, connect_pkt->client_id);
     /* if there is an active session associted with this client id */
     if(session && (*session)->state == OPEN)
