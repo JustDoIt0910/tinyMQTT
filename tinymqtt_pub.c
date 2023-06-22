@@ -11,7 +11,7 @@ int main(int argc, char* argv[])
     tmq_cmd_init(&cmd);
     tmq_cmd_add_string(&cmd, "host", "h", "server ip address", 0, "127.0.0.1");
     tmq_cmd_add_number(&cmd, "port", "p", "server port", 0, 1883);
-    tmq_cmd_add_string(&cmd, "client_id", "c", "client id", 0, "tinymqtt_pub_client");
+    tmq_cmd_add_string(&cmd, "client_id", "c", "client id", 0, "");
     tmq_cmd_add_bool(&cmd, "clean", "s", "clean session");
     tmq_cmd_add_number(&cmd, "keep_alive", "k", "keep alive", 0, 60);
     tmq_cmd_add_string(&cmd, "user", "u", "username", 0, "tinymqtt_pub");
