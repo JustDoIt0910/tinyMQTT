@@ -29,12 +29,18 @@ int main(int argc, char* argv[])
 
     if(tmq_cmd_parse(&cmd, argc, argv) != -1)
     {
+        int clean_session = tmq_cmd_exist(&cmd, "clean");
+        tmq_str_t client_id = tmq_cmd_get_string(&cmd, "client_id");
+        /* if you don't provide a client id, the clean_session flag must be set to 1 */
+        if(tmq_str_len(client_id) == 0)
+            clean_session = 1;
         connect_options options = {
                 tmq_cmd_get_string(&cmd, "user"),
                 tmq_cmd_get_string(&cmd, "pwd"),
                 tmq_cmd_get_string(&cmd, "client_id"),
-                tmq_cmd_exist(&cmd, "clean"),
-                tmq_cmd_get_number(&cmd, "keep_alive")
+                clean_session,
+                tmq_cmd_get_number(&cmd, "keep_alive"),
+                NULL, NULL, 0, 0
         };
         if(tmq_cmd_exist(&cmd, "will"))
         {
@@ -50,6 +56,13 @@ int main(int argc, char* argv[])
                              tmq_cmd_get_number(&cmd, "qos"), tmq_cmd_exist(&cmd, "retain"));
         else
             tlog_info("connect failed");
+        tmq_str_free(options.client_id);
+        tmq_str_free(options.username);
+        tmq_str_free(options.password);
+        if(options.will_topic)
+            tmq_str_free(options.will_topic);
+        if(options.will_message)
+            tmq_str_free(options.will_message);
         tinymqtt_destroy(mqtt);
     }
     tmq_cmd_destroy(&cmd);

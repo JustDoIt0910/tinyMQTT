@@ -550,8 +550,11 @@ void send_connect_packet(tmq_tcp_conn_t* conn, void* pkt)
 
     /* payload */
     pack_uint16(&buf, tmq_str_len(connect_pkt->client_id));
-    strcpy((char*) tmq_vec_end(buf), connect_pkt->client_id);
-    tmq_vec_resize(buf, tmq_vec_size(buf) + tmq_str_len(connect_pkt->client_id));
+    if(connect_pkt->client_id && tmq_str_len(connect_pkt->client_id))
+    {
+        strcpy((char*) tmq_vec_end(buf), connect_pkt->client_id);
+        tmq_vec_resize(buf, tmq_vec_size(buf) + tmq_str_len(connect_pkt->client_id));
+    }
     if(CONNECT_WILL_FLAG(connect_pkt->flags))
     {
         pack_uint16(&buf, tmq_str_len(connect_pkt->will_topic));
