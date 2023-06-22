@@ -139,5 +139,5 @@ int main()
 ```
 
 ### TODO
-- [ ] 处理client id为空的情况，broker生成默认client id
+- [x] 处理client id为空的情况，broker生成默认client id
 - [ ] 添加SSL支持
