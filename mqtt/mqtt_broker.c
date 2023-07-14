@@ -280,6 +280,7 @@ static void handle_message_ctl(void* arg)
             tmq_str_free(req.message.message);
         }
     }
+    tmq_vec_free(ctls);
 }
 
 void mqtt_connect_request(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt* connect_pkt)
