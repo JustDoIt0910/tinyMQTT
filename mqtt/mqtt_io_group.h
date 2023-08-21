@@ -6,9 +6,10 @@
 #define TINYMQTT_MQTT_IO_GROUP_H
 #include "event/mqtt_event.h"
 #include "mqtt_types.h"
+//#include "3rd/fifo/queue.h"
 
-#define MQTT_TCP_CHECKALIVE_INTERVAL    10
-#define MQTT_CONNECT_MAX_PENDING        10
+#define MQTT_TCP_CHECKALIVE_INTERVAL    100
+#define MQTT_CONNECT_MAX_PENDING        100
 #define MQTT_TCP_MAX_IDLE               600
 
 typedef tmq_map(char*, tmq_tcp_conn_t*) tcp_conn_map_t;
@@ -27,6 +28,7 @@ typedef struct tmq_io_group_s
     connect_resp_list connect_resp;
     /* guarded by sending_packets_lk */
     packet_send_list sending_packets;
+    //Queue* sending_queue;
 
     pthread_mutex_t pending_conns_lk;
     pthread_mutex_t connect_resp_lk;

@@ -17,12 +17,18 @@ void tmq_buffer_init(tmq_buffer_t* buffer)
     if(!buffer) return;
     buffer->first = buffer->last = NULL;
     buffer->readable_bytes = 0;
+    buffer->chunks = 0;
     bzero(buffer->free_chunk_list, 5 * sizeof(tmq_buffer_chunk_t*));
 }
 
-static tmq_buffer_chunk_t* buffer_chunk_new(size_t size)
+static tmq_buffer_chunk_t* buffer_chunk_new(tmq_buffer_t* buffer, size_t size)
 {
-    size = size < BUFFER_CHUNK_MIN ? BUFFER_CHUNK_MIN : size;
+    size_t min_size;
+    if(buffer->chunks <= UIO_MAXIOV / 4) min_size = BUFFER_CHUNK_MIN;
+    else if(buffer->chunks <= UIO_MAXIOV / 2) min_size = BUFFER_CHUNK_MIN * 2;
+    else if(buffer->chunks <= 3 * UIO_MAXIOV / 4) min_size = BUFFER_CHUNK_MIN * 4;
+    else min_size = BUFFER_CHUNK_MIN * 8;
+    size = size < min_size ? min_size : size;
     tmq_buffer_chunk_t* chunk = malloc(sizeof(tmq_buffer_chunk_t) + size);
     if(!chunk)
     {
@@ -85,6 +91,7 @@ static tmq_buffer_chunk_t* get_largest_free_chunk(tmq_buffer_t* buffer)
     return largest;
 }
 
+
 void tmq_buffer_append(tmq_buffer_t* buffer, const char* data, size_t size)
 {
     if(!buffer || !data || !size) return;
@@ -93,10 +100,11 @@ void tmq_buffer_append(tmq_buffer_t* buffer, const char* data, size_t size)
     {
         chunk = find_free_chunk(buffer, size);
         if(!chunk)
-            chunk = buffer_chunk_new(size);
+            chunk = buffer_chunk_new(buffer, size);
         memcpy(chunk->buf, data, size);
         chunk->write_idx += size;
         buffer->first = buffer->last = chunk;
+        buffer->chunks++;
     }
     else if(CHUNK_WRITEABLE(chunk) >= size)
     {
@@ -119,12 +127,13 @@ void tmq_buffer_append(tmq_buffer_t* buffer, const char* data, size_t size)
         size_t remain = size - last_writable;
         tmq_buffer_chunk_t* new_chunk = find_free_chunk(buffer, remain);
         if(!new_chunk)
-            new_chunk = buffer_chunk_new(remain);
+            new_chunk = buffer_chunk_new(buffer, remain);
         if(!new_chunk) return;
         memcpy(new_chunk->buf, data, remain);
         new_chunk->write_idx += remain;
         chunk->next = new_chunk;
         buffer->last = new_chunk;
+        buffer->chunks++;
     }
     buffer->readable_bytes += size;
 }
@@ -136,10 +145,11 @@ void tmq_buffer_prepend(tmq_buffer_t* buffer, const char* data, size_t size)
     {
         chunk = find_free_chunk(buffer, size);
         if(!chunk)
-            chunk = buffer_chunk_new(size);
+            chunk = buffer_chunk_new(buffer, size);
         memcpy(chunk->buf, data, size);
         chunk->write_idx += size;
         buffer->first = buffer->last = chunk;
+        buffer->chunks++;
     }
     else if(chunk->read_idx >= size)
     {
@@ -151,7 +161,7 @@ void tmq_buffer_prepend(tmq_buffer_t* buffer, const char* data, size_t size)
         size_t remain = size - chunk->read_idx;
         tmq_buffer_chunk_t* new_chunk = find_free_chunk(buffer, remain);
         if(!new_chunk)
-            new_chunk = buffer_chunk_new(remain);
+            new_chunk = buffer_chunk_new(buffer, remain);
         if(!new_chunk) return;
         size_t align = new_chunk->chunk_size - remain;
         new_chunk->read_idx += align;
@@ -164,6 +174,7 @@ void tmq_buffer_prepend(tmq_buffer_t* buffer, const char* data, size_t size)
             chunk->read_idx -= size;
             memcpy(chunk->buf + chunk->read_idx, data, size);
         }
+        buffer->chunks++;
     }
     buffer->readable_bytes += size;
 }
@@ -191,6 +202,7 @@ static void buffer_chunk_remove(tmq_buffer_t* buffer, tmq_buffer_chunk_t* chunk)
             p->next = chunk;
         }
     }
+    buffer->chunks--;
 }
 
 static size_t buffer_read_internal(tmq_buffer_t* buffer, char* buf, size_t size, int remove)
@@ -293,6 +305,7 @@ void tmq_buffer_remove(tmq_buffer_t* buffer, size_t size)
     }
     tmq_buffer_chunk_t* chunk = buffer->first, *next;
     if(!chunk) return;
+    buffer->readable_bytes -= size;
     while(chunk && size >= CHUNK_DATA_LEN(chunk))
     {
         size -= CHUNK_DATA_LEN(chunk);
@@ -305,13 +318,12 @@ void tmq_buffer_remove(tmq_buffer_t* buffer, size_t size)
     buffer->first = chunk;
     if(!chunk)
         buffer->last = NULL;
-    buffer->readable_bytes -= size;
 }
 
 ssize_t tmq_buffer_read_fd(tmq_buffer_t* buffer, tmq_socket_t fd, size_t max)
 {
     if(!buffer) return 0;
-    int fd_readable = 0;
+    size_t fd_readable = 0;
     if(ioctl(fd, FIONREAD, &fd_readable) < 0)
     {
         tlog_error("ioctl() error %d: %s", errno, strerror(errno));
@@ -333,7 +345,7 @@ ssize_t tmq_buffer_read_fd(tmq_buffer_t* buffer, tmq_socket_t fd, size_t max)
         vecs[0].iov_len = len;
         iovec_cnt++;
         chunk->write_idx += len;
-        space_aval += CHUNK_WRITEABLE(chunk);
+        space_aval += len;
     }
     for(int i = iovec_cnt; space_aval < size && i < MAX_IOVEC_NUM; i++)
     {
@@ -341,7 +353,7 @@ ssize_t tmq_buffer_read_fd(tmq_buffer_t* buffer, tmq_socket_t fd, size_t max)
         if(!chunk && i < MAX_IOVEC_NUM - 1)
             chunk = get_largest_free_chunk(buffer);
         if(!chunk)
-            chunk = buffer_chunk_new(size - space_aval);
+            chunk = buffer_chunk_new(buffer, size - space_aval);
         assert(chunk && chunk->chunk_size > 0);
         if(!buffer->last)
             buffer->first = buffer->last = chunk;
@@ -351,11 +363,12 @@ ssize_t tmq_buffer_read_fd(tmq_buffer_t* buffer, tmq_socket_t fd, size_t max)
             buffer->last = chunk;
         }
         size_t len = space_aval + chunk->chunk_size <= size ? chunk->chunk_size : size - space_aval;
-        space_aval += chunk->chunk_size;
+        space_aval += len;
         vecs[i].iov_base = chunk->buf;
         vecs[i].iov_len = len;
         iovec_cnt++;
         chunk->write_idx += len;
+        buffer->chunks++;
     }
     ssize_t n = readv(fd, vecs, iovec_cnt);
     if(n > 0)

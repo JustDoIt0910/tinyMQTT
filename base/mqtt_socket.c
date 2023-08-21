@@ -109,7 +109,7 @@ void tmq_socket_bind(tmq_socket_t fd, const char* ip, int port)
 
 void tmq_socket_listen(tmq_socket_t fd)
 {
-    if(listen(fd, 128) < 0)
+    if(listen(fd, 32768) < 0)
         fatal_error("listen() error %d: %s", errno, strerror(errno));
 }
 

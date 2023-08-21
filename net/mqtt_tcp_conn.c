@@ -8,17 +8,22 @@
 #include <stdlib.h>
 #include <errno.h>
 
+static void conn_close_(tmq_tcp_conn_t* conn);
+
 static void read_cb_(tmq_socket_t fd, uint32_t event, void* arg)
 {
     if(!arg) return;
     tmq_tcp_conn_t* conn = (tmq_tcp_conn_t*) arg;
     ssize_t n = tmq_buffer_read_fd(&conn->in_buffer, fd, 0);
     if(n == 0)
-        tmq_tcp_conn_close(get_ref(conn));
+    {
+        //tlog_info("read 0 bytes");
+        conn_close_(get_ref(conn));
+    }
     else if(n < 0)
     {
         tlog_error("tmq_buffer_read_fd() error: n < 0");
-        tmq_tcp_conn_close(get_ref(conn));
+        conn_close_(get_ref(conn));
     }
     else
     {
@@ -32,21 +37,29 @@ static void write_cb_(tmq_socket_t fd, uint32_t event, void* arg)
     if(!arg) return;
     tmq_tcp_conn_t* conn = (tmq_tcp_conn_t*) arg;
     if(!conn->is_writing) return;
+    //tlog_info("%ld bytes to write", conn->out_buffer.readable_bytes);
     ssize_t n = tmq_buffer_write_fd(&conn->out_buffer, fd);
-    if(n >= 0)
+    //tlog_info("%ld bytes writen", n);
+    if(n > 0)
     {
         if(conn->out_buffer.readable_bytes == 0)
         {
+            //tlog_info("write done");
             tmq_handler_unregister(conn->loop, conn->write_event_handler);
             conn->is_writing = 0;
             if(conn->on_write_complete)
                 conn->on_write_complete(conn->cb_arg);
             if(conn->state == DISCONNECTING)
-                tmq_tcp_conn_close(get_ref(conn));
+                conn_close_(get_ref(conn));
         }
     }
     else
-        tlog_error("tmq_buffer_write_fd() error");
+    {
+        if(n < 0)
+            tlog_info("tmq_buffer_write_fd() error: %s", strerror(errno));
+    	conn->is_writing = 0;
+        conn_close_(get_ref(conn));
+    }
 }
 
 static void close_cb_(tmq_socket_t fd, uint32_t event, void* arg)
@@ -56,18 +69,36 @@ static void close_cb_(tmq_socket_t fd, uint32_t event, void* arg)
     if(event & EPOLLERR)
     {
         tlog_error("epoll error %d: %s", errno, strerror(errno));
-        tmq_tcp_conn_close(get_ref(conn));
+        conn_close_(get_ref(conn));
     }
     else if(event & EPOLLHUP && !(event & EPOLLIN))
-        tmq_tcp_conn_close(get_ref(conn));
+    {
+        tlog_error("unknown error %d: %s", errno, strerror(errno));
+        conn_close_(get_ref(conn));
+    }
 }
 
-void tmq_tcp_conn_free(tmq_tcp_conn_t* conn)
+static void conn_close_(tmq_tcp_conn_t* conn)
 {
-    free(conn->read_event_handler);
-    free(conn->error_close_handler);
+    tmq_handler_unregister(conn->loop, conn->read_event_handler);
+    tmq_handler_unregister(conn->loop, conn->error_close_handler);
+
+    if(tmq_handler_is_registered(conn->loop, conn->write_event_handler))
+        tmq_handler_unregister(conn->loop, conn->write_event_handler);
+
+    if(conn->on_close)
+        conn->on_close(get_ref(conn), conn->cb_arg);
+
+    conn->state = DISCONNECTED;
+    release_ref(conn);
+}
+
+static void conn_free_(tmq_tcp_conn_t* conn)
+{
+    release_handler_ref(conn->read_event_handler);
+    release_handler_ref(conn->error_close_handler);
     if(conn->write_event_handler)
-        free(conn->write_event_handler);
+        release_handler_ref(conn->write_event_handler);
 
     tmq_buffer_free(&conn->in_buffer);
     tmq_buffer_free(&conn->out_buffer);
@@ -99,10 +130,17 @@ tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_event_loop_t* loop, tmq_io_group_t* group,
     tmq_buffer_init(&conn->in_buffer);
     tmq_buffer_init(&conn->out_buffer);
 
-    conn->read_event_handler = tmq_event_handler_new(fd, EPOLLIN | EPOLLRDHUP, read_cb_, conn);
-    conn->error_close_handler = tmq_event_handler_new(fd, EPOLLERR | EPOLLHUP, close_cb_, conn);
+    conn->read_event_handler = get_handler_ref(
+            tmq_event_handler_new(fd, EPOLLIN | EPOLLRDHUP,
+                                  read_cb_, conn)
+            );
+    conn->error_close_handler =  get_handler_ref(
+            tmq_event_handler_new(fd, EPOLLERR | EPOLLHUP,
+                                  close_cb_, conn)
+            );
     tmq_handler_register(conn->loop, conn->read_event_handler);
     tmq_handler_register(conn->loop, conn->error_close_handler);
+
     return conn;
 }
 
@@ -110,14 +148,19 @@ void tmq_tcp_conn_write(tmq_tcp_conn_t* conn, char* data, size_t size)
 {
     ssize_t wrote = 0;
     if(!conn->is_writing)
+    {
         wrote = tmq_socket_write(conn->fd, data, size);
+    }
     int error = 0;
     if(wrote < 0)
     {
         wrote = 0;
         /* EWOULDBLOCK(EAGAIN) isn't an error */
         if(errno != EWOULDBLOCK)
+        {
+            tlog_info("write error: %s", strerror(errno));
             error = 1;
+        }
     }
     size_t remain = size - wrote;
     if(!error && !remain && conn->on_write_complete)
@@ -128,7 +171,10 @@ void tmq_tcp_conn_write(tmq_tcp_conn_t* conn, char* data, size_t size)
         if(!conn->is_writing)
         {
             if(!conn->write_event_handler)
-                conn->write_event_handler = tmq_event_handler_new(conn->fd, EPOLLOUT, write_cb_, conn);
+                conn->write_event_handler = get_handler_ref(
+                        tmq_event_handler_new(conn->fd, EPOLLOUT,
+                                              write_cb_, conn)
+                        );
             tmq_handler_register(conn->loop, conn->write_event_handler);
             conn->is_writing = 1;
         }
@@ -144,16 +190,7 @@ void tmq_tcp_conn_close(tmq_tcp_conn_t* conn)
         conn->state = DISCONNECTING;
         return;
     }
-    tmq_handler_unregister(conn->loop, conn->read_event_handler);
-    tmq_handler_unregister(conn->loop, conn->error_close_handler);
-
-    if(tmq_handler_is_registered(conn->loop, conn->write_event_handler))
-        tmq_handler_unregister(conn->loop, conn->write_event_handler);
-
-    if(conn->on_close)
-        conn->on_close(get_ref(conn), conn->cb_arg);
-
-    conn->state = DISCONNECTED;
+    conn_close_(get_ref(conn));
     release_ref(conn);
 }
 
@@ -177,6 +214,8 @@ void tmq_tcp_conn_set_context(tmq_tcp_conn_t* conn, void* ctx, context_cleanup_c
     conn->ctx_clean_up = clean_up;
 }
 
+void tmq_tcp_conn_free(tmq_tcp_conn_t* conn){ conn_free_(conn);}
+
 tmq_tcp_conn_t* get_ref(tmq_tcp_conn_t* conn)
 {
     incrementAndGet(conn->ref_cnt, 1);
@@ -186,5 +225,5 @@ tmq_tcp_conn_t* get_ref(tmq_tcp_conn_t* conn)
 void release_ref(tmq_tcp_conn_t* conn)
 {
     int n = decrementAndGet(conn->ref_cnt, 1);
-    if(!n) tmq_tcp_conn_free(conn);
+    if(!n) conn_free_(conn);
 }

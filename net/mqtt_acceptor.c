@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <string.h>
 #include <stdlib.h>
 
 static void acceptor_cb(tmq_socket_t fd, uint32_t event, void* arg)
@@ -13,8 +14,10 @@ static void acceptor_cb(tmq_socket_t fd, uint32_t event, void* arg)
     tmq_acceptor_t* acceptor = (tmq_acceptor_t*) arg;
     tmq_socket_addr_t peer_addr;
     tmq_socket_t conn = tmq_socket_accept(fd, &peer_addr);
+    tmq_socket_tcp_no_delay(conn, 1);
     if(conn < 0 && errno == EMFILE)
     {
+        tlog_error("error accepting fd: %s", strerror(errno));
         close(acceptor->idle_socket);
         acceptor->idle_socket = accept(fd, NULL, NULL);
         close(acceptor->idle_socket);
@@ -33,8 +36,10 @@ void tmq_acceptor_init(tmq_acceptor_t* acceptor, tmq_event_loop_t* loop, uint16_
     tmq_socket_reuse_addr(acceptor->lis_socket, 1);
     tmq_socket_bind(acceptor->lis_socket, NULL, port);
     acceptor->idle_socket = open("/dev/null", O_RDONLY | O_CLOEXEC);
-    acceptor->new_conn_handler = tmq_event_handler_new(acceptor->lis_socket, EPOLLIN,
-                                                         acceptor_cb, acceptor);
+    acceptor->new_conn_handler = get_handler_ref(
+            tmq_event_handler_new(acceptor->lis_socket, EPOLLIN,
+                                  acceptor_cb, acceptor)
+            );
     tmq_handler_register(loop, acceptor->new_conn_handler);
 }
 
@@ -54,7 +59,7 @@ void tmq_acceptor_set_cb(tmq_acceptor_t* acceptor, tmq_new_connection_cb cb, voi
 void tmq_acceptor_destroy(tmq_acceptor_t* acceptor)
 {
     tmq_handler_unregister(acceptor->loop, acceptor->new_conn_handler);
-    free(acceptor->new_conn_handler);
+    release_handler_ref(acceptor->new_conn_handler);
     close(acceptor->lis_socket);
     close(acceptor->idle_socket);
 }

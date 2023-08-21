@@ -126,6 +126,8 @@ static void resend_messages(void* arg)
     pthread_mutex_unlock(&session->sending_queue_lk);
 }
 
+static int cnt;
+
 tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message, close_cb on_close, tmq_tcp_conn_t* conn,
                                char* client_id, uint8_t clean_session, uint16_t keep_alive, char* will_topic,
                                char* will_message, uint8_t will_qos, uint8_t will_retain, uint8_t max_inflight)
@@ -160,6 +162,7 @@ tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message, cl
     tmq_map_32_init(&session->qos2_packet_ids, uint8_t, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
     pthread_mutex_init(&session->lk, NULL);
     pthread_mutex_init(&session->sending_queue_lk, NULL);
+    
     return session;
 }
 
@@ -358,9 +361,18 @@ void tmq_session_send_packet(tmq_session_t* session, tmq_any_packet_t* pkt)
         };
         pthread_mutex_lock(&group->sending_packets_lk);
         tmq_vec_push_back(group->sending_packets, req);
+        if(tmq_vec_size(group->sending_packets) == 1)
+            tmq_notifier_notify(&group->sending_packets_notifier);
         pthread_mutex_unlock(&group->sending_packets_lk);
 
-        tmq_notifier_notify(&group->sending_packets_notifier);
+//        packet_send_req* req = malloc(sizeof(packet_send_req));
+//        req->conn = get_ref(session->conn);
+//        req->pkt = *pkt;
+//        pthread_mutex_lock(&group->sending_packets_lk);
+//        enqueue(group->sending_queue, req);
+//        if(size(group->sending_queue) == 1)
+//            tmq_notifier_notify(&group->sending_packets_notifier);
+//        pthread_mutex_unlock(&group->sending_packets_lk);
     }
 }
 
@@ -376,8 +388,8 @@ void tmq_session_publish(tmq_session_t* session, const char* topic, const char* 
             .packet_type = MQTT_PUBLISH,
             .packet = publish_pkt
     };
-    int send_now = 1;
-    /* if qos = 0, fire and forget */
+   int send_now = 1;
+//     if qos = 0, fire and forget
     if(qos > 0)
     {
         publish_pkt->packet_id = session->next_packet_id;
@@ -393,16 +405,19 @@ void tmq_session_publish(tmq_session_t* session, const char* topic, const char* 
         send_now = store_sending_packet(session, sending_pkt);
         if(send_now) sending_pkt->send_time = time_now();
 
-        if(start_resend && tmq_event_loop_resume_timer(session->conn->loop, session->resend_timer) < 0)
-        {
-            tmq_timer_t* timer = tmq_timer_new(SEC_MS(RESEND_INTERVAL), 1, resend_messages, session);
-            session->resend_timer = tmq_event_loop_add_timer(session->conn->loop, timer);
-        }
+
+       // if(start_resend && tmq_event_loop_resume_timer(session->conn->loop, session->resend_timer) < 0)
+        //{
+        //    tmq_timer_t* timer = tmq_timer_new(SEC_MS(RESEND_INTERVAL), 1, resend_messages, session);
+         //   session->resend_timer = tmq_event_loop_add_timer(session->conn->loop, timer);
+        //}
         pthread_mutex_unlock(&session->lk);
     }
+    
     if(send_now)
-        tmq_session_send_packet(session, &pkt);
-    else tmq_publish_pkt_cleanup(publish_pkt);
+    	tmq_session_send_packet(session, &pkt);
+    else
+    	tmq_publish_pkt_cleanup(publish_pkt);
 }
 
 void tmq_session_store_publish(tmq_session_t* session, const char* topic, const char* payload, uint8_t qos, uint8_t retain)

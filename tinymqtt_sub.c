@@ -5,9 +5,11 @@
 #include "base/mqtt_cmd.h"
 #include "tlog.h"
 
+static int msg_count = 0;
+
 void on_message(char* topic, char* message, uint8_t qos, uint8_t retain)
 {
-    tlog_info("received message [%s] topic=%s, qos=%u, retain=%u", message, topic, qos, retain);
+    tlog_info("received message #%d [%s] topic=%s, qos=%u, retain=%u", ++msg_count, message, topic, qos, retain);
 }
 
 int main(int argc, char* argv[])

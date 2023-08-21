@@ -22,7 +22,20 @@ tmq_event_handler_t* tmq_event_handler_new(int fd, short events, tmq_event_cb cb
     handler->events = events;
     handler->arg = arg;
     handler->cb = cb;
+    handler->ref_cnt = 0;
+    handler->canceled = 0;
     return handler;
+}
+
+tmq_event_handler_t* get_handler_ref(tmq_event_handler_t* handler)
+{
+    incrementAndGet(handler->ref_cnt, 1);
+    return handler;
+}
+void release_handler_ref(tmq_event_handler_t* handler)
+{
+    int n = decrementAndGet(handler->ref_cnt, 1);
+    if(!n) free(handler);
 }
 
 void tmq_event_loop_init(tmq_event_loop_t* loop)
@@ -33,14 +46,14 @@ void tmq_event_loop_init(tmq_event_loop_t* loop)
 
     tmq_vec_init(&loop->epoll_events, struct epoll_event);
     tmq_vec_init(&loop->active_handlers, tmq_event_handler_t*);
-    tmq_map_64_init(&loop->removing_handlers, int, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
+    //tmq_map_64_init(&loop->removing_handlers, int, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
     tmq_map_32_init(&loop->handler_map, epoll_handler_ctx, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
     if(tmq_vec_resize(loop->epoll_events, INITIAL_EVENTLIST_SIZE) < 0)
         fatal_error("tmq_vec_resize() error");
 
     loop->running = 0;
     loop->quit = 0;
-    loop->event_handling = 0;
+   // loop->event_handling = 0;
     pthread_mutexattr_t attr;
     memset(&attr, 0, sizeof(pthread_mutexattr_t));
     if(pthread_mutexattr_init(&attr))
@@ -86,10 +99,10 @@ void tmq_event_loop_run(tmq_event_loop_t* loop)
                     if(!(handler->events & event->events))
                         continue;
                     handler->r_events = event->events;
-                    tmq_vec_push_back(loop->active_handlers, handler);
+                    tmq_vec_push_back(loop->active_handlers, get_handler_ref(handler));
                 }
             }
-            loop->event_handling = 1;
+            //loop->event_handling = 1;
             tmq_event_handler_t** it;
             for(it = tmq_vec_begin(loop->active_handlers);
                 it != tmq_vec_end(loop->active_handlers);
@@ -98,11 +111,15 @@ void tmq_event_loop_run(tmq_event_loop_t* loop)
                 tmq_event_handler_t* active_handler = *it;
                 /* It is possible that an active handler is unregistered by another active handler,
                  * in this case, it should not be accessed anymore because it may already be freed */
-                if(tmq_map_get(loop->removing_handlers, active_handler) == NULL && active_handler->cb)
+//                if(tmq_map_get(loop->removing_handlers, active_handler) == NULL && active_handler->cb)
+//                    active_handler->cb(active_handler->fd, active_handler->r_events, active_handler->arg);
+
+                if(!active_handler->canceled && active_handler->cb)
                     active_handler->cb(active_handler->fd, active_handler->r_events, active_handler->arg);
+                release_handler_ref(active_handler);
             }
-            tmq_map_clear(loop->removing_handlers);
-            loop->event_handling = 0;
+            //tmq_map_clear(loop->removing_handlers);
+            //loop->event_handling = 0;
         }
         else if(events_num < 0)
             tlog_error("epoll_wait() error %d: %s", errno, strerror(errno));
@@ -135,7 +152,8 @@ void tmq_handler_register(tmq_event_loop_t* loop, tmq_event_handler_t* handler)
         event.events = handler_ctx->all_events | handler->events;
     }
     assert(handler_ctx != NULL);
-    SLIST_INSERT_HEAD(&handler_ctx->handlers, handler, event_next);
+    SLIST_INSERT_HEAD(&handler_ctx->handlers, get_handler_ref(handler), event_next);
+    handler->canceled = 0;
     handler_ctx->all_events = event.events;
 
     if(epoll_ctl(loop->epoll_fd, op, handler->fd, &event) < 0)
@@ -183,9 +201,10 @@ void tmq_handler_unregister(tmq_event_loop_t* loop, tmq_event_handler_t* handler
             fatal_error("epoll_ctl() error %d: %s", errno, strerror(errno));
 
         handler->event_next.sle_next = NULL;
-        handler->cb = handler->arg = NULL;
-        if(loop->event_handling)
-            tmq_map_put(loop->removing_handlers, handler, 1);
+        handler->canceled = 1;
+        release_handler_ref(handler);
+//        if(loop->event_handling)
+//            tmq_map_put(loop->removing_handlers, handler, 1);
     }
     else
         tlog_warn("handler already unregistered");
@@ -263,7 +282,7 @@ void tmq_event_loop_destroy(tmq_event_loop_t* loop)
 
 static void tmq_notifier_on_notify(tmq_socket_t fd, uint32_t events, void* arg)
 {
-    int buf[4096];
+    int buf[65535];
     ssize_t n = read(fd, buf, sizeof(buf));
     if(n < 0)
         fatal_error("read() error %d: %s", errno, strerror(errno));
@@ -280,8 +299,10 @@ void tmq_notifier_init(tmq_notifier_t* notifier, tmq_event_loop_t* loop, tmq_not
     notifier->loop = loop;
     notifier->cb = cb;
     notifier->arg = arg;
-    notifier->wakeup_handler = tmq_event_handler_new(notifier->wakeup_pipe[0], EPOLLIN,
-                                                     tmq_notifier_on_notify, notifier);
+    notifier->wakeup_handler = get_handler_ref(
+            tmq_event_handler_new(notifier->wakeup_pipe[0], EPOLLIN,
+                                  tmq_notifier_on_notify, notifier)
+            );
     tmq_handler_register(loop, notifier->wakeup_handler);
 }
 
@@ -295,7 +316,7 @@ void tmq_notifier_destroy(tmq_notifier_t* notifier)
 {
     if(!notifier) return;
     tmq_handler_unregister(notifier->loop, notifier->wakeup_handler);
-    free(notifier->wakeup_handler);
+    release_handler_ref(notifier->wakeup_handler);
     close(notifier->wakeup_pipe[0]);
     close(notifier->wakeup_pipe[1]);
 }

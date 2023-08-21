@@ -124,7 +124,7 @@ static void handle_new_connection(void* arg)
         tmq_map_put(group->tcp_conns, conn_name, get_ref(conn));
         assert(conn->ref_cnt == 1);
 
-        tlog_info("new connection [%s] group=%p thread=%lu", conn_name, group, mqtt_tid);
+        //tlog_info("new connection [%s]", conn_name);
     }
     tmq_vec_free(conns);
 }
@@ -166,10 +166,10 @@ static void handle_new_session(void* arg)
         {
             conn_ctx->upstream.session = resp->session;
             conn_ctx->conn_state = IN_SESSION;
-            tlog_info("connect success[session=%p]", resp->session);
+            //tlog_info("connect success[%s]", resp->session->client_id);
         }
-        else
-            tlog_info("connect failed, return_code=%x", resp->return_code);
+        //else
+            //tlog_info("connect failed, return_code=%x", resp->return_code);
         tmq_connack_pkt pkt = {
                 .return_code = resp->return_code,
                 .ack_flags = resp->session_present
@@ -199,6 +199,23 @@ static void send_packets(void* arg)
         release_ref(req->conn);
     }
     tmq_vec_free(packets);
+
+//    packet_send_req* req;
+//    pthread_mutex_lock(&group->sending_packets_lk);
+//    if(size(group->sending_queue) > 0)
+//    {
+//        req = front(group->sending_queue);
+//        dequeue(group->sending_queue);
+//
+//        if(size(group->sending_queue) > 0)
+//            tmq_notifier_notify(&group->sending_packets_notifier);
+//    }
+//    pthread_mutex_unlock(&group->sending_packets_lk);
+//
+//    send_any_packet(req->conn, &req->pkt);
+//    tmq_any_pkt_cleanup(&req->pkt);
+//    release_ref(req->conn);
+//    free(req);
 }
 
 void tmq_io_group_init(tmq_io_group_t* group, tmq_broker_t* broker)
@@ -222,6 +239,7 @@ void tmq_io_group_init(tmq_io_group_t* group, tmq_broker_t* broker)
     tmq_vec_init(&group->pending_conns, tmq_socket_t);
     tmq_vec_init(&group->connect_resp, session_connect_resp);
     tmq_vec_init(&group->sending_packets, packet_send_req);
+    //group->sending_queue = initQueue();
 
     tmq_notifier_init(&group->new_conn_notifier, &group->loop, handle_new_connection, group);
     tmq_notifier_init(&group->connect_resp_notifier, &group->loop, handle_new_session, group);
@@ -246,6 +264,7 @@ static void* io_group_thread_func(void* arg)
         close(*fd_it);
     tmq_vec_free(group->pending_conns);
     tmq_vec_free(group->connect_resp);
+
     packet_send_req* req = tmq_vec_begin(group->sending_packets);
     for(; req != tmq_vec_end(group->sending_packets); req++)
         tmq_any_pkt_cleanup(&req->pkt);

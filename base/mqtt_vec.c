@@ -2,6 +2,7 @@
 // Created by zr on 23-4-14.
 //
 #include "mqtt_vec.h"
+#include "tlog.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -25,7 +26,10 @@ static int tmq_vec_grow(tmq_vec_base_t* v)
     size_t cap = v->cap < 8 ? 8 : v->cap * 2;
     void* data = realloc(v->data, cap * v->elem_size);
     if(!data)
+    {
+        tlog_info("realloc error: out of memory");
         return -1;
+    }
     v->data = data;
     v->cap = cap;
     return 0;

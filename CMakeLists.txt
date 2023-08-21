@@ -27,7 +27,8 @@ set(TINYMQTT_LIB_SRC
         3rd/tinylog/tlog.c
         3rd/md5-c/md5.c
         3rd/b64.c/encode.c
-        3rd/b64.c/buffer.c)
+        3rd/b64.c/buffer.c
+        3rd/fifo/queue.c)
 set(CMAKE_BUILD_TYPE "Debug")
 
 add_definitions(-D_GNU_SOURCE)

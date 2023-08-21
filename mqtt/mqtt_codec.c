@@ -44,8 +44,8 @@ static decode_status parse_remain_length(tmq_buffer_t* buffer, pkt_parsing_ctx* 
             return BAD_PACKET_FORMAT;
         parsing_ctx->multiplier *= 128;
     } while (buffer->readable_bytes > 0 && (byte & 0x80));
-    if(byte & 0x80)
-        return NEED_MORE_DATA;
+    if(byte & 0x80){
+        return NEED_MORE_DATA;}
     return DECODE_OK;
 }
 

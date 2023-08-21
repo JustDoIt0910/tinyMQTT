@@ -25,9 +25,13 @@ typedef struct tmq_event_handler_s
     uint32_t r_events;
     void* arg;
     tmq_event_cb cb;
+    int ref_cnt;
+    int canceled;
 } tmq_event_handler_t;
 
 tmq_event_handler_t* tmq_event_handler_new(int fd, short events, tmq_event_cb cb, void* arg);
+tmq_event_handler_t* get_handler_ref(tmq_event_handler_t* handler);
+void release_handler_ref(tmq_event_handler_t* handler);
 
 typedef SLIST_HEAD(handler_queue, tmq_event_handler_s) handler_queue;
 typedef struct
@@ -46,13 +50,13 @@ typedef struct tmq_event_loop_s
     event_list_t epoll_events;
 
     active_handler_list_t active_handlers;
-    removing_handler_set_t removing_handlers;
+    //removing_handler_set_t removing_handlers;
     handler_map_t handler_map;
 
     tmq_timer_heap_t timer_heap;
     int running;
     int quit;
-    int event_handling;
+    //int event_handling;
     pthread_mutex_t lk;
 } tmq_event_loop_t;
 

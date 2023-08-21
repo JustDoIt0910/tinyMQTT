@@ -15,7 +15,7 @@ static void dispatch_new_connection(tmq_socket_t conn, void* arg)
 
     /* dispatch tcp connection using round-robin */
     tmq_io_group_t* next_group = &broker->io_groups[broker->next_io_group++];
-    if(broker->next_io_group >= MQTT_IO_THREAD)
+    if(broker->next_io_group >=  broker->io_threads)
         broker->next_io_group = 0;
 
     pthread_mutex_lock(&next_group->pending_conns_lk);
@@ -183,7 +183,9 @@ static void handle_session_ctl(void* arg)
                 if(session->will_publish_req.topic)
                     tmq_topics_publish(&broker->topics_tree, 0, session->will_publish_req.topic,
                                        &session->will_publish_req.message, session->will_publish_req.retain);
+                tlog_info("session[%s] closed forcely", session->client_id);
             }
+            else tlog_info("session[%s] disconnected", session->client_id);
             tmq_str_free(session->will_publish_req.topic);
             tmq_str_free(session->will_publish_req.message.message);
             if(session->clean_session)
@@ -227,7 +229,7 @@ static void handle_message_ctl(void* arg)
                 topic_filter_qos* tf = tmq_vec_begin(req.sub_unsub_pkt.subscribe_pkt.topics);
                 for(; tf != tmq_vec_end(req.sub_unsub_pkt.subscribe_pkt.topics); tf++)
                 {
-                    tlog_info("subscribe{client=%s, topic=%s, qos=%u}", req.client_id, tf->topic_filter, tf->qos);
+                    //tlog_info("subscribe{client=%s, topic=%s, qos=%u}", req.client_id, tf->topic_filter, tf->qos);
                     retain_message_list retain = tmq_topics_add_subscription(&broker->topics_tree, tf->topic_filter,
                                                                              req.client_id, tf->qos);
 
@@ -260,7 +262,7 @@ static void handle_message_ctl(void* arg)
                 tmq_str_t* tf = tmq_vec_begin(req.sub_unsub_pkt.unsubscribe_pkt.topics);
                 for(; tf != tmq_vec_end(req.sub_unsub_pkt.unsubscribe_pkt.topics); tf++)
                 {
-                    tlog_info("unsubscribe{client=%s, topic=%s}", req.client_id, *tf);
+                    //tlog_info("unsubscribe{client=%s, topic=%s}", req.client_id, *tf);
                     tmq_topics_remove_subscription(&broker->topics_tree, *tf, req.client_id);
                     //tmq_topics_info(&broker->topics_tree);
                 }
@@ -354,6 +356,7 @@ static void mqtt_publish_forward(tmq_broker_t* broker, char* client_id,
     if(!session) return;
     uint8_t final_qos = required_qos < message->qos ? required_qos : message->qos;
     /* if this session isn't active, save this message in its context */
+    
     if((*session)->state == CLOSED)
         tmq_session_store_publish(*session, topic, message->message, final_qos, 0);
     else
@@ -392,13 +395,23 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
     tlog_info("listening on port %u", port);
 
     tmq_str_t inflight_window_str = tmq_config_get(&broker->conf, "inflight_window");
-    broker->inflight_window_size = inflight_window_str ? strtoul(inflight_window_str, NULL, 10): 1;
+    broker->inflight_window_size = inflight_window_str ?
+            strtoul(inflight_window_str, NULL, 10):
+            1;
     tmq_str_free(inflight_window_str);
 
     tmq_acceptor_init(&broker->acceptor, &broker->loop, port);
     tmq_acceptor_set_cb(&broker->acceptor, dispatch_new_connection, broker);
 
-    for(int i = 0; i < MQTT_IO_THREAD; i++)
+    tmq_str_t io_group_num_str = tmq_config_get(&broker->conf, "io_threads");
+    broker->io_threads = io_group_num_str ?
+            strtoul(io_group_num_str, NULL, 10):
+            DEFAULT_IO_THREADS;
+    tmq_str_free(io_group_num_str);
+
+    tlog_info("start with %d io threads", broker->io_threads);
+    broker->io_groups = malloc(sizeof(tmq_io_group_t) * broker->io_threads);
+    for(int i = 0; i <  broker->io_threads; i++)
         tmq_io_group_init(&broker->io_groups[i], broker);
     broker->next_io_group = 0;
 
@@ -424,7 +437,7 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
 void tmq_broker_run(tmq_broker_t* broker)
 {
     if(!broker) return;
-    for(int i = 0; i < MQTT_IO_THREAD; i++)
+    for(int i = 0; i <  broker->io_threads; i++)
         tmq_io_group_run(&broker->io_groups[i]);
     tmq_acceptor_listen(&broker->acceptor);
     tmq_event_loop_run(&broker->loop);
@@ -433,7 +446,7 @@ void tmq_broker_run(tmq_broker_t* broker)
     tmq_acceptor_destroy(&broker->acceptor);
     tmq_config_destroy(&broker->conf);
     tmq_config_destroy(&broker->pwd_conf);
-    for(int i = 0; i < MQTT_IO_THREAD; i++)
+    for(int i = 0; i <  broker->io_threads; i++)
     {
         tmq_io_group_stop(&broker->io_groups[i]);
         pthread_join(broker->io_groups[i].io_thread, NULL);

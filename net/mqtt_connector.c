@@ -28,8 +28,8 @@ static void handle_write(tmq_socket_t sock, uint32_t events, void* arg)
     tmq_connector_t* connector = arg;
     tmq_handler_unregister(connector->loop, connector->write_handler);
     tmq_handler_unregister(connector->loop, connector->error_handler);
-    free(connector->write_handler);
-    free(connector->error_handler);
+    release_handler_ref(connector->write_handler);
+    release_handler_ref(connector->error_handler);
 
     /* check if connect successfully */
     int err = tmq_socket_get_error(sock);
@@ -47,8 +47,8 @@ static void handle_error(tmq_socket_t sock, uint32_t events, void* arg)
     tmq_connector_t* connector = arg;
     tmq_handler_unregister(connector->loop, connector->write_handler);
     tmq_handler_unregister(connector->loop, connector->error_handler);
-    free(connector->write_handler);
-    free(connector->error_handler);
+    release_handler_ref(connector->write_handler);
+    release_handler_ref(connector->error_handler);
 
     tlog_error("connect error: %s", strerror(errno));
     tmq_socket_close(sock);
@@ -57,8 +57,14 @@ static void handle_error(tmq_socket_t sock, uint32_t events, void* arg)
 
 static void continue_connect(tmq_connector_t* connector, tmq_socket_t sock)
 {
-    connector->write_handler = tmq_event_handler_new(sock, EPOLLOUT, handle_write, connector);
-    connector->error_handler = tmq_event_handler_new(sock, EPOLLERR, handle_error, connector);
+    connector->write_handler = get_handler_ref(
+            tmq_event_handler_new(sock, EPOLLOUT,
+                                  handle_write, connector)
+            );
+    connector->error_handler =get_handler_ref(
+            tmq_event_handler_new(sock, EPOLLERR,
+                                  handle_error, connector)
+            );
     tmq_handler_register(connector->loop, connector->write_handler);
     tmq_handler_register(connector->loop, connector->error_handler);
 }

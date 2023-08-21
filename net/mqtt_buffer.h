@@ -28,6 +28,7 @@ typedef struct tmq_buffer_chunk_s
 
 typedef struct tmq_buffer_s
 {
+    int chunks;
     tmq_buffer_chunk_t* first;
     tmq_buffer_chunk_t* last;
     /* free list 512B, (512B, 1KB], (1KB, 2KB], (2KB, 4KB], (4KB, ) */
