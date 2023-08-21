@@ -29,6 +29,8 @@ password_file=pwd.conf
 allow_anonymous=true
 # the maximum number of unacknowalegded publish packet
 inflight_window=1
+# the number of io thread
+io_threads=4
 
 ```
 
@@ -140,4 +142,5 @@ int main()
 
 ### TODO
 - [x] 处理client id为空的情况，broker生成默认client id
+- [ ] 修复超时重传定时器的bug
 - [ ] 添加SSL支持
