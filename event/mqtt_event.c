@@ -48,8 +48,7 @@ void tmq_event_loop_init(tmq_event_loop_t* loop)
     tmq_vec_init(&loop->active_handlers, tmq_event_handler_t*);
     //tmq_map_64_init(&loop->removing_handlers, int, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
     tmq_map_32_init(&loop->handler_map, epoll_handler_ctx, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
-    if(tmq_vec_resize(loop->epoll_events, INITIAL_EVENTLIST_SIZE) < 0)
-        fatal_error("tmq_vec_resize() error");
+    tmq_vec_resize(loop->epoll_events, INITIAL_EVENTLIST_SIZE);
 
     loop->running = 0;
     loop->quit = 0;
@@ -111,9 +110,9 @@ void tmq_event_loop_run(tmq_event_loop_t* loop)
                 tmq_event_handler_t* active_handler = *it;
                 /* It is possible that an active handler is unregistered by another active handler,
                  * in this case, it should not be accessed anymore because it may already be freed */
+
 //                if(tmq_map_get(loop->removing_handlers, active_handler) == NULL && active_handler->cb)
 //                    active_handler->cb(active_handler->fd, active_handler->r_events, active_handler->arg);
-
                 if(!active_handler->canceled && active_handler->cb)
                     active_handler->cb(active_handler->fd, active_handler->r_events, active_handler->arg);
                 release_handler_ref(active_handler);

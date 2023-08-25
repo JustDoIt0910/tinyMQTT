@@ -22,13 +22,13 @@ set(TINYMQTT_LIB_SRC
         mqtt/mqtt_topic.c
         mqtt/mqtt_codec.c
         mqtt/mqtt_io_group.c
+        mqtt/mqtt_task_executor.c
         mqtt/mqtt_broker.c
         mqtt/mqtt_client.c
         3rd/tinylog/tlog.c
         3rd/md5-c/md5.c
         3rd/b64.c/encode.c
-        3rd/b64.c/buffer.c
-        3rd/fifo/queue.c)
+        3rd/b64.c/buffer.c)
 set(CMAKE_BUILD_TYPE "Debug")
 
 add_definitions(-D_GNU_SOURCE)

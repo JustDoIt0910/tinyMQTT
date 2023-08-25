@@ -53,7 +53,10 @@ typedef struct tmq_session_s
     sending_packet* pending_pointer;
 
     packet_id_set qos2_packet_ids;
-    publish_req will_publish_req;
+    tmq_str_t will_message;
+    tmq_str_t will_topic;
+    int will_qos;
+    int will_retain;
 } tmq_session_t;
 
 tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message, close_cb on_close, tmq_tcp_conn_t* conn,

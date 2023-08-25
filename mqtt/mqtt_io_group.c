@@ -6,10 +6,13 @@
 #include "mqtt/mqtt_session.h"
 #include "base/mqtt_util.h"
 #include "mqtt_broker.h"
+#include "mqtt_tasks.h"
 #include <stdlib.h>
 #include <errno.h>
 #include <assert.h>
 #include <string.h>
+
+extern void handle_session_req(void* arg);
 
 /* called when closing a tcp conn */
 static void tcp_conn_cleanup(tmq_tcp_conn_t* conn, void* arg)
@@ -24,23 +27,23 @@ static void tcp_conn_cleanup(tmq_tcp_conn_t* conn, void* arg)
     {
         ctx->conn_state = NO_SESSION;
         tmq_broker_t* broker = group->broker;
-        session_ctl ctl = {
-                .op = SESSION_FORCE_CLOSE,
-                .context.session = ctx->upstream.session
-        };
-        pthread_mutex_lock(&broker->session_ctl_lk);
-        tmq_vec_push_back(broker->session_ctl_reqs, ctl);
-        pthread_mutex_unlock(&broker->session_ctl_lk);
 
-        tmq_notifier_notify(&broker->session_ctl_notifier);
+        session_req req = {
+                .op = SESSION_FORCE_CLOSE,
+                .session = ctx->upstream.session
+        };
+        session_task_ctx* task_ctx = malloc(sizeof(session_task_ctx));
+        task_ctx->broker = broker;
+        task_ctx->req = req;
+        tmq_executor_post(&broker->executor, handle_session_req, task_ctx,1);
     }
 
     char conn_name[50];
     tmq_tcp_conn_id(conn, conn_name, sizeof(conn_name));
     tmq_map_erase(group->tcp_conns, conn_name);
-    release_ref(conn);
+    release_conn_ref(conn);
 
-    release_ref(conn);
+    release_conn_ref(conn);
 }
 
 static void tcp_checkalive(void* arg)
@@ -61,7 +64,7 @@ static void tcp_checkalive(void* arg)
     /* do remove after iteration to prevent iterator failure */
     tmq_tcp_conn_t** conn_it = tmq_vec_begin(timeout_conns);
     for(; conn_it != tmq_vec_end(timeout_conns); conn_it++)
-        tmq_tcp_conn_close(get_ref(*conn_it));
+        tmq_tcp_conn_force_close(*conn_it);
     tmq_vec_free(timeout_conns);
 }
 
@@ -90,7 +93,7 @@ static void mqtt_keepalive(void* arg)
     /* do remove after iteration to prevent iterator failure */
     tmq_tcp_conn_t** conn_it = tmq_vec_begin(timeout_conns);
     for(; conn_it != tmq_vec_end(timeout_conns); conn_it++)
-        tmq_tcp_conn_close(get_ref(*conn_it));
+        tmq_tcp_conn_force_close(*conn_it);
     tmq_vec_free(timeout_conns);
 }
 
@@ -102,7 +105,7 @@ static void handle_new_connection(void* arg)
 
     tmq_vec(tmq_socket_t) conns = tmq_vec_make(tmq_socket_t);
     pthread_mutex_lock(&group->pending_conns_lk);
-    tmq_vec_swap(conns, group->pending_conns);
+    tmq_vec_swap(conns, group->pending_tcp_conns);
     pthread_mutex_unlock(&group->pending_conns_lk);
 
     for(tmq_socket_t* it = tmq_vec_begin(conns); it != tmq_vec_end(conns); it++)
@@ -121,7 +124,7 @@ static void handle_new_connection(void* arg)
 
         char conn_name[50];
         tmq_tcp_conn_id(conn, conn_name, sizeof(conn_name));
-        tmq_map_put(group->tcp_conns, conn_name, get_ref(conn));
+        tmq_map_put(group->tcp_conns, conn_name, get_conn_ref(conn));
         assert(conn->ref_cnt == 1);
 
         //tlog_info("new connection [%s]", conn_name);
@@ -135,7 +138,7 @@ static void handle_new_session(void* arg)
 
     connect_resp_list resps = tmq_vec_make(session_connect_resp);
     pthread_mutex_lock(&group->connect_resp_lk);
-    tmq_vec_swap(resps, group->connect_resp);
+    tmq_vec_swap(resps, group->connect_resps);
     pthread_mutex_unlock(&group->connect_resp_lk);
 
     session_connect_resp* resp = tmq_vec_begin(resps);
@@ -149,16 +152,18 @@ static void handle_new_session(void* arg)
         (conn_ctx->conn_state == NO_SESSION) || (resp->conn->state != CONNECTED))
         {
             tmq_broker_t* broker = group->broker;
-            session_ctl ctl = {
-                    .op = (conn_ctx->conn_state == NO_SESSION) ? SESSION_DISCONNECT : SESSION_FORCE_CLOSE,
-                    .context.session = resp->session
+            session_req req = {
+                    .op = (conn_ctx->conn_state == NO_SESSION)
+                            ? SESSION_DISCONNECT
+                            : SESSION_FORCE_CLOSE,
+                    .session = resp->session
             };
-            pthread_mutex_lock(&broker->session_ctl_lk);
-            tmq_vec_push_back(broker->session_ctl_reqs, ctl);
-            pthread_mutex_unlock(&broker->session_ctl_lk);
+            session_task_ctx* ctx = malloc(sizeof(session_task_ctx));
+            ctx->broker = broker;
+            ctx->req = req;
+            tmq_executor_post(&broker->executor, handle_session_req, ctx,1);
 
-            tmq_notifier_notify(&broker->session_ctl_notifier);
-            release_ref(resp->conn);
+            release_conn_ref(resp->conn);
             continue;
         }
 
@@ -166,10 +171,10 @@ static void handle_new_session(void* arg)
         {
             conn_ctx->upstream.session = resp->session;
             conn_ctx->conn_state = IN_SESSION;
-            //tlog_info("connect success[%s]", resp->session->client_id);
+            tlog_info("connect success[%s]", resp->session->client_id);
         }
-        //else
-            //tlog_info("connect failed, return_code=%x", resp->return_code);
+        else
+            tlog_info("connect failed, return_code=%x", resp->return_code);
         tmq_connack_pkt pkt = {
                 .return_code = resp->return_code,
                 .ack_flags = resp->session_present
@@ -177,7 +182,7 @@ static void handle_new_session(void* arg)
         send_connack_packet(resp->conn, &pkt);
         if(resp->return_code == CONNECTION_ACCEPTED)
             tmq_session_start(resp->session);
-        release_ref(resp->conn);
+        release_conn_ref(resp->conn);
     }
     tmq_vec_free(resps);
 }
@@ -196,26 +201,9 @@ static void send_packets(void* arg)
     {
         send_any_packet(req->conn, &req->pkt);
         tmq_any_pkt_cleanup(&req->pkt);
-        release_ref(req->conn);
+        release_conn_ref(req->conn);
     }
     tmq_vec_free(packets);
-
-//    packet_send_req* req;
-//    pthread_mutex_lock(&group->sending_packets_lk);
-//    if(size(group->sending_queue) > 0)
-//    {
-//        req = front(group->sending_queue);
-//        dequeue(group->sending_queue);
-//
-//        if(size(group->sending_queue) > 0)
-//            tmq_notifier_notify(&group->sending_packets_notifier);
-//    }
-//    pthread_mutex_unlock(&group->sending_packets_lk);
-//
-//    send_any_packet(req->conn, &req->pkt);
-//    tmq_any_pkt_cleanup(&req->pkt);
-//    release_ref(req->conn);
-//    free(req);
 }
 
 void tmq_io_group_init(tmq_io_group_t* group, tmq_broker_t* broker)
@@ -236,10 +224,9 @@ void tmq_io_group_init(tmq_io_group_t* group, tmq_broker_t* broker)
     if(pthread_mutex_init(&group->sending_packets_lk, NULL))
         fatal_error("pthread_mutex_init() error %d: %s", errno, strerror(errno));
 
-    tmq_vec_init(&group->pending_conns, tmq_socket_t);
-    tmq_vec_init(&group->connect_resp, session_connect_resp);
+    tmq_vec_init(&group->pending_tcp_conns, tmq_socket_t);
+    tmq_vec_init(&group->connect_resps, session_connect_resp);
     tmq_vec_init(&group->sending_packets, packet_send_req);
-    //group->sending_queue = initQueue();
 
     tmq_notifier_init(&group->new_conn_notifier, &group->loop, handle_new_connection, group);
     tmq_notifier_init(&group->connect_resp_notifier, &group->loop, handle_new_session, group);
@@ -259,11 +246,11 @@ static void* io_group_thread_func(void* arg)
     tmq_map_free(group->tcp_conns);
 
     /* close pending conns in the pending list */
-    tmq_socket_t* fd_it = tmq_vec_begin(group->pending_conns);
-    for(; fd_it != tmq_vec_end(group->pending_conns); fd_it++)
+    tmq_socket_t* fd_it = tmq_vec_begin(group->pending_tcp_conns);
+    for(; fd_it != tmq_vec_end(group->pending_tcp_conns); fd_it++)
         close(*fd_it);
-    tmq_vec_free(group->pending_conns);
-    tmq_vec_free(group->connect_resp);
+    tmq_vec_free(group->pending_tcp_conns);
+    tmq_vec_free(group->connect_resps);
 
     packet_send_req* req = tmq_vec_begin(group->sending_packets);
     for(; req != tmq_vec_end(group->sending_packets); req++)

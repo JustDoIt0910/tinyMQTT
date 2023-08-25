@@ -13,6 +13,7 @@ typedef struct sockaddr_in tmq_socket_addr_t;
 tmq_socket_t tmq_tcp_socket();
 int tmq_socket_nonblocking(tmq_socket_t fd);
 void tmq_socket_close(tmq_socket_t fd);
+void tmq_socket_shutdown(tmq_socket_t fd);
 int tmq_socket_reuse_addr(tmq_socket_t fd, int enable);
 int tmq_socket_reuse_port(tmq_socket_t fd, int enable);
 int tmq_socket_keepalive(tmq_socket_t fd, int enable);

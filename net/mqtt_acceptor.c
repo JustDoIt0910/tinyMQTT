@@ -14,7 +14,6 @@ static void acceptor_cb(tmq_socket_t fd, uint32_t event, void* arg)
     tmq_acceptor_t* acceptor = (tmq_acceptor_t*) arg;
     tmq_socket_addr_t peer_addr;
     tmq_socket_t conn = tmq_socket_accept(fd, &peer_addr);
-    tmq_socket_tcp_no_delay(conn, 1);
     if(conn < 0 && errno == EMFILE)
     {
         tlog_error("error accepting fd: %s", strerror(errno));
@@ -24,7 +23,10 @@ static void acceptor_cb(tmq_socket_t fd, uint32_t event, void* arg)
         acceptor->idle_socket = open("/dev/null", O_RDONLY | O_CLOEXEC);
     }
     else if(acceptor->connection_cb)
+    {
+        tmq_socket_tcp_no_delay(conn, 1);
         acceptor->connection_cb(conn, acceptor->arg);
+    }
 }
 
 void tmq_acceptor_init(tmq_acceptor_t* acceptor, tmq_event_loop_t* loop, uint16_t port)

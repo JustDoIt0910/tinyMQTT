@@ -13,6 +13,7 @@
 #define MQTT_TCP_MAX_IDLE               600
 
 typedef tmq_map(char*, tmq_tcp_conn_t*) tcp_conn_map_t;
+typedef tmq_vec(tmq_socket_t) tcp_conn_list;
 typedef struct tmq_io_group_s
 {
     tmq_broker_t* broker;
@@ -23,12 +24,11 @@ typedef struct tmq_io_group_s
     tmq_timerid_t mqtt_keepalive_timer;
 
     /* guarded by pending_conns_lk */
-    tmq_vec(tmq_socket_t) pending_conns;
+    tcp_conn_list pending_tcp_conns;
     /* guarded by connect_resp_lk */
-    connect_resp_list connect_resp;
+    connect_resp_list connect_resps;
     /* guarded by sending_packets_lk */
     packet_send_list sending_packets;
-    //Queue* sending_queue;
 
     pthread_mutex_t pending_conns_lk;
     pthread_mutex_t connect_resp_lk;

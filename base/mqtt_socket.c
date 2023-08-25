@@ -42,6 +42,11 @@ int tmq_socket_nonblocking(tmq_socket_t fd)
 
 void tmq_socket_close(tmq_socket_t fd) { close(fd);}
 
+void tmq_socket_shutdown(tmq_socket_t fd)
+{
+    shutdown(fd, SHUT_WR);
+}
+
 int tmq_socket_reuse_addr(tmq_socket_t fd, int enable)
 {
     assert(enable == 0 || enable == 1);

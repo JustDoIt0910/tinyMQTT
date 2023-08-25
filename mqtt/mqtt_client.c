@@ -17,7 +17,7 @@ struct publish_args
 void tcp_conn_close_cb(tmq_tcp_conn_t* conn, void* arg)
 {
     tiny_mqtt* mqtt = arg;
-    release_ref(mqtt->conn);
+    release_conn_ref(mqtt->conn);
     mqtt->conn = NULL;
     tcp_conn_ctx* ctx = conn->context;
     if(ctx->conn_state == IN_SESSION)
@@ -34,7 +34,7 @@ void tcp_conn_close_cb(tmq_tcp_conn_t* conn, void* arg)
 static void on_tcp_connected(void* arg, tmq_socket_t sock)
 {
     tiny_mqtt* mqtt = arg;
-    mqtt->conn = get_ref(tmq_tcp_conn_new(&mqtt->loop, NULL, sock, &mqtt->codec));
+    mqtt->conn = get_conn_ref(tmq_tcp_conn_new(&mqtt->loop, NULL, sock, &mqtt->codec));
     mqtt->conn->on_close = tcp_conn_close_cb;
     mqtt->conn->cb_arg = mqtt;
 
@@ -107,7 +107,7 @@ static void on_disconnected(void* arg)
     tiny_mqtt* mqtt = arg;
     if(mqtt->async)
     {
-        tmq_tcp_conn_close(mqtt->conn);
+        tmq_tcp_conn_shutdown(mqtt->conn);
         if(mqtt->on_disconnect)
             mqtt->on_disconnect(mqtt);
     }
@@ -351,7 +351,7 @@ static void ping(void* arg)
         tlog_info("can not receive ping respond from server");
         if(mqtt->async)
         {
-            tmq_tcp_conn_close(mqtt->conn);
+            tmq_tcp_conn_shutdown(mqtt->conn);
             if(mqtt->on_disconnect)
                 mqtt->on_disconnect(mqtt);
         }
@@ -381,7 +381,7 @@ void tinymqtt_disconnect(tiny_mqtt* mqtt)
     send_disconnect_packet(mqtt->conn, NULL);
     if(!mqtt->loop.quit)
         tmq_event_loop_run(&mqtt->loop);
-    tmq_tcp_conn_close(mqtt->conn);
+    tmq_tcp_conn_shutdown(mqtt->conn);
 }
 
 void tinymqtt_loop(tiny_mqtt* mqtt)

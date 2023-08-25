@@ -40,12 +40,6 @@ typedef struct tcp_conn_broker_ctx_s
     packet_list pending_packets;
 } tcp_conn_broker_ctx;
 
-typedef struct session_connect_req
-{
-    tmq_connect_pkt connect_pkt;
-    tmq_tcp_conn_t* conn;
-} session_connect_req;
-
 typedef struct session_connect_resp
 {
     connack_return_code return_code;
@@ -55,63 +49,11 @@ typedef struct session_connect_resp
 } session_connect_resp;
 typedef tmq_vec(session_connect_resp) connect_resp_list;
 
-typedef enum session_ctl_op_e
-{
-    SESSION_CONNECT,
-    SESSION_DISCONNECT,
-    SESSION_FORCE_CLOSE
-} session_ctl_op;
-
-typedef struct session_ctl
-{
-    session_ctl_op op;
-    union
-    {
-        session_connect_req start_req;
-        tmq_session_t* session;
-    } context;
-} session_ctl;
-typedef tmq_vec(session_ctl) session_ctl_list;
-
 typedef struct tmq_message
 {
     tmq_str_t message;
     uint8_t qos;
 } tmq_message;
-
-typedef struct subscribe_unsubscribe_req
-{
-    tmq_str_t client_id;
-    union {
-        tmq_subscribe_pkt subscribe_pkt;
-        tmq_unsubscribe_pkt unsubscribe_pkt;
-    } sub_unsub_pkt;
-} subscribe_unsubscribe_req;
-
-typedef struct publish_req
-{
-    tmq_str_t topic;
-    tmq_message message;
-    uint8_t retain;
-} publish_req;
-
-typedef enum message_ctl_op_e
-{
-    SUBSCRIBE,
-    UNSUBSCRIBE,
-    PUBLISH
-} message_ctl_op;
-
-typedef struct message_ctl
-{
-    message_ctl_op op;
-    union
-    {
-        subscribe_unsubscribe_req sub_unsub_req;
-        publish_req pub_req;
-    } context;
-} message_ctl;
-typedef tmq_vec(message_ctl) message_ctl_list;
 
 typedef struct packet_send_req
 {

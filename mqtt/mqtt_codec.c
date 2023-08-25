@@ -441,7 +441,7 @@ static void decode_tcp_message_(tmq_codec_t* codec, tmq_tcp_conn_t* conn, tmq_bu
         }
         if(status != DECODE_OK && status != NEED_MORE_DATA)
         {
-            tmq_tcp_conn_close(get_ref(conn));
+            tmq_tcp_conn_force_close(conn);
             break;
         }
     } while(buffer->readable_bytes > 0 && parsing_ctx->state == PARSING_FIXED_HEADER);
