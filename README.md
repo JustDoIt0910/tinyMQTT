@@ -144,3 +144,4 @@ int main()
 - [x] 处理client id为空的情况，broker生成默认client id
 - [ ] 修复超时重传定时器的bug
 - [ ] 添加SSL支持
+- [ ] 支持集群部署
