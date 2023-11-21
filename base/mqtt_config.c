@@ -4,6 +4,7 @@
 #include "mqtt_config.h"
 #include "mqtt_util.h"
 #include <string.h>
+#include <errno.h>
 
 static int read_config_file(tmq_config_t* cfg)
 {
@@ -99,7 +100,7 @@ int tmq_config_init(tmq_config_t* cfg, const char* filename, const char* delimet
     cfg->fp = fopen(filename, "r+");
     if(!cfg->fp)
     {
-        tlog_error("fopen() error: file not exist: %s", filename);
+        tlog_error("fopen() error: %s: %s", strerror(errno), filename);
         return -1;
     }
     tmq_map_str_init(&cfg->cfg, config_value, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
