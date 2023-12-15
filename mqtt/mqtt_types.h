@@ -47,19 +47,11 @@ typedef struct session_connect_resp
     tmq_tcp_conn_t* conn;
     int session_present;
 } session_connect_resp;
-typedef tmq_vec(session_connect_resp) connect_resp_list;
 
 typedef struct tmq_message
 {
     tmq_str_t message;
     uint8_t qos;
 } tmq_message;
-
-typedef struct packet_send_req
-{
-    tmq_tcp_conn_t* conn;
-    tmq_any_packet_t pkt;
-} packet_send_req;
-typedef tmq_vec(packet_send_req) packet_send_list;
 
 #endif //TINYMQTT_MQTT_TYPES_H

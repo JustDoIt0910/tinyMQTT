@@ -7,14 +7,11 @@
 #include <stddef.h>
 #include "base/mqtt_socket.h"
 
-#define MAX_IOVEC_NUM               4
 #define BUFFER_CHUNK_MIN            512
 #define FD_MAX_READ_BYTES           65536
 #define CHUNK_DATA_LEN(chunk)       ((chunk)->write_idx - (chunk)->read_idx)
 #define CHUNK_WRITEABLE(chunk)      ((chunk)->chunk_size - (chunk)->write_idx)
 #define CHUNK_AVAL_SPACE(chunk)     ((chunk)->chunk_size - ((chunk)->write_idx - (chunk)->read_idx))
-#define FREE_LIST_INDEX(size)       ((((size) - 1) >> 9) > 0) + ((((size) - 1) >> 10) > 0) + \
-                                    ((((size) - 1) >> 11) > 0) + ((((size) - 1) >> 12) > 0)
 #define min(a, b)                   (((a) < (b)) ? (a) : (b))
 
 typedef struct tmq_buffer_chunk_s
@@ -31,8 +28,6 @@ typedef struct tmq_buffer_s
     int chunks;
     tmq_buffer_chunk_t* first;
     tmq_buffer_chunk_t* last;
-    /* free list 512B, (512B, 1KB], (1KB, 2KB], (2KB, 4KB], (4KB, ) */
-    tmq_buffer_chunk_t* free_chunk_list[5];
     size_t readable_bytes;
 } tmq_buffer_t;
 

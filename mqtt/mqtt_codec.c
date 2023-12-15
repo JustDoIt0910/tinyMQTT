@@ -377,7 +377,7 @@ static decode_status parse_disconnect_packet(tmq_codec_t* codec, tmq_tcp_conn_t*
     int in_session = ctx->conn_state == IN_SESSION;
     ctx->conn_state = NO_SESSION;
     tmq_session_t* session = ctx->upstream.session;
-    ctx->upstream.broker = conn->group->broker;
+    ctx->upstream.broker = conn->io_context->broker;
     if(in_session)
         codec->on_disconnect(ctx->upstream.broker, session);
     return DECODE_OK;
@@ -816,7 +816,7 @@ static void(*packet_senders[])(tmq_tcp_conn_t*, void*) = {
         send_disconnect_packet
 };
 
-void send_any_packet(tmq_tcp_conn_t* conn, tmq_any_packet_t* pkt)
+void tmq_send_any_packet(tmq_tcp_conn_t* conn, tmq_any_packet_t* pkt)
 {
     tcp_conn_ctx* ctx = conn->context;
     if(conn->state == CONNECTED && ctx->conn_state == IN_SESSION)

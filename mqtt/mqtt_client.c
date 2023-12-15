@@ -17,7 +17,7 @@ struct publish_args
 void tcp_conn_close_cb(tmq_tcp_conn_t* conn, void* arg)
 {
     tiny_mqtt* mqtt = arg;
-    release_conn_ref(mqtt->conn);
+    release_ref((tmq_ref_counted_t*) mqtt->conn);
     mqtt->conn = NULL;
     tcp_conn_ctx* ctx = conn->context;
     if(ctx->conn_state == IN_SESSION)
@@ -34,7 +34,8 @@ void tcp_conn_close_cb(tmq_tcp_conn_t* conn, void* arg)
 static void on_tcp_connected(void* arg, tmq_socket_t sock)
 {
     tiny_mqtt* mqtt = arg;
-    mqtt->conn = get_conn_ref(tmq_tcp_conn_new(&mqtt->loop, NULL, sock, &mqtt->codec));
+    mqtt->conn = tmq_tcp_conn_new(&mqtt->loop, NULL, sock, &mqtt->codec);
+    get_ref((tmq_ref_counted_t*) mqtt->conn);
     mqtt->conn->on_close = tcp_conn_close_cb;
     mqtt->conn->cb_arg = mqtt;
 

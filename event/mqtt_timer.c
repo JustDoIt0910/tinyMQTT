@@ -233,7 +233,7 @@ void tmq_timer_heap_init(tmq_timer_heap_t* timer_heap, tmq_event_loop_t* loop)
         fatal_error("pthread_mutex_init() error %d: %s", errno, strerror(errno));
 
     tmq_event_handler_t* handler = tmq_event_handler_new(timer_heap->timer_fd, EPOLLIN,
-                                                         timer_heap_timeout, timer_heap);
+                                                         timer_heap_timeout, timer_heap, 0);
     tmq_handler_register(loop, handler);
 }
 

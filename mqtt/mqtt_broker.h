@@ -10,7 +10,7 @@
 #include "base/mqtt_map.h"
 #include "base/mqtt_config.h"
 #include "mqtt_codec.h"
-#include "mqtt_io_group.h"
+#include "mqtt_io_context.h"
 #include "mqtt_topic.h"
 #include "mqtt_types.h"
 #include "mqtt_task_executor.h"
@@ -26,8 +26,8 @@ typedef struct tmq_broker_s
     tmq_executor_t executor;
     tmq_config_t conf, pwd_conf;
 
-    int next_io_group;
-    tmq_io_group_t* io_groups;
+    int next_io_context;
+    tmq_io_context_t* io_contexts;
 
     tmq_session_map sessions;
     tmq_topics_t topics_tree;

@@ -26,6 +26,6 @@ int main()
             .message = tmq_str_new("message"),
             .qos = 1
     };
-    tmq_topics_publish(&topics, 0, "test/topic", &message, 1);
+    tmq_topics_publish(&topics, "test/topic", &message, 1);
     tmq_topics_info(&topics);
 }

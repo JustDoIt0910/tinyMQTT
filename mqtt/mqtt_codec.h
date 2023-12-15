@@ -107,6 +107,6 @@ void send_pingreq_packet(tmq_tcp_conn_t* conn, void* pkt);
 void send_pingresp_packet(tmq_tcp_conn_t* conn, void* pkt);
 void send_disconnect_packet(tmq_tcp_conn_t* conn, void* pkt);
 
-void send_any_packet(tmq_tcp_conn_t* conn, tmq_any_packet_t* pkt);
+void tmq_send_any_packet(tmq_tcp_conn_t* conn, tmq_any_packet_t* pkt);
 
 #endif //TINYMQTT_MQTT_CODEC_H
