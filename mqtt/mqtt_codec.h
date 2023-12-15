@@ -93,18 +93,18 @@ typedef struct pkt_parsing_ctx_s
 void tmq_codec_init(tmq_codec_t* codec, tmq_codec_type type);
 
 void send_connect_packet(tmq_tcp_conn_t* conn, void* pkt);
-void send_connack_packet(tmq_tcp_conn_t* conn, void* pkt);
+void send_conn_ack_packet(tmq_tcp_conn_t* conn, void* pkt);
 void send_publish_packet(tmq_tcp_conn_t* conn, void* pkt);
-void send_puback_packet(tmq_tcp_conn_t* conn, void* pkt);
-void send_pubrec_packet(tmq_tcp_conn_t* conn, void* pkt);
-void send_pubrel_packet(tmq_tcp_conn_t* conn, void* pkt);
-void send_pubcomp_packet(tmq_tcp_conn_t* conn, void* pkt);
+void send_pub_ack_packet(tmq_tcp_conn_t* conn, void* pkt);
+void send_pub_rec_packet(tmq_tcp_conn_t* conn, void* pkt);
+void send_pub_rel_packet(tmq_tcp_conn_t* conn, void* pkt);
+void send_pub_comp_packet(tmq_tcp_conn_t* conn, void* pkt);
 void send_subscribe_packet(tmq_tcp_conn_t* conn, void* pkt);
-void send_suback_packet(tmq_tcp_conn_t* conn, void* pkt);
+void send_sub_ack_packet(tmq_tcp_conn_t* conn, void* pkt);
 void send_unsubscribe_packet(tmq_tcp_conn_t* conn, void* pkt);
-void send_unsuback_packet(tmq_tcp_conn_t* conn, void* pkt);
-void send_pingreq_packet(tmq_tcp_conn_t* conn, void* pkt);
-void send_pingresp_packet(tmq_tcp_conn_t* conn, void* pkt);
+void send_unsub_ack_packet(tmq_tcp_conn_t* conn, void* pkt);
+void send_ping_req_packet(tmq_tcp_conn_t* conn, void* pkt);
+void send_ping_resp_packet(tmq_tcp_conn_t* conn, void* pkt);
 void send_disconnect_packet(tmq_tcp_conn_t* conn, void* pkt);
 
 void tmq_send_any_packet(tmq_tcp_conn_t* conn, tmq_any_packet_t* pkt);

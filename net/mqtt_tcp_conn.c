@@ -33,10 +33,8 @@ static void write_cb_(tmq_socket_t fd, uint32_t event, void* arg)
 {
     if(!arg) return;
     tmq_tcp_conn_t* conn = (tmq_tcp_conn_t*) arg;
-    if(!conn->is_writing || conn->state == DISCONNECTED) {
-        if(conn->state == DISCONNECTED) { printf("???\n");}
+    if(!conn->is_writing || conn->state == DISCONNECTED)
         return;
-    }
     ssize_t n = tmq_buffer_write_fd(&conn->out_buffer, fd);
     if(n > 0)
     {
@@ -70,7 +68,6 @@ static void close_cb_(tmq_socket_t fd, uint32_t event, void* arg)
     }
     else if(event & EPOLLHUP && !(event & EPOLLIN))
         conn_close_(conn);
-    else abort();
 }
 
 static void conn_close_(tmq_tcp_conn_t* conn)
@@ -89,9 +86,9 @@ static void conn_close_(tmq_tcp_conn_t* conn)
     conn->state = DISCONNECTED;
 }
 
-static void conn_free_(void* arg)
+static void conn_cleanup_(tmq_ref_counted_t* obj)
 {
-    tmq_tcp_conn_t* conn = arg;
+    tmq_tcp_conn_t* conn = (tmq_tcp_conn_t*) obj;
     free(conn->read_event_handler);
     free(conn->error_close_handler);
     if(conn->write_event_handler)
@@ -113,7 +110,7 @@ tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_event_loop_t* loop, tmq_io_context_t* io_co
         fatal_error("malloc() error: out of memory");
     bzero(conn, sizeof(tmq_tcp_conn_t));
 
-    conn->clean_up = conn_free_;
+    conn->cleaner = conn_cleanup_;
     conn->fd = fd;
     conn->loop = loop;
     conn->io_context = io_context;
@@ -203,4 +200,8 @@ void tmq_tcp_conn_set_context(tmq_tcp_conn_t* conn, void* ctx, context_cleanup_c
     conn->ctx_clean_up = clean_up;
 }
 
-void tmq_tcp_conn_free(tmq_tcp_conn_t* conn){ conn_free_(conn);}
+void tmq_tcp_conn_free(tmq_tcp_conn_t* conn)
+{
+    conn_cleanup_((tmq_ref_counted_t*) conn);
+    free(conn);
+}

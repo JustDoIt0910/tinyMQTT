@@ -25,8 +25,7 @@ typedef enum tmq_tcp_conn_state_e
 
 typedef struct tmq_tcp_conn_s
 {
-    int ref_cnt;
-    void (*clean_up)(void*);
+    REF_COUNTED_MEMBERS
     tmq_socket_t fd;
     tmq_tcp_conn_state state;
     tmq_event_loop_t* loop;
@@ -47,6 +46,9 @@ typedef struct tmq_tcp_conn_s
     context_cleanup_cb ctx_clean_up;
     void* context;
 } tmq_tcp_conn_t;
+
+#define TCP_CONN_SHARE(conn) ((tmq_tcp_conn_t*) get_ref((tmq_ref_counted_t*) (conn)))
+#define TCP_CONN_RELEASE(conn) release_ref((tmq_ref_counted_t*) (conn))
 
 tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_event_loop_t* loop, tmq_io_context_t* io_context,
                                  tmq_socket_t fd, tmq_codec_t* codec);

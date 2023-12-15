@@ -37,7 +37,7 @@ void release_ref(tmq_ref_counted_t* obj)
     int n = decrementAndGet(obj->ref_cnt, 1);
     if(!n)
     {
-        obj->clean_up(obj);
+        obj->cleaner(obj);
         free(obj);
     }
 }
@@ -61,14 +61,11 @@ void tmq_event_loop_init(tmq_event_loop_t* loop)
     tmq_timer_heap_init(&loop->timer_heap, loop);
 }
 
-#include <stdio.h>
-
 void tmq_event_loop_run(tmq_event_loop_t* loop)
 {
     if(!loop) return;
     if(atomicExchange(loop->running, 1) == 1)
         return;
-    //pthread_mutex_lock(&loop->lk);
     loop->quit = 0;
     while(!loop->quit)
     {

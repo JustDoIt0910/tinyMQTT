@@ -22,7 +22,7 @@ void tcp_conn_close_cb(tmq_tcp_conn_t* conn, void* arg)
     tcp_conn_ctx* ctx = conn->context;
     if(ctx->conn_state == IN_SESSION)
     {
-        tmq_session_close(ctx->upstream.session);
+        tmq_session_close(ctx->upstream.session, 0);
         if(mqtt->session->clean_session)
         {
             tmq_session_free(mqtt->session);
@@ -359,7 +359,7 @@ static void ping(void* arg)
         else tmq_event_loop_quit(&mqtt->loop);
         return;
     }
-    send_pingreq_packet(mqtt->conn, NULL);
+    send_ping_req_packet(mqtt->conn, NULL);
 }
 
 void tinymqtt_set_disconnect_callback(tiny_mqtt* mqtt, mqtt_disconnect_cb cb) {if(mqtt) mqtt->on_disconnect = cb;}

@@ -34,24 +34,24 @@ static void make_connect_respond(tmq_io_context_t* context, tmq_tcp_conn_t* conn
     tmq_mailbox_push(&context->mqtt_connect_responses, resp);
 }
 
-static void mqtt_publish_request(void* arg, char* topic, tmq_message* message, uint8_t retain);
-
-static void session_states_cleanup(void* arg, tmq_session_t* session)
+static void session_close_callback(void* arg, tmq_session_t* session, int force_clean)
 {
-    if(!session->clean_session)
+    if(!session->clean_session && !force_clean)
         return;
     tmq_broker_t* broker = arg;
-    /* unsubsribe all topics */
+    /* unsubscribe all topics */
     tmq_map_iter_t sub_it = tmq_map_iter(session->subscriptions);
     for(; tmq_map_has_next(sub_it); tmq_map_next(session->subscriptions, sub_it))
         tmq_topics_remove_subscription(&broker->topics_tree, (char*) sub_it.first, session->client_id);
     /* remove this session from the broker */
     tmq_map_erase(broker->sessions, session->client_id);
+    SESSION_RELEASE(session);
 }
+
+static void mqtt_publish(void* arg, char* topic, tmq_message* message, uint8_t retain);
 
 static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt* connect_pkt)
 {
-    //tmq_connect_pkt_print(connect_pkt);
     /* validate username and password if anonymous login is not allowed */
     int success = 1;
     tmq_str_t allow_anonymous = tmq_config_get(&broker->conf, "allow_anonymous");
@@ -99,9 +99,8 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
     tmq_session_t** session = tmq_map_get(broker->sessions, connect_pkt->client_id);
     /* if there is an active session associted with this client id */
     if(session && (*session)->state == OPEN)
-    {
         make_connect_respond(conn->io_context, conn, IDENTIFIER_REJECTED, NULL, 0);
-    }
+
     /* if there is a closed session associated with this client id,
      * it must not be a clean-session */
     else if(session)
@@ -111,13 +110,11 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
          * clean up the old session's state and start a new clean-session */
         if(CONNECT_CLEAN_SESSION(connect_pkt->flags))
         {
-            (*session)->clean_session = 1;
-            tmq_session_close(*session);
-            tmq_session_free(*session);
-            tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_request, session_states_cleanup, conn,
+            tmq_session_close(*session, 1);
+            tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish, session_close_callback, conn,
                                                          connect_pkt->client_id, 1, connect_pkt->keep_alive, will_topic,
                                                          will_message, will_qos, will_retain, broker->inflight_window_size);
-            tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
+            tmq_map_put(broker->sessions, connect_pkt->client_id, SESSION_SHARE(new_session));
             make_connect_respond(conn->io_context, conn, CONNECTION_ACCEPTED, new_session, 1);
         }
         /* otherwise, resume the old session's state */
@@ -132,10 +129,10 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
     else
     {
         int clean_session = CONNECT_CLEAN_SESSION(connect_pkt->flags) != 0;
-        tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish_request, session_states_cleanup, conn,
+        tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish, session_close_callback, conn,
                                                      connect_pkt->client_id, clean_session, connect_pkt->keep_alive, will_topic,
                                                      will_message, will_qos, will_retain, broker->inflight_window_size);
-        tmq_map_put(broker->sessions, connect_pkt->client_id, new_session);
+        tmq_map_put(broker->sessions, connect_pkt->client_id, SESSION_SHARE(new_session));
         make_connect_respond(conn->io_context, conn, CONNECTION_ACCEPTED, new_session, 0);
     }
     cleanup:
@@ -161,7 +158,6 @@ void handle_session_req(void* arg)
     else
     {
         tmq_session_t* session = req->session;
-        tmq_session_close(session);
         if(req->op == SESSION_FORCE_CLOSE)
         {
             /* send the will-message if session closed without receiving a disconnect packet */
@@ -177,10 +173,7 @@ void handle_session_req(void* arg)
             tlog_info("session[%s] closed forcely", session->client_id);
         }
         else tlog_info("session[%s] disconnected", session->client_id);
-        tmq_str_free(session->will_topic);
-        tmq_str_free(session->will_message);
-        if(session->clean_session)
-            tmq_session_free(session);
+        tmq_session_close(session, 0);
     }
     free(arg);
 }
@@ -232,7 +225,10 @@ static void handle_topic_req(void* arg)
             broadcast_task->message.message = tmq_str_new(retain_msg->retain_msg.message);
             broadcast_task->message.qos = retain_msg->retain_msg.qos;
             broadcast_task->retain = 1;
-            subscribe_info_t info = {.session = *session, .qos = tf->qos};
+            subscribe_info_t info = {
+                    .session = SESSION_SHARE(*session),
+                    .qos = tf->qos
+            };
             tmq_vec_push_back(broadcast_task->subscribers, info);
             tmq_io_context_t* context = (*session)->conn->io_context;
             tmq_mailbox_push(&context->broadcast_tasks, broadcast_task);
@@ -273,23 +269,22 @@ static void handle_publish_req(void* arg)
     free(arg);
 }
 
-void mqtt_connect_request(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt* connect_pkt)
+void mqtt_connect(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt* connect_pkt)
 {
     session_req req = {
             .op = SESSION_CONNECT,
             .connect_req = {
-                    .conn = conn,
+                    .conn = TCP_CONN_SHARE(conn),
                     .connect_pkt = *connect_pkt
             }
     };
-    get_ref((tmq_ref_counted_t*) conn);
     session_task_ctx* ctx = malloc(sizeof(session_task_ctx));
     ctx->broker = broker;
     ctx->req = req;
     tmq_executor_post(&broker->executor, handle_session_req, ctx,1);
 }
 
-void mqtt_disconnect_request(tmq_broker_t* broker, tmq_session_t* session)
+void mqtt_disconnect(tmq_broker_t* broker, tmq_session_t* session)
 {
     session_req req = {
             .op = SESSION_DISCONNECT,
@@ -301,8 +296,7 @@ void mqtt_disconnect_request(tmq_broker_t* broker, tmq_session_t* session)
     tmq_executor_post(&broker->executor, handle_session_req, ctx,1);
 }
 
-void mqtt_subscribe_request(tmq_broker_t* broker, tmq_str_t client_id,
-                            tmq_subscribe_pkt* subscribe_pkt)
+void mqtt_subscribe(tmq_broker_t* broker, tmq_str_t client_id, tmq_subscribe_pkt* subscribe_pkt)
 {
     topic_req req = {
             .op = TOPIC_SUBSCRIBE,
@@ -315,7 +309,7 @@ void mqtt_subscribe_request(tmq_broker_t* broker, tmq_str_t client_id,
     tmq_executor_post(&broker->executor, handle_topic_req, ctx,1);
 }
 
-void mqtt_unsubscribe_request(tmq_broker_t* broker, tmq_str_t client_id,
+void mqtt_unsubscribe(tmq_broker_t* broker, tmq_str_t client_id,
                               tmq_unsubscribe_pkt* unsubscribe_pkt)
 {
     topic_req req = {
@@ -329,7 +323,7 @@ void mqtt_unsubscribe_request(tmq_broker_t* broker, tmq_str_t client_id,
     tmq_executor_post(&broker->executor, handle_topic_req, ctx,1);
 }
 
-void mqtt_publish_request(void* arg, char* topic, tmq_message* message, uint8_t retain)
+void mqtt_publish(void* arg, char* topic, tmq_message* message, uint8_t retain)
 {
     tmq_broker_t* broker = arg;
 
@@ -360,6 +354,7 @@ static void mqtt_broadcast(tmq_broker_t* broker, char* topic, tmq_message* messa
     for(; tmq_map_has_next(iter); tmq_map_next(*subscribers, iter))
     {
         subscribe_info_t* info = iter.second;
+        SESSION_SHARE(info->session);
         int io_context_idx = info->session->conn->io_context->index;
         tmq_vec_push_back(broadcast_tasks[io_context_idx]->subscribers, *info);
     }

@@ -15,7 +15,6 @@ typedef void* tmq_mail_t;
 typedef tmq_vec(tmq_mail_t) tmq_mail_list_t;
 typedef struct tmq_mailbox_s tmq_mailbox_t;
 typedef void(*mail_handler)(void* owner, tmq_mail_t mail);
-typedef void(*mail_cleanup)(tmq_mail_t mail);
 
 typedef struct tmq_mailbox_s {
     void* owner;
@@ -30,7 +29,6 @@ void tmq_mailbox_init(tmq_mailbox_t* mailbox, tmq_event_loop_t* loop,
 void tmq_mailbox_push(tmq_mailbox_t* mailbox, tmq_mail_t mail);
 
 typedef tmq_map(char*, tmq_tcp_conn_t*) tcp_conn_map_t;
-typedef tmq_vec(tmq_socket_t) tcp_conn_list_t;
 typedef struct tmq_io_context_s
 {
     tmq_broker_t* broker;
@@ -45,18 +43,6 @@ typedef struct tmq_io_context_s
     tmq_mailbox_t mqtt_connect_responses;
     tmq_mailbox_t packet_sending_tasks;
     tmq_mailbox_t broadcast_tasks;
-
-//    tcp_conn_list_t pending_tcp_conns;
-//    connect_resp_list connect_resps;
-//    packet_send_list sending_packets;
-//
-//    pthread_mutex_t pending_conns_lk;
-//    pthread_mutex_t connect_resp_lk;
-//    pthread_mutex_t sending_packets_lk;
-//
-//    tmq_notifier_t new_conn_notifier;
-//    tmq_notifier_t connect_resp_notifier;
-//    tmq_notifier_t sending_packets_notifier;
 } tmq_io_context_t;
 
 void tmq_io_context_init(tmq_io_context_t* context, tmq_broker_t* broker, int index);

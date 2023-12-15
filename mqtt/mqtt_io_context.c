@@ -15,7 +15,7 @@
 extern void handle_session_req(void* arg);
 
 /* called when closing a tcp conn */
-static void tcp_conn_cleanup(tmq_tcp_conn_t* conn, void* arg)
+static void tcp_conn_close_callback(tmq_tcp_conn_t* conn, void* arg)
 {
     tmq_io_context_t* context = conn->io_context;
     tcp_conn_ctx* conn_ctx = conn->context;
@@ -35,13 +35,13 @@ static void tcp_conn_cleanup(tmq_tcp_conn_t* conn, void* arg)
         session_task_ctx* task_ctx = malloc(sizeof(session_task_ctx));
         task_ctx->broker = broker;
         task_ctx->req = req;
-        tmq_executor_post(&broker->executor, handle_session_req, task_ctx,1);
+        tmq_executor_post(&broker->executor, handle_session_req, task_ctx, 1);
     }
 
     char conn_name[50];
     tmq_tcp_conn_id(conn, conn_name, sizeof(conn_name));
     tmq_map_erase(context->tcp_conns, conn_name);
-    release_ref((tmq_ref_counted_t*) conn);
+    TCP_CONN_RELEASE(conn);
 }
 
 static void tcp_checkalive(void* arg)
@@ -103,7 +103,7 @@ static void new_tcp_connection_handler(void* owner, tmq_mail_t mail)
     tmq_socket_t sock = (tmq_socket_t)(intptr_t)mail;
 
     tmq_tcp_conn_t* conn = tmq_tcp_conn_new(&context->loop, context, sock, &context->broker->codec);
-    conn->on_close = tcp_conn_cleanup;
+    conn->on_close = tcp_conn_close_callback;
     conn->state = CONNECTED;
 
     tcp_conn_broker_ctx* conn_ctx = malloc(sizeof(tcp_conn_broker_ctx));
@@ -116,7 +116,7 @@ static void new_tcp_connection_handler(void* owner, tmq_mail_t mail)
 
     char conn_name[50];
     tmq_tcp_conn_id(conn, conn_name, sizeof(conn_name));
-    get_ref((tmq_ref_counted_t*) conn);
+    TCP_CONN_SHARE(conn);
     tmq_map_put(context->tcp_conns, conn_name, conn);
     assert(conn->ref_cnt == 3);
 
@@ -146,7 +146,7 @@ static void connect_complete_handler(void* owner, tmq_mail_t mail)
         ctx->req = req;
         tmq_executor_post(&broker->executor, handle_session_req, ctx,1);
 
-        release_ref((tmq_ref_counted_t*) resp->conn);
+        TCP_CONN_RELEASE(resp->conn);
         return;
     }
 
@@ -161,10 +161,10 @@ static void connect_complete_handler(void* owner, tmq_mail_t mail)
             .return_code = resp->return_code,
             .ack_flags = resp->session_present
     };
-    send_connack_packet(resp->conn, &pkt);
+    send_conn_ack_packet(resp->conn, &pkt);
     if(resp->return_code == CONNECTION_ACCEPTED)
         tmq_session_start(resp->session);
-    release_ref((tmq_ref_counted_t*) resp->conn);
+    TCP_CONN_RELEASE(resp->conn);
     free(resp);
 }
 
@@ -173,7 +173,7 @@ static void send_packet_handler(void* owner, tmq_mail_t mail)
     packet_send_task* send_task = mail;
     tmq_send_any_packet(send_task->conn, &send_task->pkt);
     tmq_any_pkt_cleanup(&send_task->pkt);
-    release_ref((tmq_ref_counted_t*) send_task->conn);
+    TCP_CONN_RELEASE(send_task->conn);
     free(send_task);
 }
 
@@ -186,10 +186,8 @@ static void broadcast_handler(void* owner, tmq_mail_t mail)
     {
         tmq_session_t* session = info->session;
         uint8_t qos = info->qos < message->qos ? info->qos : message->qos;
-        if(session->state == OPEN)
-            tmq_session_publish(session, broadcast_task->topic, message->message, qos, broadcast_task->retain);
-        else if(!session->clean_session)
-            tmq_session_store_publish(session, broadcast_task->topic, message->message, qos, broadcast_task->retain);
+        tmq_session_publish(session, broadcast_task->topic, message->message, qos, broadcast_task->retain);
+        SESSION_RELEASE(session);
     }
     tmq_str_free(broadcast_task->topic);
     tmq_str_free(broadcast_task->message.message);
@@ -239,21 +237,6 @@ void tmq_io_context_init(tmq_io_context_t* context, tmq_broker_t* broker, int in
 //    context->tcp_checkalive_timer = tmq_event_loop_add_timer(&context->loop, timer);
 //    timer = tmq_timer_new(SEC_MS(1), 1, mqtt_keepalive, context);
 //    context->mqtt_keepalive_timer = tmq_event_loop_add_timer(&context->loop, timer);
-
-//    if(pthread_mutex_init(&context->pending_conns_lk, NULL))
-//        fatal_error("pthread_mutex_init() error %d: %s", errno, strerror(errno));
-//    if(pthread_mutex_init(&context->connect_resp_lk, NULL))
-//        fatal_error("pthread_mutex_init() error %d: %s", errno, strerror(errno));
-//    if(pthread_mutex_init(&context->sending_packets_lk, NULL))
-//        fatal_error("pthread_mutex_init() error %d: %s", errno, strerror(errno));
-//
-//    tmq_vec_init(&context->pending_tcp_conns, tmq_socket_t);
-//    tmq_vec_init(&context->connect_resps, session_connect_resp);
-//    tmq_vec_init(&context->sending_packets, packet_send_req);
-//
-//    tmq_notifier_init(&context->new_conn_notifier, &context->loop, handle_new_connection, context);
-//    tmq_notifier_init(&context->connect_resp_notifier, &context->loop, handle_new_session, context);
-//    tmq_notifier_init(&context->sending_packets_notifier, &context->loop, send_packets, context);
 
     tmq_mailbox_init(&context->pending_tcp_connections, &context->loop, context, new_tcp_connection_handler);
     tmq_mailbox_init(&context->mqtt_connect_responses, &context->loop, context, connect_complete_handler);

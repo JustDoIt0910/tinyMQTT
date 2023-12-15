@@ -20,7 +20,7 @@ void tmq_buffer_init(tmq_buffer_t* buffer)
     buffer->chunks = 0;
 }
 
-static tmq_buffer_chunk_t* buffer_chunk_new(tmq_buffer_t* buffer, size_t size)
+static tmq_buffer_chunk_t* buffer_chunk_new(size_t size)
 {
     if(size < BUFFER_CHUNK_MIN) size = BUFFER_CHUNK_MIN;
     tmq_buffer_chunk_t* chunk = malloc(sizeof(tmq_buffer_chunk_t) + size);
@@ -46,7 +46,7 @@ void tmq_buffer_append(tmq_buffer_t* buffer, const char* data, size_t size)
     if(!chunk)
     {
 
-        chunk = buffer_chunk_new(buffer, size);
+        chunk = buffer_chunk_new(size);
         memcpy(chunk->buf, data, size);
         chunk->write_idx += size;
         buffer->first = buffer->last = chunk;
@@ -71,7 +71,7 @@ void tmq_buffer_append(tmq_buffer_t* buffer, const char* data, size_t size)
         chunk->write_idx += last_writable;
         data += last_writable;
         size_t remain = size - last_writable;
-        tmq_buffer_chunk_t* new_chunk = buffer_chunk_new(buffer, remain);
+        tmq_buffer_chunk_t* new_chunk = buffer_chunk_new(remain);
         memcpy(new_chunk->buf, data, remain);
         new_chunk->write_idx += remain;
         chunk->next = new_chunk;
@@ -86,7 +86,7 @@ void tmq_buffer_prepend(tmq_buffer_t* buffer, const char* data, size_t size)
     tmq_buffer_chunk_t* chunk = buffer->first;
     if(!chunk)
     {
-        chunk = buffer_chunk_new(buffer, size);
+        chunk = buffer_chunk_new(size);
         memcpy(chunk->buf, data, size);
         chunk->write_idx += size;
         buffer->first = buffer->last = chunk;
@@ -100,7 +100,7 @@ void tmq_buffer_prepend(tmq_buffer_t* buffer, const char* data, size_t size)
     else
     {
         size_t remain = size - chunk->read_idx;
-        tmq_buffer_chunk_t* new_chunk = buffer_chunk_new(buffer, remain);
+        tmq_buffer_chunk_t* new_chunk = buffer_chunk_new(remain);
         size_t align = new_chunk->chunk_size - remain;
         new_chunk->read_idx += align;
         memcpy(new_chunk->buf + new_chunk->read_idx, data, remain);
@@ -122,7 +122,7 @@ static size_t buffer_read_internal(tmq_buffer_t* buffer, char* buf, size_t size,
     if(!buffer || !buf || !size) return 0;
     if(size > buffer->readable_bytes)
     {
-        tlog_warn("buffer_read_internal(): buffer->redable_bytes < size");
+        tlog_warn("buffer_read_internal(): buffer->readable_bytes < size");
         size = buffer->readable_bytes;
     }
     tmq_buffer_chunk_t* chunk = buffer->first, *next;
@@ -262,12 +262,12 @@ ssize_t tmq_buffer_read_fd(tmq_buffer_t* buffer, tmq_socket_t fd, size_t max)
     {
         if(!chunk)
         {
-            chunk = buffer_chunk_new(buffer, size);
+            chunk = buffer_chunk_new(size);
             buffer->first = chunk;
         }
         else
         {
-            chunk->next = buffer_chunk_new(buffer, size);
+            chunk->next = buffer_chunk_new(size);
             chunk = chunk->next;
         }
         vecs[iovec_cnt].iov_base = chunk->buf;
