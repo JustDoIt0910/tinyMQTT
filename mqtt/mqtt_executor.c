@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include "tlog.h"
 #include "base/mqtt_util.h"
-#include "mqtt_task_executor.h"
+#include "mqtt_executor.h"
 
 
 void tmq_executor_init(tmq_executor_t* executor, int pri_num)
@@ -26,6 +26,7 @@ void tmq_executor_init(tmq_executor_t* executor, int pri_num)
     executor->preempt = 0;
     executor->task_total = 0;
     executor->max_pri = pri_num - 1;
+    executor->stop = 0;
 }
 
 static void* thread_routine_(void* arg)
@@ -40,6 +41,8 @@ static void* thread_routine_(void* arg)
         pthread_mutex_lock(&executor->lk);
         while(executor->task_total == 0)
             pthread_cond_wait(&executor->cond, &executor->lk);
+        if(executor->stop && executor->task_total == 0)
+            return NULL;
 
         task_exec_ctx* ctx;
         int i =  executor->max_pri;
@@ -92,6 +95,15 @@ void tmq_executor_run(tmq_executor_t* executor)
     pthread_create(&executor->th, NULL, thread_routine_, executor);
 }
 
+void tmq_executor_stop(tmq_executor_t* executor)
+{
+    pthread_mutex_lock(&executor->lk);
+    executor->stop = 1;
+    pthread_mutex_unlock(&executor->lk);
+    pthread_cond_signal(&executor->cond);
+    pthread_join(executor->th, NULL);
+}
+
 void tmq_executor_post(tmq_executor_t* executor, void(*routine)(void*), void* arg, int pri)
 {
     tmq_task_t task = {
@@ -100,11 +112,13 @@ void tmq_executor_post(tmq_executor_t* executor, void(*routine)(void*), void* ar
     };
 
     pthread_mutex_lock(&executor->lk);
+
     task_exec_ctx* ctx = &executor->exec[pri];
     tmq_vec_push_back(ctx->main_buf, task);
     executor->task_total++;
     if(executor->executing_pri < pri)
         atomicSet(executor->preempt, 1);
+
     pthread_mutex_unlock(&executor->lk);
     pthread_cond_signal(&executor->cond);
 }

@@ -25,9 +25,11 @@ struct Test elems[] = {{12, 23, 13, "elem1"}, {43, 23, 75, "elem2"}, {54, 2, 767
                        {76, 34, 23, "elem4"}, {43, 231, 7, "elem5"}, {2, 53, 65, "elem6"},
                        {38, 27, 10, "elem7"}};
 
+#include <pthread.h>
+
 int main()
 {
-//    vec_int_t v = tmq_vec_init(int);
+    vec_int_t v = tmq_vec_make(int);
 //
 //    tmq_vec_push_back(v, 1);
 //    tmq_vec_push_back(v, 2);
@@ -61,16 +63,18 @@ int main()
 //
 //    tmq_vec_free(v);
 
-    tmq_vec(int) v1 = tmq_vec_make(int);
-    for(int i = 1; i < 10; i++)
-        tmq_vec_push_back(v1, i);
+//    tmq_vec(int) v1 = tmq_vec_make(int);
+//    for(int i = 1; i < 10; i++)
+//        tmq_vec_push_back(v1, i);
+//
+//    tmq_vec(int) v2 = tmq_vec_make(int);
+//    for(int i = 10; i < 20; i++)
+//        tmq_vec_push_back(v2, i);
+//
+//    tmq_vec_extend(v1, v2);
+//    for(int* p = tmq_vec_begin(v1); p != tmq_vec_end(v1); p++)
+//        printf("%d ", *p);
 
-    tmq_vec(int) v2 = tmq_vec_make(int);
-    for(int i = 10; i < 20; i++)
-        tmq_vec_push_back(v2, i);
 
-    tmq_vec_extend(v1, v2);
-    for(int* p = tmq_vec_begin(v1); p != tmq_vec_end(v1); p++)
-        printf("%d ", *p);
     return 0;
 }

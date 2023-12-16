@@ -10,7 +10,7 @@
 #include "mqtt/mqtt_codec.h"
 #include <pthread.h>
 
-typedef struct tmq_io_group_s tmq_io_group_t;
+typedef struct tmq_io_context_s tmq_io_context_t;
 typedef struct tmq_tcp_conn_s tmq_tcp_conn_t;
 typedef void(*tcp_close_cb)(tmq_tcp_conn_t* conn, void* arg);
 typedef void(*context_cleanup_cb)(void* context);
@@ -25,11 +25,11 @@ typedef enum tmq_tcp_conn_state_e
 
 typedef struct tmq_tcp_conn_s
 {
+    REF_COUNTED_MEMBERS
     tmq_socket_t fd;
     tmq_tcp_conn_state state;
-    int ref_cnt;
     tmq_event_loop_t* loop;
-    tmq_io_group_t* group;
+    tmq_io_context_t* io_context;
     tmq_codec_t* codec;
 
     tmq_socket_addr_t local_addr, peer_addr;
@@ -47,10 +47,11 @@ typedef struct tmq_tcp_conn_s
     void* context;
 } tmq_tcp_conn_t;
 
-tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_event_loop_t* loop, tmq_io_group_t* group,
+#define TCP_CONN_SHARE(conn) ((tmq_tcp_conn_t*) get_ref((tmq_ref_counted_t*) (conn)))
+#define TCP_CONN_RELEASE(conn) release_ref((tmq_ref_counted_t*) (conn))
+
+tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_event_loop_t* loop, tmq_io_context_t* io_context,
                                  tmq_socket_t fd, tmq_codec_t* codec);
-tmq_tcp_conn_t* get_conn_ref(tmq_tcp_conn_t* conn);
-void release_conn_ref(tmq_tcp_conn_t* conn);
 
 /* functions below must be called only in the io thread of the connection */
 void tmq_tcp_conn_write(tmq_tcp_conn_t* conn, char* data, size_t size);

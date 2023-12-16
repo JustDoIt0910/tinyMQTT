@@ -18,27 +18,17 @@ typedef enum conn_state_e
 typedef struct tmq_broker_s tmq_broker_t;
 typedef struct tmq_client_s tiny_mqtt;
 
-#define TCP_CONN_CTX_COMMON \
-union                       \
-{                           \
-    tmq_broker_t* broker;   \
-    tmq_session_t* session; \
-    tiny_mqtt* client;      \
-} upstream;                 \
-conn_state_e conn_state;    \
-pkt_parsing_ctx parsing_ctx;\
-int64_t last_msg_time;
-
 typedef struct tcp_conn_ctx_s
 {
-    TCP_CONN_CTX_COMMON
+    union
+    {
+        tmq_broker_t* broker;
+        tmq_session_t* session;
+        tiny_mqtt* client;
+    } upstream;
+    conn_state_e conn_state;
+    pkt_parsing_ctx parsing_ctx;
 } tcp_conn_ctx;
-
-typedef struct tcp_conn_broker_ctx_s
-{
-    TCP_CONN_CTX_COMMON
-    packet_list pending_packets;
-} tcp_conn_broker_ctx;
 
 typedef struct session_connect_resp
 {
@@ -47,19 +37,11 @@ typedef struct session_connect_resp
     tmq_tcp_conn_t* conn;
     int session_present;
 } session_connect_resp;
-typedef tmq_vec(session_connect_resp) connect_resp_list;
 
 typedef struct tmq_message
 {
     tmq_str_t message;
     uint8_t qos;
 } tmq_message;
-
-typedef struct packet_send_req
-{
-    tmq_tcp_conn_t* conn;
-    tmq_any_packet_t pkt;
-} packet_send_req;
-typedef tmq_vec(packet_send_req) packet_send_list;
 
 #endif //TINYMQTT_MQTT_TYPES_H

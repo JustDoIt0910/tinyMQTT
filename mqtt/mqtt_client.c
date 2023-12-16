@@ -17,12 +17,12 @@ struct publish_args
 void tcp_conn_close_cb(tmq_tcp_conn_t* conn, void* arg)
 {
     tiny_mqtt* mqtt = arg;
-    release_conn_ref(mqtt->conn);
+    TCP_CONN_RELEASE(mqtt->conn);
     mqtt->conn = NULL;
     tcp_conn_ctx* ctx = conn->context;
     if(ctx->conn_state == IN_SESSION)
     {
-        tmq_session_close(ctx->upstream.session);
+        tmq_session_close(ctx->upstream.session, 0);
         if(mqtt->session->clean_session)
         {
             tmq_session_free(mqtt->session);
@@ -34,7 +34,8 @@ void tcp_conn_close_cb(tmq_tcp_conn_t* conn, void* arg)
 static void on_tcp_connected(void* arg, tmq_socket_t sock)
 {
     tiny_mqtt* mqtt = arg;
-    mqtt->conn = get_conn_ref(tmq_tcp_conn_new(&mqtt->loop, NULL, sock, &mqtt->codec));
+    mqtt->conn = tmq_tcp_conn_new(&mqtt->loop, NULL, sock, &mqtt->codec);
+    TCP_CONN_SHARE(mqtt->conn);
     mqtt->conn->on_close = tcp_conn_close_cb;
     mqtt->conn->cb_arg = mqtt;
 
@@ -42,7 +43,6 @@ static void on_tcp_connected(void* arg, tmq_socket_t sock)
     conn_ctx->upstream.client = mqtt;
     conn_ctx->conn_state = NO_SESSION;
     conn_ctx->parsing_ctx.state = PARSING_FIXED_HEADER;
-    conn_ctx->last_msg_time = time_now();
     tmq_tcp_conn_set_context(mqtt->conn, conn_ctx, NULL);
 
     tmq_connect_pkt pkt;
@@ -80,7 +80,7 @@ static void on_tcp_connect_failed(void* arg)
         if(mqtt->on_disconnect)
             mqtt->on_disconnect(mqtt);
     }
-    else tmq_event_loop_quit(&mqtt->loop);
+    else tmq_event_loop_quit(&mqtt->loop, 0);
 }
 
 static void on_mqtt_message(void* arg, char* topic, tmq_message* message, uint8_t retain)
@@ -99,7 +99,7 @@ static void on_publish_finish(void* arg, uint16_t packet_id, uint8_t qos)
         if(mqtt->on_publish)
             mqtt->on_publish(mqtt, packet_id, qos);
     }
-    else tmq_event_loop_quit(&mqtt->loop);
+    else tmq_event_loop_quit(&mqtt->loop, 0);
 }
 
 static void on_disconnected(void* arg)
@@ -111,7 +111,7 @@ static void on_disconnected(void* arg)
         if(mqtt->on_disconnect)
             mqtt->on_disconnect(mqtt);
     }
-    else tmq_event_loop_quit(&mqtt->loop);
+    else tmq_event_loop_quit(&mqtt->loop, 0);
 }
 
 static void on_qos0_publish_finished(void* arg)
@@ -119,10 +119,11 @@ static void on_qos0_publish_finished(void* arg)
     tiny_mqtt* mqtt = arg;
     mqtt->conn->on_write_complete = NULL;
     mqtt->conn->cb_arg = NULL;
-    tmq_event_loop_quit(&mqtt->loop);
+
+    tmq_event_loop_quit(&mqtt->loop, 0);
 }
 
-void on_mqtt_connect_response(tiny_mqtt* mqtt, tmq_connack_pkt* connack_pkt)
+void on_connect_response(tiny_mqtt* mqtt, tmq_connack_pkt* connack_pkt)
 {
     mqtt->connect_res = connack_pkt->return_code;
     tcp_conn_ctx* ctx = mqtt->conn->context;
@@ -144,7 +145,7 @@ void on_mqtt_connect_response(tiny_mqtt* mqtt, tmq_connack_pkt* connack_pkt)
         if(mqtt->on_connect)
             mqtt->on_connect(mqtt, connack_pkt->return_code);
     }
-    else tmq_event_loop_quit(&mqtt->loop);
+    else tmq_event_loop_quit(&mqtt->loop, 0);
 }
 
 void on_mqtt_subscribe_response(tiny_mqtt* mqtt, tmq_suback_pkt* suback_pkt)
@@ -156,7 +157,7 @@ void on_mqtt_subscribe_response(tiny_mqtt* mqtt, tmq_suback_pkt* suback_pkt)
             mqtt->on_subscribe(mqtt, mqtt->subscribe_res);
         tmq_vec_free(mqtt->subscribe_res);
     }
-    else tmq_event_loop_quit(&mqtt->loop);
+    else tmq_event_loop_quit(&mqtt->loop, 0);
 }
 
 void on_mqtt_unsubscribe_response(tiny_mqtt* mqtt, tmq_unsuback_pkt* unsuback_pkt)
@@ -166,7 +167,7 @@ void on_mqtt_unsubscribe_response(tiny_mqtt* mqtt, tmq_unsuback_pkt* unsuback_pk
         if(mqtt->on_unsubscribe)
             mqtt->on_unsubscribe(mqtt);
     }
-    else tmq_event_loop_quit(&mqtt->loop);
+    else tmq_event_loop_quit(&mqtt->loop, 0);
 }
 
 static void handle_async_operations(void* arg)
@@ -310,7 +311,7 @@ void tinymqtt_unsubscribe(tiny_mqtt* mqtt, const char* topic_filter)
 
 void tinymqtt_set_publish_callback(tiny_mqtt* mqtt, mqtt_publish_cb cb) {if(mqtt)mqtt->on_publish = cb;}
 
-void tinymqtt_publish(tiny_mqtt* mqtt, const char* topic, const char* message, uint8_t qos, int retain)
+void tinymqtt_publish(tiny_mqtt* mqtt, char* topic, char* message, uint8_t qos, int retain)
 {
     if(!message || !topic || qos > 2 || !mqtt->session) return;
     if(mqtt->async)
@@ -336,8 +337,7 @@ void tinymqtt_publish(tiny_mqtt* mqtt, const char* topic, const char* message, u
         mqtt->conn->cb_arg = mqtt;
     }
     tmq_session_publish(mqtt->session, topic, message, qos, retain);
-    if(!mqtt->loop.quit)
-        tmq_event_loop_run(&mqtt->loop);
+    tmq_event_loop_run(&mqtt->loop);
 }
 
 void tinymqtt_set_message_callback(tiny_mqtt* mqtt, mqtt_message_cb cb) {if(mqtt) mqtt->on_message = cb;}
@@ -355,10 +355,10 @@ static void ping(void* arg)
             if(mqtt->on_disconnect)
                 mqtt->on_disconnect(mqtt);
         }
-        else tmq_event_loop_quit(&mqtt->loop);
+        else tmq_event_loop_quit(&mqtt->loop, 0);
         return;
     }
-    send_pingreq_packet(mqtt->conn, NULL);
+    send_ping_req_packet(mqtt->conn, NULL);
 }
 
 void tinymqtt_set_disconnect_callback(tiny_mqtt* mqtt, mqtt_disconnect_cb cb) {if(mqtt) mqtt->on_disconnect = cb;}
@@ -379,8 +379,7 @@ void tinymqtt_disconnect(tiny_mqtt* mqtt)
     mqtt->conn->on_write_complete = on_disconnected;
     mqtt->conn->cb_arg = mqtt;
     send_disconnect_packet(mqtt->conn, NULL);
-    if(!mqtt->loop.quit)
-        tmq_event_loop_run(&mqtt->loop);
+    tmq_event_loop_run(&mqtt->loop);
     tmq_tcp_conn_shutdown(mqtt->conn);
 }
 
@@ -406,7 +405,7 @@ static void* io_thread_func(void* arg)
     return NULL;
 }
 
-void tinymqtt_loop_threaded(tiny_mqtt* mqtt)
+void tinymqtt_loop_async(tiny_mqtt* mqtt)
 {
     pthread_create(&mqtt->io_thread, NULL, io_thread_func, mqtt);
     pthread_mutex_lock(&mqtt->lk);
@@ -415,6 +414,6 @@ void tinymqtt_loop_threaded(tiny_mqtt* mqtt)
     pthread_mutex_unlock(&mqtt->lk);
 }
 
-void tinymqtt_quit(tiny_mqtt* mqtt) { tmq_event_loop_quit(&mqtt->loop);}
+void tinymqtt_quit(tiny_mqtt* mqtt) { tmq_event_loop_quit(&mqtt->loop, 1);}
 
 void tinymqtt_async_wait(tiny_mqtt* mqtt){ pthread_join(mqtt->io_thread, NULL);}

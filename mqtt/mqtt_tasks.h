@@ -5,8 +5,7 @@
 #ifndef TINYMQTT_MQTT_TASKS_H
 #define TINYMQTT_MQTT_TASKS_H
 #include "mqtt_packet.h"
-#include "mqtt_types.h"
-#include "mqtt_task_executor.h"
+#include "mqtt_topic.h"
 #include "base/mqtt_util.h"
 #include <stdlib.h>
 
@@ -77,6 +76,21 @@ typedef struct publish_task_ctx
 {
     tmq_broker_t* broker;
     publish_req req;
-}publish_task_ctx;
+} publish_task_ctx;
+
+typedef struct broadcast_task_ctx
+{
+    tmq_str_t topic;
+    tmq_message message;
+    int retain;
+    tmq_vec(subscribe_info_t) subscribers;
+} broadcast_task_ctx;
+
+/*************** packet sending task *****************/
+typedef struct packet_send_task
+{
+    tmq_tcp_conn_t* conn;
+    tmq_any_packet_t pkt;
+} packet_send_task;
 
 #endif //TINYMQTT_MQTT_TASKS_H

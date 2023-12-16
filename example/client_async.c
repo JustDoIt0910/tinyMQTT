@@ -36,9 +36,9 @@ void on_publish_finished(tiny_mqtt* mqtt, uint16_t packet_id, uint8_t qos)
 
 int main()
 {
-    tlog_init("broker.log", 1024 * 1024, 10, 0, TLOG_SCREEN);
+    tlog_init("client_async.log", 1024 * 1024, 10, 0, TLOG_SCREEN);
 
-    tiny_mqtt* mqtt = tinymqtt_new("192.168.3.7", 1883);
+    tiny_mqtt* mqtt = tinymqtt_new("127.0.0.1", 1883);
     connect_options ops = {
             "username",
             "password",
@@ -53,7 +53,7 @@ int main()
     tinymqtt_set_disconnect_callback(mqtt, on_disconnect);
     tinymqtt_set_publish_callback(mqtt, on_publish_finished);
 
-    tinymqtt_loop_threaded(mqtt);
+    tinymqtt_loop_async(mqtt);
 
     tinymqtt_connect(mqtt, &ops);
 

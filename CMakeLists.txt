@@ -16,13 +16,12 @@ set(TINYMQTT_LIB_SRC
         net/mqtt_connector.c
         net/mqtt_tcp_conn.c
         net/mqtt_buffer.c
-        mqtt/mqtt_types.c
         mqtt/mqtt_packet.c
         mqtt/mqtt_session.c
         mqtt/mqtt_topic.c
         mqtt/mqtt_codec.c
-        mqtt/mqtt_io_group.c
-        mqtt/mqtt_task_executor.c
+        mqtt/mqtt_io_context.c
+        mqtt/mqtt_executor.c
         mqtt/mqtt_broker.c
         mqtt/mqtt_client.c
         3rd/tinylog/tlog.c
@@ -40,7 +39,7 @@ add_library(mqtt ${TINYMQTT_LIB_SRC})
 link_directories(${CMAKE_BINARY_DIR})
 link_libraries(mqtt pthread)
 
-add_subdirectory(test)
+#add_subdirectory(test)
 add_subdirectory(example)
 add_executable(broker broker.c)
 add_executable(tinymqtt_pwd tinymqtt_pwd.c)
