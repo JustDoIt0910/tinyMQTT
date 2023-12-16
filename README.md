@@ -60,25 +60,45 @@ io_threads=4
 | :------------------ | :-------- | :------- | -------------------------------------------------- |
 | Ubuntu 22.04 虚拟机 | 8         | 6GB      | [emqtt-bench](https://github.com/emqx/emqtt-bench) |
 
-mosquitto 25W 测试：
+**25W 测试：**
+
+```shell
+# 订阅方
+./emqtt-bench sub -c 1000 -i 1 -t bench/1 -V 4
+# 发布方
+./emqtt-bench pub -c 5 -I 20 -t bench/1 -s 16 -V 4
+```
+
+**mosquitto:**
 
 ![mosquitto_25W](https://github.com/JustDoIt0910/MarkDownPictures/blob/main/tinyMQTT/mosquitto_25W.png)
 
 实际订阅速率为 13W 左右，没有达到预期。
 
-mosquitto 50W 测试：
+**tinyMQTT：**
+
+![tinyMQTT_25W](https://github.com/JustDoIt0910/MarkDownPictures/blob/main/tinyMQTT/tinyMQTT_25W.png)
+
+实际订阅速率达到且稳定在 25W。
+
+**50W 测试：**
+
+```shell
+# 订阅方
+./emqtt-bench sub -c 1000 -i 1 -t bench/1 -V 4
+# 发布方
+./emqtt-bench pub -c 5 -I 10 -t bench/1 -s 16 -V 4
+```
+
+**mosquitto:**
 
 ![mosquitto_50W](https://github.com/JustDoIt0910/MarkDownPictures/blob/main/tinyMQTT/mosquitto_50W.png)
 
 订阅速率基本没变，可见 13W 已经是 mosquitto 极限。
 
-tinyMQTT 25W 测试：
+**tinyMQTT**
 
-[tinyMQTT_25W](https://github.com/JustDoIt0910/MarkDownPictures/blob/main/tinyMQTT/tinyMQTT_25W.png)
-
-实际订阅速率稳定在 25W。
-
-[tinyMQTT_50W](https://github.com/JustDoIt0910/MarkDownPictures/blob/main/tinyMQTT/tinyMQTT_50W.png)
+![tinyMQTT_50W](https://github.com/JustDoIt0910/MarkDownPictures/blob/main/tinyMQTT/tinyMQTT_50W.png)
 
 实际订阅速率在 40W ~ 50W 之间，接近 50W。
 
