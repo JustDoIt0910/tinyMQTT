@@ -84,7 +84,7 @@ void tinymqtt_set_disconnect_callback(tiny_mqtt* mqtt, mqtt_disconnect_cb cb);
 void tinymqtt_disconnect(tiny_mqtt* mqtt);
 
 void tinymqtt_loop(tiny_mqtt* mqtt);
-void tinymqtt_loop_threaded(tiny_mqtt* mqtt);
+void tinymqtt_loop_async(tiny_mqtt* mqtt);
 void tinymqtt_quit(tiny_mqtt* mqtt);
 void tinymqtt_async_wait(tiny_mqtt* mqtt);
 void tinymqtt_destroy(tiny_mqtt* mqtt);

@@ -16,13 +16,12 @@ set(TINYMQTT_LIB_SRC
         net/mqtt_connector.c
         net/mqtt_tcp_conn.c
         net/mqtt_buffer.c
-        mqtt/mqtt_types.c
         mqtt/mqtt_packet.c
         mqtt/mqtt_session.c
         mqtt/mqtt_topic.c
         mqtt/mqtt_codec.c
         mqtt/mqtt_io_context.c
-        mqtt/mqtt_task_executor.c
+        mqtt/mqtt_executor.c
         mqtt/mqtt_broker.c
         mqtt/mqtt_client.c
         3rd/tinylog/tlog.c

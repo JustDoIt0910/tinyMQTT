@@ -442,7 +442,7 @@ void tmq_broker_run(tmq_broker_t* broker)
     {
         tmq_io_context_stop(&broker->io_contexts[i]);
         tmq_io_context_destroy(&broker->io_contexts[i]);
-        pthread_join(broker->io_contexts[i].io_thread, NULL);
     }
+    tmq_executor_stop(&broker->executor);
     tmq_event_loop_destroy(&broker->loop);
 }

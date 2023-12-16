@@ -34,8 +34,6 @@ typedef struct tmq_io_context_s
     tmq_event_loop_t loop;
     tcp_conn_map_t tcp_conns;
     tmq_timer_id_t mqtt_keepalive_timer;
-    pthread_mutex_t stop_lk;
-    pthread_cond_t stop_cond;
 
     tmq_mailbox_t pending_tcp_connections;
     tmq_mailbox_t mqtt_connect_responses;

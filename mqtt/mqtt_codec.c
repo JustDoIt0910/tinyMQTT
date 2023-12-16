@@ -459,8 +459,7 @@ extern void tmq_session_handle_pubcomp(tmq_session_t* session, tmq_pubcomp_pkt* 
 extern void tmq_session_handle_pingreq(tmq_session_t* session);
 
 /* callbacks for client */
-extern void on_mqtt_connect_response(tiny_mqtt* client, tmq_connack_pkt* connack_pkt);
-
+extern void on_connect_response(tiny_mqtt* client, tmq_connack_pkt* connack_pkt);
 extern void tmq_session_handle_suback(tmq_session_t* session, tmq_suback_pkt* suback_pkt);
 extern void tmq_session_handle_unsuback(tmq_session_t* session, tmq_unsuback_pkt* unsuback_pkt);
 extern void tmq_session_handle_pingresp(tmq_session_t* session);
@@ -479,7 +478,7 @@ void tmq_codec_init(tmq_codec_t* codec, tmq_codec_type type)
     codec->on_pub_rel = tmq_session_handle_pubrel;
     codec->on_pub_comp = tmq_session_handle_pubcomp;
     codec->on_ping_req = tmq_session_handle_pingreq;
-    codec->on_conn_ack = on_mqtt_connect_response;
+    codec->on_conn_ack = on_connect_response;
     codec->on_sub_ack = tmq_session_handle_suback;
     codec->on_unsub_ack = tmq_session_handle_unsuback;
     codec->on_ping_resp = tmq_session_handle_pingresp;

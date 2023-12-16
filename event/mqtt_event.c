@@ -223,10 +223,10 @@ int tmq_event_loop_resume_timer(tmq_event_loop_t* loop, tmq_timer_id_t timer_id)
     return tmq_resume_timer(&loop->timer_heap, timer_id);
 }
 
-void tmq_event_loop_quit(tmq_event_loop_t* loop)
+void tmq_event_loop_quit(tmq_event_loop_t* loop, int wakeup)
 {
     atomicSet(loop->quit, 1);
-    tmq_notifier_notify(&loop->quit_notifier);
+    if(wakeup) tmq_notifier_notify(&loop->quit_notifier);
 }
 
 void tmq_event_loop_destroy(tmq_event_loop_t* loop)

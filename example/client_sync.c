@@ -12,13 +12,13 @@ void on_message(char* topic, char* message, uint8_t qos, uint8_t retain)
 
 int main()
 {
-    tlog_init("broker.log", 1024 * 1024, 10, 0, TLOG_SCREEN);
+    tlog_init("client_sync.log", 1024 * 1024, 10, 0, TLOG_SCREEN);
 
-    tiny_mqtt* mqtt = tinymqtt_new("192.168.3.7", 1883);
+    tiny_mqtt* mqtt = tinymqtt_new("127.0.0.1", 1883);
     connect_options ops = {
         "username",
         "password",
-        "tmq_client_test_client",
+        "example_sync_client",
         1,
         60,
         NULL

@@ -2,8 +2,8 @@
 // Created by just do it on 2023/8/24.
 //
 
-#ifndef TINYMQTT_MQTT_TASK_EXECUTOR_H
-#define TINYMQTT_MQTT_TASK_EXECUTOR_H
+#ifndef TINYMQTT_MQTT_EXECUTOR_H
+#define TINYMQTT_MQTT_EXECUTOR_H
 #include <pthread.h>
 #include "base/mqtt_vec.h"
 
@@ -31,6 +31,7 @@ typedef struct tmq_executor_s
 
     int executing_pri;
     int preempt;
+    int stop;
 
     int max_pri;
     size_t task_total;
@@ -38,6 +39,7 @@ typedef struct tmq_executor_s
 
 void tmq_executor_init(tmq_executor_t* executor, int pri_num);
 void tmq_executor_run(tmq_executor_t* executor);
+void tmq_executor_stop(tmq_executor_t* executor);
 void tmq_executor_post(tmq_executor_t* executor, void(*routine)(void*), void* arg, int pri);
 
-#endif //TINYMQTT_MQTT_TASK_EXECUTOR_H
+#endif //TINYMQTT_MQTT_EXECUTOR_H
