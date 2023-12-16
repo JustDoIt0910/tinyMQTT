@@ -1,8 +1,9 @@
-# tinyMQTT(重构中...)
+# tinyMQTT
 
 ## MQTT v3.1.1协议的消息broker和client
 
-编译
+### 编译
+
 ```shell
 git clone https://github.com/JustDoIt0910/tinyMQTT.git
 cd tinyMQTT
@@ -18,7 +19,8 @@ make
 - tinymqtt_pub---- 发布命令行工具
 - tinymqtt_sub-----订阅命令行工具
 
-#### 启动broker
+### 启动 Broker
+
 在broker可执行文件目录下添加 tinymqtt.conf 配置文件:
 ```nginx configuration
 # server port
@@ -44,7 +46,47 @@ io_threads=4
 
 ![p1](https://github.com/JustDoIt0910/MarkDownPictures/blob/main/tinyMQTT/p1.png)
 
-#### 使用客户端库
+### Broker 性能测试
+
+测试对比 tinyMQTT 和 mosquitto 在广播场景下的性能。测试一、二均使用 qos 0 消息。
+
+**测试一**：建立 1000 订阅者，订阅 bench/1 主题，建立 5 个发布者，每个发布者每秒向 bench/1 主题发送 50 条 payload 为 16B 的消息。预期订阅速率为 25W msg/s
+
+**测试二**：建立 1000 订阅者，订阅 bench/1 主题，建立 5 个发布者，每个发布者每秒向 bench/1 主题发送 100 条 payload 为 16B 的消息。预期订阅速率为 50W msg/s
+
+测试工具与 broker 在同一机器。
+
+| 操作系统            | **CPU**数 | **内存** | 测试工具                                           |
+| :------------------ | :-------- | :------- | -------------------------------------------------- |
+| Ubuntu 22.04 虚拟机 | 8         | 6GB      | [emqtt-bench](https://github.com/emqx/emqtt-bench) |
+
+mosquitto 25W 测试：
+
+![mosquitto_25W](https://github.com/JustDoIt0910/MarkDownPictures/blob/main/tinyMQTT/mosquitto_25W.png)
+
+实际订阅速率为 13W 左右，没有达到预期。
+
+mosquitto 50W 测试：
+
+![mosquitto_50W](https://github.com/JustDoIt0910/MarkDownPictures/blob/main/tinyMQTT/mosquitto_50W.png)
+
+订阅速率基本没变，可见 13W 已经是 mosquitto 极限。
+
+tinyMQTT 25W 测试：
+
+[tinyMQTT_25W](https://github.com/JustDoIt0910/MarkDownPictures/blob/main/tinyMQTT/tinyMQTT_25W.png)
+
+实际订阅速率稳定在 25W。
+
+[tinyMQTT_50W](https://github.com/JustDoIt0910/MarkDownPictures/blob/main/tinyMQTT/tinyMQTT_50W.png)
+
+实际订阅速率在 40W ~ 50W 之间，接近 50W。
+
+### Broker 架构
+
+mosquitto 是单线程的，没法利用多核 cpu，所以 tinyMQTT 采用了 one epoll per thread 的多 IO 线程设计，但除 IO 任务之外的其余逻辑，如查询订阅树、mqtt session 管理等仍由唯一的逻辑线程执行。逻辑线程与 IO 线程之间通过类似 Actor 模式的消息传递方式通信，无共享内存。
+
+### 使用客户端库
 
 客户端提供了同步和异步两种使用方式，详见example中的client_sync.c和client_async.c,，默认是采用同步模式的，所有操作(connect/subscribe/unsubscribe/publish)都是同步阻塞的，如果要持续监听消息，可以在程序最后调用tinymqtt_loop()，这会阻塞当前线程，收到消息会调用on_message回调。
 
@@ -142,6 +184,6 @@ int main()
 
 ### TODO
 - [x] 处理client id为空的情况，broker生成默认client id
-- [ ] 修复超时重传定时器的bug
 - [ ] 添加SSL支持
 - [ ] 支持集群部署
+- [ ] 支持 MQTT 5.0

@@ -88,6 +88,7 @@ static void new_tcp_connection_handler(void* owner, tmq_mail_t mail)
     conn_ctx->upstream.broker = context->broker;
     conn_ctx->conn_state = NO_SESSION;
     conn_ctx->parsing_ctx.state = PARSING_FIXED_HEADER;
+    tmq_tcp_conn_set_context(conn, conn_ctx, NULL);
 
     char conn_name[50];
     tmq_tcp_conn_id(conn, conn_name, sizeof(conn_name));
