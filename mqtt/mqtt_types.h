@@ -27,7 +27,6 @@ union                       \
 } upstream;                 \
 conn_state_e conn_state;    \
 pkt_parsing_ctx parsing_ctx;\
-int64_t last_msg_time;
 
 typedef struct tcp_conn_ctx_s
 {

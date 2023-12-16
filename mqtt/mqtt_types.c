@@ -3,7 +3,7 @@
 //
 #include "mqtt_types.h"
 
-void tcp_conn_broker_ctx_cleanup(void* arg)
+void tcp_conn_context_cleanup(void* arg)
 {
     if(!arg) return;
     tcp_conn_broker_ctx* ctx = arg;

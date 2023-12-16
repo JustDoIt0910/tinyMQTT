@@ -12,7 +12,7 @@
 #include <sys/queue.h>
 #include <pthread.h>
 
-#define INITIAL_EVENTLIST_SIZE 16
+#define INITIAL_EVENT_LIST_SIZE 64
 #define EPOLL_WAIT_TIMEOUT  (10 * 1000)
 
 typedef void(*tmq_event_cb)(tmq_socket_t, uint32_t, void*);
@@ -31,6 +31,22 @@ typedef struct tmq_event_handler_s
 } tmq_event_handler_t;
 
 tmq_event_handler_t* tmq_event_handler_new(int fd, short events, tmq_event_cb cb, void* arg, int tie);
+
+
+typedef void (*tmq_notify_cb) (void*);
+typedef struct tmq_notifier_s
+{
+    tmq_event_loop_t* loop;
+    int wakeup_pipe[2];
+    tmq_event_handler_t* wakeup_handler;
+    tmq_notify_cb cb;
+    void* arg;
+} tmq_notifier_t;
+
+void tmq_notifier_init(tmq_notifier_t* notifier, tmq_event_loop_t* loop, tmq_notify_cb cb, void* arg);
+void tmq_notifier_notify(tmq_notifier_t* notifier);
+void tmq_notifier_destroy(tmq_notifier_t* notifier);
+
 
 typedef SLIST_HEAD(handler_list_s, tmq_event_handler_s) handler_queue_t;
 typedef struct
@@ -51,6 +67,7 @@ typedef struct tmq_event_loop_s
     handler_list_t removing_handlers;
     channel_map_t channels;
     tmq_timer_heap_t timer_heap;
+    tmq_notifier_t quit_notifier;
     int running;
     int quit;
 } tmq_event_loop_t;
@@ -73,24 +90,10 @@ void tmq_event_loop_run(tmq_event_loop_t* loop);
 void tmq_handler_register(tmq_event_loop_t* loop, tmq_event_handler_t* handler);
 void tmq_handler_unregister(tmq_event_loop_t* loop, tmq_event_handler_t* handler);
 int tmq_handler_is_registered(tmq_event_loop_t* loop, tmq_event_handler_t* handler);
-tmq_timerid_t tmq_event_loop_add_timer(tmq_event_loop_t* loop, tmq_timer_t* timer);
-void tmq_event_loop_cancel_timer(tmq_event_loop_t* loop, tmq_timerid_t timerid);
-int tmq_event_loop_resume_timer(tmq_event_loop_t* loop, tmq_timerid_t timerid);
+tmq_timer_id_t tmq_event_loop_add_timer(tmq_event_loop_t* loop, tmq_timer_t* timer);
+void tmq_event_loop_cancel_timer(tmq_event_loop_t* loop, tmq_timer_id_t timer_id);
+int tmq_event_loop_resume_timer(tmq_event_loop_t* loop, tmq_timer_id_t timer_id);
 void tmq_event_loop_quit(tmq_event_loop_t* loop);
 void tmq_event_loop_destroy(tmq_event_loop_t* loop);
-
-typedef void (*tmq_notify_cb) (void*);
-typedef struct tmq_notifier_s
-{
-    tmq_event_loop_t* loop;
-    int wakeup_pipe[2];
-    tmq_event_handler_t* wakeup_handler;
-    tmq_notify_cb cb;
-    void* arg;
-} tmq_notifier_t;
-
-void tmq_notifier_init(tmq_notifier_t* notifier, tmq_event_loop_t* loop, tmq_notify_cb cb, void* arg);
-void tmq_notifier_notify(tmq_notifier_t* notifier);
-void tmq_notifier_destroy(tmq_notifier_t* notifier);
 
 #endif //TINYMQTT_MQTT_EVENT_H

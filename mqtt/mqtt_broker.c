@@ -214,7 +214,7 @@ static void handle_topic_req(void* arg)
         }
         tmq_subscribe_pkt_cleanup(&req->subscribe_pkt);
         ack.packet_type = MQTT_SUBACK;
-        ack.packet = sub_ack;
+        ack.packet_ptr = sub_ack;
         tmq_session_send_packet(*session, &ack, 1);
         /* send all the retained messages that match the subscription */
         for(retain_message_t** it = tmq_vec_begin(all_retain); it != tmq_vec_end(all_retain); it++)
@@ -249,7 +249,7 @@ static void handle_topic_req(void* arg)
         }
         tmq_unsubscribe_pkt_cleanup(&req->unsubscribe_pkt);
         ack.packet_type = MQTT_UNSUBACK;
-        ack.packet = unsub_ack;
+        ack.packet_ptr = unsub_ack;
         tmq_session_send_packet(*session, &ack, 1);
     }
     free(arg);
@@ -441,6 +441,7 @@ void tmq_broker_run(tmq_broker_t* broker)
     for(int i = 0; i <  broker->io_threads; i++)
     {
         tmq_io_context_stop(&broker->io_contexts[i]);
+        tmq_io_context_destroy(&broker->io_contexts[i]);
         pthread_join(broker->io_contexts[i].io_thread, NULL);
     }
     tmq_event_loop_destroy(&broker->loop);

@@ -43,7 +43,6 @@ static void on_tcp_connected(void* arg, tmq_socket_t sock)
     conn_ctx->upstream.client = mqtt;
     conn_ctx->conn_state = NO_SESSION;
     conn_ctx->parsing_ctx.state = PARSING_FIXED_HEADER;
-    conn_ctx->last_msg_time = time_now();
     tmq_tcp_conn_set_context(mqtt->conn, conn_ctx, NULL);
 
     tmq_connect_pkt pkt;
@@ -311,7 +310,7 @@ void tinymqtt_unsubscribe(tiny_mqtt* mqtt, const char* topic_filter)
 
 void tinymqtt_set_publish_callback(tiny_mqtt* mqtt, mqtt_publish_cb cb) {if(mqtt)mqtt->on_publish = cb;}
 
-void tinymqtt_publish(tiny_mqtt* mqtt, const char* topic, const char* message, uint8_t qos, int retain)
+void tinymqtt_publish(tiny_mqtt* mqtt, char* topic, char* message, uint8_t qos, int retain)
 {
     if(!message || !topic || qos > 2 || !mqtt->session) return;
     if(mqtt->async)

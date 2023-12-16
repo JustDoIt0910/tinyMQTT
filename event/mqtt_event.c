@@ -52,13 +52,11 @@ void tmq_event_loop_init(tmq_event_loop_t* loop)
     tmq_vec_init(&loop->active_handlers, tmq_event_handler_t*);
     tmq_vec_init(&loop->removing_handlers, tmq_event_handler_t*);
     tmq_map_32_init(&loop->channels, epoll_channel_t , MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
-    tmq_vec_resize(loop->epoll_events, INITIAL_EVENTLIST_SIZE);
-
+    tmq_vec_resize(loop->epoll_events, INITIAL_EVENT_LIST_SIZE);
     loop->running = 0;
     loop->quit = 0;
-   // loop->event_handling = 0;
-
     tmq_timer_heap_init(&loop->timer_heap, loop);
+    tmq_notifier_init(&loop->quit_notifier, loop, NULL, NULL);
 }
 
 void tmq_event_loop_run(tmq_event_loop_t* loop)
@@ -207,25 +205,29 @@ int tmq_handler_is_registered(tmq_event_loop_t* loop, tmq_event_handler_t* handl
     return registered;
 }
 
-tmq_timerid_t tmq_event_loop_add_timer(tmq_event_loop_t* loop, tmq_timer_t* timer)
+tmq_timer_id_t tmq_event_loop_add_timer(tmq_event_loop_t* loop, tmq_timer_t* timer)
 {
-    if(!loop || !timer) return invalid_timerid();
+    if(!loop || !timer) return invalid_timer_id();
     return tmq_timer_heap_add(&loop->timer_heap, timer);
 }
 
-void tmq_event_loop_cancel_timer(tmq_event_loop_t* loop, tmq_timerid_t timerid)
+void tmq_event_loop_cancel_timer(tmq_event_loop_t* loop, tmq_timer_id_t timer_id)
 {
     if(!loop) return;
-    tmq_cancel_timer(&loop->timer_heap, timerid);
+    tmq_cancel_timer(&loop->timer_heap, timer_id);
 }
 
-int tmq_event_loop_resume_timer(tmq_event_loop_t* loop, tmq_timerid_t timerid)
+int tmq_event_loop_resume_timer(tmq_event_loop_t* loop, tmq_timer_id_t timer_id)
 {
     if(!loop) -1;
-    return tmq_resume_timer(&loop->timer_heap, timerid);
+    return tmq_resume_timer(&loop->timer_heap, timer_id);
 }
 
-void tmq_event_loop_quit(tmq_event_loop_t* loop) {atomicSet(loop->quit, 1);}
+void tmq_event_loop_quit(tmq_event_loop_t* loop)
+{
+    atomicSet(loop->quit, 1);
+    tmq_notifier_notify(&loop->quit_notifier);
+}
 
 void tmq_event_loop_destroy(tmq_event_loop_t* loop)
 {
@@ -251,7 +253,8 @@ static void tmq_notifier_on_notify(tmq_socket_t fd, uint32_t events, void* arg)
     if(n < 0)
         fatal_error("read() error %d: %s", errno, strerror(errno));
     const tmq_notifier_t* notifier = arg;
-    notifier->cb(notifier->arg);
+    if(notifier->cb)
+        notifier->cb(notifier->arg);
 }
 
 void tmq_notifier_init(tmq_notifier_t* notifier, tmq_event_loop_t* loop, tmq_notify_cb cb, void* arg)

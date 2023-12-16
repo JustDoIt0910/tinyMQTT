@@ -14,7 +14,7 @@
 
 extern void handle_session_req(void* arg);
 
-/* called when closing a tcp conn */
+/* called when closing a tcp connection */
 static void tcp_conn_close_callback(tmq_tcp_conn_t* conn, void* arg)
 {
     tmq_io_context_t* context = conn->io_context;
@@ -44,28 +44,6 @@ static void tcp_conn_close_callback(tmq_tcp_conn_t* conn, void* arg)
     TCP_CONN_RELEASE(conn);
 }
 
-static void tcp_checkalive(void* arg)
-{
-    tmq_io_context_t* context = arg;
-
-    int64_t now = time_now();
-    tmq_vec(tmq_tcp_conn_t*) timeout_conns = tmq_vec_make(tmq_tcp_conn_t*);
-    tmq_map_iter_t it = tmq_map_iter(context->tcp_conns);
-    for(; tmq_map_has_next(it); tmq_map_next(context->tcp_conns, it))
-    {
-        tmq_tcp_conn_t* conn = *(tmq_tcp_conn_t**) (it.second);
-        tcp_conn_ctx* ctx = conn->context;
-        if((ctx->conn_state == NO_SESSION && now - ctx->last_msg_time > SEC_US(MQTT_CONNECT_MAX_PENDING)) ||
-           (ctx->conn_state != NO_SESSION && now - ctx->last_msg_time > SEC_US(MQTT_TCP_MAX_IDLE)))
-            tmq_vec_push_back(timeout_conns, conn);
-    }
-    /* do remove after iteration to prevent iterator failure */
-    tmq_tcp_conn_t** conn_it = tmq_vec_begin(timeout_conns);
-    for(; conn_it != tmq_vec_end(timeout_conns); conn_it++)
-        tmq_tcp_conn_force_close(*conn_it);
-    tmq_vec_free(timeout_conns);
-}
-
 static void mqtt_keepalive(void* arg)
 {
     tmq_io_context_t *context = arg;
@@ -82,9 +60,11 @@ static void mqtt_keepalive(void* arg)
         tmq_session_t* session = ctx->upstream.session;
         if(!session->keep_alive)
             continue;
-        if(now - session->last_pkt_ts >= (int64_t) SEC_US(session->keep_alive * 1.5))
+        int64_t duration = now - session->last_pkt_ts;
+        if(duration >= (int64_t) SEC_US(session->keep_alive * 1.5))
         {
-            tlog_info("client[%s] is down", session->client_id);
+            tlog_info("session[%s] has no heartbeat in last %ld seconds",
+                      session->client_id, US_SEC(duration));
             tmq_vec_push_back(timeout_conns, conn);
         }
     }
@@ -95,7 +75,7 @@ static void mqtt_keepalive(void* arg)
     tmq_vec_free(timeout_conns);
 }
 
-extern void tcp_conn_broker_ctx_cleanup(void* arg);
+extern void tcp_conn_context_cleanup(void* arg);
 
 static void new_tcp_connection_handler(void* owner, tmq_mail_t mail)
 {
@@ -111,15 +91,13 @@ static void new_tcp_connection_handler(void* owner, tmq_mail_t mail)
     conn_ctx->upstream.broker = context->broker;
     conn_ctx->conn_state = NO_SESSION;
     conn_ctx->parsing_ctx.state = PARSING_FIXED_HEADER;
-    conn_ctx->last_msg_time = time_now();
-    tmq_tcp_conn_set_context(conn, conn_ctx, tcp_conn_broker_ctx_cleanup);
+    tmq_tcp_conn_set_context(conn, conn_ctx, tcp_conn_context_cleanup);
 
     char conn_name[50];
     tmq_tcp_conn_id(conn, conn_name, sizeof(conn_name));
     TCP_CONN_SHARE(conn);
     tmq_map_put(context->tcp_conns, conn_name, conn);
     assert(conn->ref_cnt == 3);
-
     //tlog_info("new connection [%s]", conn_name);
 }
 
@@ -226,6 +204,13 @@ void tmq_mailbox_push(tmq_mailbox_t* mailbox, tmq_mail_t mail)
     tmq_notifier_notify(&mailbox->notifier);
 }
 
+void tmq_mailbox_destroy(tmq_mailbox_t* mailbox)
+{
+    tmq_notifier_destroy(&mailbox->notifier);
+    pthread_mutex_destroy(&mailbox->lk);
+    tmq_vec_free(mailbox->mailbox);
+}
+
 void tmq_io_context_init(tmq_io_context_t* context, tmq_broker_t* broker, int index)
 {
     context->broker = broker;
@@ -233,10 +218,11 @@ void tmq_io_context_init(tmq_io_context_t* context, tmq_broker_t* broker, int in
     tmq_event_loop_init(&context->loop);
     tmq_map_str_init(&context->tcp_conns, tmq_tcp_conn_t*, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
 
-//    tmq_timer_t* timer = tmq_timer_new(SEC_MS(MQTT_TCP_CHECKALIVE_INTERVAL), 1, tcp_checkalive, context);
-//    context->tcp_checkalive_timer = tmq_event_loop_add_timer(&context->loop, timer);
-//    timer = tmq_timer_new(SEC_MS(1), 1, mqtt_keepalive, context);
-//    context->mqtt_keepalive_timer = tmq_event_loop_add_timer(&context->loop, timer);
+    tmq_timer_t* timer = tmq_timer_new(SEC_MS(1), 1, mqtt_keepalive, context);
+    context->mqtt_keepalive_timer = tmq_event_loop_add_timer(&context->loop, timer);
+
+    pthread_mutex_init(&context->stop_lk, NULL);
+    pthread_cond_init(&context->stop_cond, NULL);
 
     tmq_mailbox_init(&context->pending_tcp_connections, &context->loop, context, new_tcp_connection_handler);
     tmq_mailbox_init(&context->mqtt_connect_responses, &context->loop, context, connect_complete_handler);
@@ -249,36 +235,7 @@ static void* io_context_thread_func(void* arg)
     tmq_io_context_t* context = (tmq_io_context_t*) arg;
     tmq_event_loop_run(&context->loop);
 
-    //TODO rewrite clean up logic
-
-//    /* clean up */
-//    /* free all connections in the connection map */
-//    tmq_map_iter_t it = tmq_map_iter(context->tcp_conns);
-//    for(; tmq_map_has_next(it); tmq_map_next(context->tcp_conns, it))
-//        tmq_tcp_conn_free(*(tmq_tcp_conn_t**)it.second);
-//    tmq_map_free(context->tcp_conns);
-//
-//    /* close pending conns in the pending list */
-//    tmq_socket_t* fd_it = tmq_vec_begin(context->pending_tcp_conns);
-//    for(; fd_it != tmq_vec_end(context->pending_tcp_conns); fd_it++)
-//        close(*fd_it);
-//    tmq_vec_free(context->pending_tcp_conns);
-//    tmq_vec_free(context->connect_resps);
-//
-//    packet_send_req* req = tmq_vec_begin(context->sending_packets);
-//    for(; req != tmq_vec_end(context->sending_packets); req++)
-//        tmq_any_pkt_cleanup(&req->pkt);
-//    tmq_vec_free(context->sending_packets);
-//
-//    tmq_notifier_destroy(&context->new_conn_notifier);
-//    tmq_notifier_destroy(&context->connect_resp_notifier);
-//    tmq_notifier_destroy(&context->sending_packets_notifier);
-//
-//    pthread_mutex_destroy(&context->pending_conns_lk);
-//    pthread_mutex_destroy(&context->connect_resp_lk);
-//    pthread_mutex_destroy(&context->sending_packets_lk);
-//
-//    tmq_event_loop_destroy(&context->loop);
+    pthread_cond_signal(&context->stop_cond);
 }
 
 void tmq_io_context_run(tmq_io_context_t* context)
@@ -289,7 +246,18 @@ void tmq_io_context_run(tmq_io_context_t* context)
 
 void tmq_io_context_stop(tmq_io_context_t* context)
 {
-    tmq_event_loop_cancel_timer(&context->loop, context->tcp_checkalive_timer);
-    tmq_event_loop_cancel_timer(&context->loop, context->mqtt_keepalive_timer);
     tmq_event_loop_quit(&context->loop);
+    pthread_cond_wait(&context->stop_cond, &context->stop_lk);
+}
+
+void tmq_io_context_destroy(tmq_io_context_t* context)
+{
+    tmq_event_loop_destroy(&context->loop);
+    tmq_map_free(context->tcp_conns);
+    pthread_mutex_destroy(&context->stop_lk);
+    pthread_cond_destroy(&context->stop_cond);
+    tmq_mailbox_destroy(&context->pending_tcp_connections);
+    tmq_mailbox_destroy(&context->mqtt_connect_responses);
+    tmq_mailbox_destroy(&context->packet_sending_tasks);
+    tmq_mailbox_destroy(&context->broadcast_tasks);
 }

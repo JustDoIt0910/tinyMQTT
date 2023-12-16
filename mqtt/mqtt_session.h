@@ -7,8 +7,6 @@
 #include "net/mqtt_tcp_conn.h"
 #include "mqtt/mqtt_types.h"
 
-#define RESEND_INTERVAL 1
-
 typedef struct sending_packet
 {
     struct sending_packet* next;
@@ -41,7 +39,6 @@ typedef struct tmq_session_s
     uint16_t next_packet_id;
     uint8_t inflight_window_size;
     uint8_t inflight_packets;
-    tmq_timerid_t resend_timer;
 
     void* upstream;
     new_message_cb on_new_message;

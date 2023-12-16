@@ -79,7 +79,7 @@ void tinymqtt_set_unsubscribe_callback(tiny_mqtt* mqtt, mqtt_unsubscribe_cb cb);
 void tinymqtt_unsubscribe(tiny_mqtt* mqtt, const char* topic_filter);
 void tinymqtt_set_message_callback(tiny_mqtt* mqtt, mqtt_message_cb cb);
 void tinymqtt_set_publish_callback(tiny_mqtt* mqtt, mqtt_publish_cb cb);
-void tinymqtt_publish(tiny_mqtt* mqtt, const char* topic, const char* message, uint8_t qos, int retain);
+void tinymqtt_publish(tiny_mqtt* mqtt, char* topic, char* message, uint8_t qos, int retain);
 void tinymqtt_set_disconnect_callback(tiny_mqtt* mqtt, mqtt_disconnect_cb cb);
 void tinymqtt_disconnect(tiny_mqtt* mqtt);
 

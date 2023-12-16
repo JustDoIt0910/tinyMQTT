@@ -395,8 +395,6 @@ static void decode_tcp_message_(tmq_codec_t* codec, tmq_tcp_conn_t* conn, tmq_bu
 {
     tcp_conn_ctx* ctx = conn->context;
     assert(ctx != NULL);
-    if(ctx->conn_state != NO_SESSION)
-        ctx->last_msg_time = time_now();
 
     pkt_parsing_ctx* parsing_ctx = &ctx->parsing_ctx;
     decode_status status;
@@ -820,5 +818,5 @@ void tmq_send_any_packet(tmq_tcp_conn_t* conn, tmq_any_packet_t* pkt)
 {
     tcp_conn_ctx* ctx = conn->context;
     if(conn->state == CONNECTED && ctx->conn_state == IN_SESSION)
-        packet_senders[pkt->packet_type](conn, pkt->packet);
+        packet_senders[pkt->packet_type](conn, pkt->packet_ptr);
 }

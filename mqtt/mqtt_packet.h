@@ -20,7 +20,7 @@ typedef enum tmq_packet_type_e
 typedef struct tmq_any_packet_s
 {
     tmq_packet_type packet_type;
-    void* packet;
+    void* packet_ptr;
 } tmq_any_packet_t;
 
 typedef struct tmq_connect_pkt

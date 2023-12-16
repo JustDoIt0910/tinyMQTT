@@ -58,8 +58,8 @@ static void(*any_packet_cleanup_fps[])(void* pkt) = {
 void tmq_any_pkt_cleanup(tmq_any_packet_t* any_pkt)
 {
     if(any_packet_cleanup_fps[any_pkt->packet_type])
-        any_packet_cleanup_fps[any_pkt->packet_type](any_pkt->packet);
-    free(any_pkt->packet);
+        any_packet_cleanup_fps[any_pkt->packet_type](any_pkt->packet_ptr);
+    free(any_pkt->packet_ptr);
 }
 
 tmq_publish_pkt* tmq_publish_pkt_clone(tmq_publish_pkt* pkt)
@@ -122,7 +122,7 @@ void tmq_connect_pkt_print(tmq_connect_pkt* pkt)
     tmq_str_free(s);
 }
 
-void tmq_subsribe_pkt_print(tmq_subscribe_pkt* pkt)
+void tmq_subscribe_pkt_print(tmq_subscribe_pkt* pkt)
 {
     tmq_str_t s = tmq_str_new("SUBSCRIBE{PacketID=");
     tmq_str_t packet_id = tmq_str_parse_int(pkt->packet_id, 10);
