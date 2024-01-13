@@ -2,6 +2,13 @@ cmake_minimum_required(VERSION 3.8)
 
 project(tinyMQTT)
 
+find_package(PkgConfig)
+pkg_search_module(LIBMONGOC REQUIRED libmongoc-1.0)
+MESSAGE(STATUS "libmongoc dirs:" ${LIBMONGOC_INCLUDE_DIRS})
+MESSAGE(STATUS "libmongoc lib:" ${LIBMONGOC_LIBRARIES})
+
+include_directories(${LIBMONGOC_INCLUDE_DIRS})
+
 set(TINYMQTT_LIB_SRC
         base/mqtt_socket.c
         base/mqtt_util.c
@@ -24,6 +31,10 @@ set(TINYMQTT_LIB_SRC
         mqtt/mqtt_executor.c
         mqtt/mqtt_broker.c
         mqtt/mqtt_client.c
+        store/mqtt_msg_store.c
+        db/mqtt_db.c
+        thrdpool/msgqueue.c
+        thrdpool/thrdpool.c
         3rd/tinylog/tlog.c
         3rd/md5-c/md5.c
         3rd/b64.c/encode.c
@@ -35,6 +46,7 @@ add_definitions(-D_GNU_SOURCE)
 include_directories(${CMAKE_SOURCE_DIR} 3rd/tinylog 3rd/md5-c 3rd/b64.c)
 
 add_library(mqtt ${TINYMQTT_LIB_SRC})
+target_link_libraries (mqtt PRIVATE ${LIBMONGOC_LIBRARIES})
 
 link_directories(${CMAKE_BINARY_DIR})
 link_libraries(mqtt pthread)

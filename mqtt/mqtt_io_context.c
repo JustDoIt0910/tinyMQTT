@@ -7,6 +7,7 @@
 #include "base/mqtt_util.h"
 #include "mqtt_broker.h"
 #include "mqtt_tasks.h"
+#include "db/mqtt_db.h"
 #include <stdlib.h>
 #include <errno.h>
 #include <assert.h>
@@ -170,6 +171,13 @@ static void broadcast_handler(void* owner, tmq_mail_t mail)
     free(broadcast_task);
 }
 
+static void threadpool_return_receipt_handler(void* owner, tmq_mail_t mail)
+{
+    tmq_db_return_receipt_t* receipt = mail;
+    receipt->receipt_routine(receipt->arg);
+    free(receipt);
+}
+
 static void mail_callback(void* arg)
 {
     tmq_mailbox_t* mailbox = arg;
@@ -222,6 +230,7 @@ void tmq_io_context_init(tmq_io_context_t* context, tmq_broker_t* broker, int in
     tmq_mailbox_init(&context->mqtt_connect_responses, &context->loop, context, connect_complete_handler);
     tmq_mailbox_init(&context->packet_sending_tasks, &context->loop, context, send_packet_handler);
     tmq_mailbox_init(&context->broadcast_tasks, &context->loop, context, broadcast_handler);
+    tmq_mailbox_init(&context->thread_pool_return_receipts, &context->loop, context, threadpool_return_receipt_handler);
 }
 
 static void* io_context_thread_func(void* arg)

@@ -5,7 +5,7 @@
 #include "mqtt_session.h"
 #include "base/mqtt_util.h"
 #include "mqtt_tasks.h"
-#include <errno.h>
+#include "thrdpool/thrdpool.h"
 #include <string.h>
 #include <assert.h>
 #include <signal.h>
@@ -113,7 +113,8 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
             tmq_session_close(*session, 1);
             tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish, session_close_callback, conn,
                                                          connect_pkt->client_id, 1, connect_pkt->keep_alive, will_topic,
-                                                         will_message, will_qos, will_retain, broker->inflight_window_size);
+                                                         will_message, will_qos, will_retain, broker->inflight_window_size,
+                                                         tmq_message_store_mongodb_new(10));
             tmq_map_put(broker->sessions, connect_pkt->client_id, SESSION_SHARE(new_session));
             make_connect_respond(conn->io_context, conn, CONNECTION_ACCEPTED, new_session, 1);
         }
@@ -131,7 +132,8 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
         int clean_session = CONNECT_CLEAN_SESSION(connect_pkt->flags) != 0;
         tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish, session_close_callback, conn,
                                                      connect_pkt->client_id, clean_session, connect_pkt->keep_alive, will_topic,
-                                                     will_message, will_qos, will_retain, broker->inflight_window_size);
+                                                     will_message, will_qos, will_retain, broker->inflight_window_size,
+                                                     tmq_message_store_mongodb_new(10));
         tmq_map_put(broker->sessions, connect_pkt->client_id, SESSION_SHARE(new_session));
         make_connect_respond(conn->io_context, conn, CONNECTION_ACCEPTED, new_session, 0);
     }
@@ -414,6 +416,15 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
     broker->next_io_context = 0;
 
     tmq_executor_init(&broker->executor, 2);
+    broker->thread_pool = thrdpool_create(10, 0);
+
+    mongoc_init();
+    bson_error_t error;
+    mongoc_uri_t* uri = mongoc_uri_new_with_error("mongodb://localhost:27017", &error);
+    if(!uri)
+        fatal_error("mongodb uri error: %s", error.message);
+    broker->mongodb_pool = mongoc_client_pool_new(uri);
+    mongoc_client_pool_set_error_api (broker->mongodb_pool, 2);
 
     tmq_map_str_init(&broker->sessions, tmq_session_t*, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
     tmq_topics_init(&broker->topics_tree, broker, mqtt_broadcast);

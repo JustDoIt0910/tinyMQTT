@@ -12,7 +12,8 @@ typedef tmq_vec(tmq_mail_t) tmq_mail_list_t;
 typedef struct tmq_mailbox_s tmq_mailbox_t;
 typedef void(*mail_handler)(void* owner, tmq_mail_t mail);
 
-typedef struct tmq_mailbox_s {
+typedef struct tmq_mailbox_s
+{
     void* owner;
     mail_handler handler;
     tmq_notifier_t notifier;
@@ -39,6 +40,7 @@ typedef struct tmq_io_context_s
     tmq_mailbox_t mqtt_connect_responses;
     tmq_mailbox_t packet_sending_tasks;
     tmq_mailbox_t broadcast_tasks;
+    tmq_mailbox_t thread_pool_return_receipts;
 } tmq_io_context_t;
 
 void tmq_io_context_init(tmq_io_context_t* context, tmq_broker_t* broker, int index);
