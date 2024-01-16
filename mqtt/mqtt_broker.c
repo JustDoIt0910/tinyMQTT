@@ -5,6 +5,7 @@
 #include "mqtt_session.h"
 #include "base/mqtt_util.h"
 #include "mqtt_tasks.h"
+#include "db/mqtt_db.h"
 #include "thrdpool/thrdpool.h"
 #include <string.h>
 #include <assert.h>
@@ -48,7 +49,7 @@ static void session_close_callback(void* arg, tmq_session_t* session, int force_
     SESSION_RELEASE(session);
 }
 
-static void mqtt_publish(void* arg, char* topic, tmq_message* message, uint8_t retain);
+static void mqtt_publish(void* arg, tmq_session_t* session, char* topic, tmq_message* message, uint8_t retain);
 
 static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt* connect_pkt)
 {
@@ -206,9 +207,14 @@ static void handle_topic_req(void* arg)
         topic_filter_qos* tf = tmq_vec_begin(req->subscribe_pkt.topics);
         for(; tf != tmq_vec_end(req->subscribe_pkt.topics); tf++)
         {
-            tlog_info("subscribe{client=%s, topic=%s, qos=%u}", req->client_id, tf->topic_filter, tf->qos);
+            if(tmq_acl_auth(&broker->acl, *session, tf->topic_filter, SUB) == DENY)
+            {
+                tlog_info("subscribe{client=%s, topic=%s, qos=%u} denied", req->client_id, tf->topic_filter, tf->qos);
+                continue;
+            }
             retain_message_list_t retain = tmq_topics_add_subscription(&broker->topics_tree, tf->topic_filter,
                                                                        *session, tf->qos);
+            tlog_info("subscribe{client=%s, topic=%s, qos=%u} success", req->client_id, tf->topic_filter, tf->qos);
             tmq_vec_extend(all_retain, retain);
             tmq_vec_free(retain);
 
@@ -325,10 +331,11 @@ void mqtt_unsubscribe(tmq_broker_t* broker, tmq_str_t client_id,
     tmq_executor_post(&broker->executor, handle_topic_req, ctx,1);
 }
 
-void mqtt_publish(void* arg, char* topic, tmq_message* message, uint8_t retain)
+void mqtt_publish(void* arg, tmq_session_t* session, char* topic, tmq_message* message, uint8_t retain)
 {
     tmq_broker_t* broker = arg;
-
+    if(tmq_acl_auth(&broker->acl, session, topic, PUB) == DENY)
+        return;
     publish_req req = {
             .topic = topic,
             .message = *message,
@@ -418,19 +425,23 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
     tmq_executor_init(&broker->executor, 2);
     broker->thread_pool = thrdpool_create(10, 0);
 
+    tmq_acl_init(&broker->acl, DENY);
+    tmq_mysql_conn_pool_init(&broker->mysql_pool, "localhost", 3306, "root", "20010910cheng", "tinymqtt_db", 50);
     mongoc_init();
     bson_error_t error;
     mongoc_uri_t* uri = mongoc_uri_new_with_error("mongodb://localhost:27017", &error);
     if(!uri)
         fatal_error("mongodb uri error: %s", error.message);
     broker->mongodb_pool = mongoc_client_pool_new(uri);
-    mongoc_client_pool_set_error_api (broker->mongodb_pool, 2);
+    mongoc_client_pool_set_error_api(broker->mongodb_pool, 2);
 
     tmq_map_str_init(&broker->sessions, tmq_session_t*, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
     tmq_topics_init(&broker->topics_tree, broker, mqtt_broadcast);
 
     /* ignore SIGPIPE signal */
     signal(SIGPIPE, SIG_IGN);
+
+    load_acl_from_mysql(tmq_mysql_conn_pool_pop(&broker->mysql_pool), &broker->acl);
     return 0;
 }
 

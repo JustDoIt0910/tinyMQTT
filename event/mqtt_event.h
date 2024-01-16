@@ -49,7 +49,7 @@ void tmq_notifier_destroy(tmq_notifier_t* notifier);
 
 
 typedef SLIST_HEAD(handler_list_s, tmq_event_handler_s) handler_queue_t;
-typedef struct
+typedef struct epoll_channel_s
 {
     handler_queue_t handlers;
     uint32_t all_events;

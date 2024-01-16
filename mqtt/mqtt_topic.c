@@ -10,21 +10,49 @@
 #include <assert.h>
 #include <stdio.h>
 
-typedef tmq_vec(topic_tree_node*) topic_path;
+typedef tmq_vec(topic_tree_node_t*) topic_path;
 
-static topic_tree_node* topic_tree_node_new(topic_tree_node* parent, char* level_name)
+void tmq_topic_split(char* str, str_vec* levels)
 {
-    topic_tree_node* node = malloc(sizeof(topic_tree_node));
+    tmq_str_t level;
+    char* lp = str, *rp = lp;
+    while(1)
+    {
+        while(*rp && *rp != '/') rp++;
+        if(rp == lp)
+        {
+            level = tmq_str_new("");
+            tmq_vec_push_back(*levels, level);
+        }
+        else
+        {
+            level = tmq_str_new_len(lp, rp - lp);
+            tmq_vec_push_back(*levels, level);
+        }
+        if(!*rp) break;
+        lp = rp + 1; rp = lp;
+        if(!*lp)
+        {
+            level = tmq_str_new("");
+            tmq_vec_push_back(*levels, level);
+            break;
+        }
+    }
+}
+
+static topic_tree_node_t* topic_tree_node_new(topic_tree_node_t* parent, char* level_name)
+{
+    topic_tree_node_t* node = malloc(sizeof(topic_tree_node_t));
     if(!node) fatal_error("malloc() error: out of memory");
     node->parent = parent;
     node->level_name = tmq_str_new(level_name);
     node->retain_message = NULL;
-    tmq_map_str_init(&node->children, topic_tree_node*, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
+    tmq_map_str_init(&node->children, topic_tree_node_t*, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
     node->subscribers = NULL;
     return node;
 }
 
-static void topic_tree_node_free(topic_tree_node* node)
+static void topic_tree_node_t_free(topic_tree_node_t* node)
 {
     tmq_map_free(node->children);
     if(node->subscribers)
@@ -44,20 +72,20 @@ void tmq_topics_init(tmq_topics_t* topics, tmq_broker_t* broker, match_cb on_mat
     topics->broker = broker;
 }
 
-static topic_tree_node* find_or_create(topic_tree_node* cur, tmq_str_t level, int create)
+static topic_tree_node_t* find_or_create(topic_tree_node_t* cur, tmq_str_t level, int create)
 {
-    topic_tree_node** next = tmq_map_get(cur->children, level);
+    topic_tree_node_t** next = tmq_map_get(cur->children, level);
     if(next) return *next;
     if(!create) return NULL;
-    topic_tree_node* new_next = topic_tree_node_new(cur, level);
+    topic_tree_node_t* new_next = topic_tree_node_new(cur, level);
     tmq_map_put(cur->children, level, new_next);
     return new_next;
 }
 
-static topic_tree_node* add_topic_or_find(tmq_topics_t* topics, char* topic_filter, int add, topic_path* path)
+static topic_tree_node_t* add_topic_or_find(tmq_topics_t* topics, char* topic_filter, int add, topic_path* path)
 {
     char* lp = topic_filter, *rp = lp;
-    topic_tree_node* node = topics->root;
+    topic_tree_node_t* node = topics->root;
     if(path) tmq_vec_push_back(*path, node);
     tmq_str_t level = tmq_str_empty();
     while(1)
@@ -92,7 +120,7 @@ static topic_tree_node* add_topic_or_find(tmq_topics_t* topics, char* topic_filt
 }
 
 /* retrieve all retained messages from the sub-topic */
-static void get_all_retain(topic_tree_node* node, retain_message_list_t* retain_msg)
+static void get_all_retain(topic_tree_node_t* node, retain_message_list_t* retain_msg)
 {
     if(node->retain_message)
         tmq_vec_push_back(*retain_msg, node->retain_message);
@@ -102,12 +130,12 @@ static void get_all_retain(topic_tree_node* node, retain_message_list_t* retain_
         char* next_level = it.first;
         if(!strcmp(next_level, "+") || !strcmp(next_level, "#"))
             continue;
-        topic_tree_node* next = *(topic_tree_node**) it.second;
+        topic_tree_node_t* next = *(topic_tree_node_t**) it.second;
         get_all_retain(next, retain_msg);
     }
 }
 
-static void find_retain_messages(topic_tree_node* node, size_t i, topic_path* path, retain_message_list_t* retain_msg)
+static void find_retain_messages(topic_tree_node_t* node, size_t i, topic_path* path, retain_message_list_t* retain_msg)
 {
     if(i == tmq_vec_size(*path))
     {
@@ -115,7 +143,7 @@ static void find_retain_messages(topic_tree_node* node, size_t i, topic_path* pa
             tmq_vec_push_back(*retain_msg, node->retain_message);
         return;
     }
-    topic_tree_node* path_node = *tmq_vec_at(*path, i);
+    topic_tree_node_t* path_node = *tmq_vec_at(*path, i);
     /* if the subscription path contains single-level wildcards,
      * find retained messages in all matching sub-topics */
     if(!strcmp(path_node->level_name, "+"))
@@ -126,7 +154,7 @@ static void find_retain_messages(topic_tree_node* node, size_t i, topic_path* pa
             char* next_level = it.first;
             if(!strcmp(next_level, "+") || !strcmp(next_level, "#"))
                 continue;
-            topic_tree_node* next = *(topic_tree_node**) it.second;
+            topic_tree_node_t* next = *(topic_tree_node_t**) it.second;
             find_retain_messages(next, i + 1, path, retain_msg);
         }
     }
@@ -134,7 +162,7 @@ static void find_retain_messages(topic_tree_node* node, size_t i, topic_path* pa
         get_all_retain(node, retain_msg);
     else
     {
-        topic_tree_node** next = tmq_map_get(node->children, path_node->level_name);
+        topic_tree_node_t** next = tmq_map_get(node->children, path_node->level_name);
         if(next) find_retain_messages(*next, i + 1, path, retain_msg);
     }
 }
@@ -144,8 +172,8 @@ retain_message_list_t tmq_topics_add_subscription(tmq_topics_t* topics, char* to
     retain_message_list_t retain_messages = tmq_vec_make(retain_message_t*);
     if(!topic_filter || strlen(topic_filter) < 1)
         return retain_messages;
-    topic_path path = tmq_vec_make(topic_tree_node*);
-    topic_tree_node* node = add_topic_or_find(topics, topic_filter, 1, &path);
+    topic_path path = tmq_vec_make(topic_tree_node_t*);
+    topic_tree_node_t* node = add_topic_or_find(topics, topic_filter, 1, &path);
     assert(node != NULL);
     if(!node->subscribers)
     {
@@ -157,7 +185,7 @@ retain_message_list_t tmq_topics_add_subscription(tmq_topics_t* topics, char* to
     tmq_map_put(*node->subscribers, session->client_id, info);
 
     /* find all retained messages that matches this subscription */
-    size_t i = 0; topic_tree_node* next;
+    size_t i = 0; topic_tree_node_t* next;
     do
     {
         next = *tmq_vec_at(path, i + 1);
@@ -173,14 +201,14 @@ retain_message_list_t tmq_topics_add_subscription(tmq_topics_t* topics, char* to
     return retain_messages;
 }
 
-static void try_remove_topic(tmq_topics_t* topics, topic_tree_node* node)
+static void try_remove_topic(tmq_topics_t* topics, topic_tree_node_t* node)
 {
     /* when a topic has no subscribers, no sub-topics and no retained message, it can be removed */
     while(!node->subscribers && tmq_map_size(node->children) == 0 && !node->retain_message)
     {
-        topic_tree_node* parent = node->parent;
+        topic_tree_node_t* parent = node->parent;
         tmq_map_erase(parent->children, node->level_name);
-        topic_tree_node_free(node);
+        topic_tree_node_t_free(node);
         node = parent;
         if(node == topics->root)
             break;
@@ -189,7 +217,7 @@ static void try_remove_topic(tmq_topics_t* topics, topic_tree_node* node)
 
 void tmq_topics_remove_subscription(tmq_topics_t* topics, char* topic_filter, char* client_id)
 {
-    topic_tree_node* node = add_topic_or_find(topics, topic_filter, 0, NULL);
+    topic_tree_node_t* node = add_topic_or_find(topics, topic_filter, 0, NULL);
     if(!node)
     {
         tlog_warn("topic filter doesn't exist: %s", topic_filter);
@@ -205,10 +233,10 @@ void tmq_topics_remove_subscription(tmq_topics_t* topics, char* topic_filter, ch
     try_remove_topic(topics, node);
 }
 
-static void match(tmq_topics_t* topics, topic_tree_node* node, int n, int is_any_wildcard,
+static void match(tmq_topics_t* topics, topic_tree_node_t* node, int n, int is_multi_wildcard,
                   str_vec* levels, char* topic, tmq_message* message, int retain)
 {
-    if(n == tmq_vec_size(*levels) || is_any_wildcard)
+    if(n == tmq_vec_size(*levels) || is_multi_wildcard)
     {
         topics->on_match(topics->broker, topic, message, node->subscribers);
         if(n == tmq_vec_size(*levels))
@@ -228,19 +256,19 @@ static void match(tmq_topics_t* topics, topic_tree_node* node, int n, int is_any
                 node->retain_message->retain_topic = tmq_str_assign(node->retain_message->retain_topic, topic);
             }
             /* "#" includes the parent */
-            topic_tree_node** next = tmq_map_get(node->children, "#");
+            topic_tree_node_t** next = tmq_map_get(node->children, "#");
             if(next)
                 topics->on_match(topics->broker, topic, message, (*next)->subscribers);
         }
         return;
     }
-    topic_tree_node** next;
+    topic_tree_node_t** next;
     char* level = *tmq_vec_at(*levels, n);
     if((next = tmq_map_get(node->children, level)) != NULL)
         match(topics, *next, n + 1, 0, levels, topic, message, retain);
     else if(retain)
     {
-        topic_tree_node* new_next = topic_tree_node_new(node, level);
+        topic_tree_node_t* new_next = topic_tree_node_new(node, level);
         tmq_map_put(node->children, level, new_next);
         match(topics, new_next, n + 1, 0, levels, topic, message, retain);
     }
@@ -252,44 +280,21 @@ static void match(tmq_topics_t* topics, topic_tree_node* node, int n, int is_any
 
 void tmq_topics_publish(tmq_topics_t* topics, char* topic, tmq_message* message, int retain)
 {
-    char* lp = topic, *rp = lp;
-    tmq_str_t level;
     str_vec levels = tmq_vec_make(tmq_str_t);
-    while(1)
-    {
-        while(*rp && *rp != '/') rp++;
-        if(rp == lp)
-        {
-            level = tmq_str_new("");
-            tmq_vec_push_back(levels, level);
-        }
-        else
-        {
-            level = tmq_str_new_len(lp, rp - lp);
-            tmq_vec_push_back(levels, level);
-        }
-        if(!*rp) break;
-        lp = rp + 1; rp = lp;
-        if(!*lp)
-        {
-            level = tmq_str_new("");
-            tmq_vec_push_back(levels, level);
-            break;
-        }
-    }
+    tmq_topic_split(topic, &levels);
     match(topics, topics->root, 0, 0, &levels, topic, message, retain);
     for(tmq_str_t* it = tmq_vec_begin(levels); it != tmq_vec_end(levels); it++)
         tmq_str_free(*it);
     tmq_vec_free(levels);
 }
 
-static void topic_info(topic_tree_node* node, str_vec* levels)
+static void topic_info(topic_tree_node_t* node, str_vec* levels)
 {
 //    tmq_map_iter_t it = tmq_map_iter(node->children);
 //    for(; tmq_map_has_next(it); tmq_map_next(node->children, it))
 //    {
 //        char* next_level = it.first;
-//        topic_tree_node* next = *(topic_tree_node**) it.second;
+//        topic_tree_node_t* next = *(topic_tree_node_t**) it.second;
 //        tmq_vec_push_back(*levels, tmq_str_new(next_level));
 //        topic_info(next, levels);
 //        tmq_str_free(*tmq_vec_pop_back(*levels));

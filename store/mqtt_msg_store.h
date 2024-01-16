@@ -29,10 +29,7 @@ sending_packet_t* pending_pointer;        \
 acknowledge_f acknowledge_and_next;     \
 store_message_f store_message;
 
-typedef struct message_store_s
-{
-    MESSAGE_STORE_PUBLIC_MEMBERS
-} message_store_t;
+typedef struct message_store_s {MESSAGE_STORE_PUBLIC_MEMBERS} message_store_t;
 
 typedef message_store_t message_store_memory_t;
 

@@ -1,7 +1,9 @@
 //
 // Created by just do it on 2024/1/12.
 //
+#include <assert.h>
 #include "mqtt_db.h"
+#include "mqtt/mqtt_acl.h"
 #include "store/mqtt_msg_store.h"
 #include "tlog.h"
 
@@ -94,4 +96,51 @@ int fetch_messages_from_mongodb(mongoc_client_t* mongo_client, const char* mqtt_
     *result_head = head;
     *result_tail = head ? (sending_packet_t*)p : NULL;
     return cnt;
+}
+
+void load_acl_from_mysql(MYSQL* mysql_conn, tmq_acl_t* acl)
+{
+    static const char* acl_query = "SELECT * FROM tinymqtt_acl_table";
+    if(mysql_real_query(mysql_conn, acl_query, strlen(acl_query)) != 0)
+    {
+        tlog_error("mysql_real_query() error");
+        return;
+    }
+    MYSQL_RES* res = mysql_store_result(mysql_conn);
+    if(!res) return;
+    MYSQL_ROW row = NULL;
+    while((row = mysql_fetch_row(res)) != NULL)
+    {
+        unsigned int num_fields = mysql_num_fields(res);
+        unsigned long* lengths = mysql_fetch_lengths(res);
+        assert(num_fields == 7);
+        tmq_permission_e permission = atoi(row[1]);
+        tmq_access_e access = atoi(row[5]);
+        if(lengths[2] > 0)
+        {
+            tlog_info("load acl rule: %s ip [%s] %s %s",
+                      permission_str[permission], row[2], access_str[access], row[6]);
+            tmq_acl_add_rule(acl, row[6], acl_ip_rule_new(permission, row[2], access));
+
+        }
+        else if(lengths[3] > 0)
+        {
+            tlog_info("load acl rule: %s user [%s] %s %s",
+                      permission_str[permission], row[3], access_str[access], row[6]);
+            tmq_acl_add_rule(acl, row[6], acl_username_rule_new(permission, row[3], access));
+        }
+        else if(lengths[4] > 0)
+        {
+            tlog_info("load acl rule: %s client_id [%s] %s %s",
+                      permission_str[permission], row[4], access_str[access], row[6]);
+            tmq_acl_add_rule(acl, row[6], acl_client_id_rule_new(permission, row[4], access));
+        }
+        else
+        {
+            tlog_info("load acl rule: %s all %s %s",
+                      permission_str[permission], access_str[access], row[6]);
+            tmq_acl_add_rule_for_all(acl, row[6], acl_all_rule_new(permission,  access));
+        }
+    }
+    mysql_free_result(res);
 }

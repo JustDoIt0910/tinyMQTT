@@ -9,7 +9,6 @@
 #include "mqtt/mqtt_broker.h"
 #include "mqtt/mqtt_io_context.h"
 #include "mqtt/mqtt_session.h"
-#include "tlog.h"
 
 static int memory_store_store_message(message_store_t* store, tmq_session_t* session, sending_packet_t* sending_pkt)
 {
@@ -108,6 +107,7 @@ static void store_messages_in_thread_pool(void* arg)
     mongoc_client_pool_t* pool = ctx->mongodb_pool;
     mongoc_client_t* mongo_client = mongoc_client_pool_pop(pool);
     store_messages_to_mongodb(mongo_client, ctx->session->client_id, ctx->packets, ctx->n_packets);
+    mongoc_client_pool_push(pool, mongo_client);
     tmq_db_return_receipt_t* receipt = malloc(sizeof(tmq_db_return_receipt_t));
     receipt->receipt_routine = store_message_done;
     receipt->arg = ctx->session;
@@ -132,6 +132,7 @@ static void fetch_messages_in_thread_pool(void* arg)
     fetch_result* result = malloc(sizeof(fetch_result));
     result->n_messages = fetch_messages_from_mongodb(mongo_client, ctx->session->client_id, ctx->limit,
                                                      &result->messages_head, &result->messages_tail);
+    mongoc_client_pool_push(pool, mongo_client);
     tmq_db_return_receipt_t* receipt = malloc(sizeof(tmq_db_return_receipt_t));
     result->session = ctx->session;
     receipt->receipt_routine = fetch_message_done;

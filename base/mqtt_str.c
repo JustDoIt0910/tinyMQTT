@@ -170,6 +170,11 @@ char tmq_str_at(tmq_str_t s, size_t index)
     return s[index];
 }
 
+int tmq_str_equal(tmq_str_t s1, tmq_str_t s2)
+{
+    return strcmp(s1, s2) == 0;
+}
+
 tmq_str_t tmq_str_substr(tmq_str_t s, size_t start, size_t len)
 {
     if(start >= tmq_str_len(s) || start + len > tmq_str_len(s))

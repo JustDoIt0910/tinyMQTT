@@ -191,7 +191,7 @@ void tmq_session_handle_publish(tmq_session_t* session, tmq_publish_pkt* publish
             return;
         }
     }
-    session->on_new_message(session->upstream, tmq_str_new(publish_pkt->topic),
+    session->on_new_message(session->upstream, session, tmq_str_new(publish_pkt->topic),
                             &message, PUBLISH_RETAIN(publish_pkt->flags));
     tmq_publish_pkt_cleanup(publish_pkt);
 }

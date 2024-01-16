@@ -212,7 +212,7 @@ tmq_map_base_t* tmq_map_new_(uint32_t cap, uint32_t factor,
     assert(!(key_type != KEY_TYPE_STR && key_size == 0));
     tmq_map_base_t* m = malloc(sizeof(tmq_map_base_t));
     if(!m) return NULL;
-
+    bzero(m, sizeof(tmq_map_base_t));
     m->load_fac = factor;
     m->hash_fn = hash_fn;
     m->equal_fn = equal_fn;

@@ -14,6 +14,8 @@
 #include "mqtt_topic.h"
 #include "mqtt_types.h"
 #include "mqtt_executor.h"
+#include "mqtt_acl.h"
+#include "db/mqtt_conn_pool.h"
 #include "thrdpool/thrdpool.h"
 #include <mongoc/mongoc.h>
 
@@ -27,6 +29,8 @@ typedef struct tmq_broker_s
     tmq_codec_t codec;
     tmq_executor_t executor;
     tmq_config_t conf, pwd_conf;
+    tmq_acl_t acl;
+    tmq_mysql_conn_pool_t mysql_pool;
     mongoc_client_pool_t* mongodb_pool;
     thrdpool_t* thread_pool;
     tmq_io_context_t* io_contexts;

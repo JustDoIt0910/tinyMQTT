@@ -3,6 +3,8 @@
 //
 #include "md5.h"
 #include "b64.h"
+#include "mqtt_str.h"
+#include "mqtt_util.h"
 
 char* password_encode(char* pwd)
 {

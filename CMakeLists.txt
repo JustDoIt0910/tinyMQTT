@@ -7,7 +7,12 @@ pkg_search_module(LIBMONGOC REQUIRED libmongoc-1.0)
 MESSAGE(STATUS "libmongoc dirs:" ${LIBMONGOC_INCLUDE_DIRS})
 MESSAGE(STATUS "libmongoc lib:" ${LIBMONGOC_LIBRARIES})
 
+pkg_search_module(LIBMYSQLCLIENT REQUIRED mysqlclient)
+MESSAGE(STATUS "libmysqlclient dirs:" ${LIBMYSQLCLIENT_INCLUDE_DIRS})
+MESSAGE(STATUS "libmysqlclient lib:" ${LIBMYSQLCLIENT_LIBRARIES})
+
 include_directories(${LIBMONGOC_INCLUDE_DIRS})
+include_directories(${LIBMYSQLCLIENT_INCLUDE_DIRS})
 
 set(TINYMQTT_LIB_SRC
         base/mqtt_socket.c
@@ -31,8 +36,10 @@ set(TINYMQTT_LIB_SRC
         mqtt/mqtt_executor.c
         mqtt/mqtt_broker.c
         mqtt/mqtt_client.c
+        mqtt/mqtt_acl.c
         store/mqtt_msg_store.c
         db/mqtt_db.c
+        db/mqtt_conn_pool.c
         thrdpool/msgqueue.c
         thrdpool/thrdpool.c
         3rd/tinylog/tlog.c
@@ -46,12 +53,12 @@ add_definitions(-D_GNU_SOURCE)
 include_directories(${CMAKE_SOURCE_DIR} 3rd/tinylog 3rd/md5-c 3rd/b64.c)
 
 add_library(mqtt ${TINYMQTT_LIB_SRC})
-target_link_libraries (mqtt PRIVATE ${LIBMONGOC_LIBRARIES})
+target_link_libraries (mqtt PRIVATE ${LIBMONGOC_LIBRARIES} ${LIBMYSQLCLIENT_LIBRARIES})
 
 link_directories(${CMAKE_BINARY_DIR})
 link_libraries(mqtt pthread)
 
-#add_subdirectory(test)
+add_subdirectory(test)
 add_subdirectory(example)
 add_executable(broker broker.c)
 add_executable(tinymqtt_pwd tinymqtt_pwd.c)

@@ -75,6 +75,5 @@ int main()
 //    for(int* p = tmq_vec_begin(v1); p != tmq_vec_end(v1); p++)
 //        printf("%d ", *p);
 
-
     return 0;
 }

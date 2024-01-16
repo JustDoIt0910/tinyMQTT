@@ -29,11 +29,13 @@ tmq_event_handler_t* tmq_event_handler_new(int fd, short events, tmq_event_cb cb
 
 tmq_ref_counted_t* get_ref(tmq_ref_counted_t* obj)
 {
+    if(!obj) return obj;
     incrementAndGet(obj->ref_cnt, 1);
     return obj;
 }
 void release_ref(tmq_ref_counted_t* obj)
 {
+    if(!obj) return;
     int n = decrementAndGet(obj->ref_cnt, 1);
     if(!n)
     {
