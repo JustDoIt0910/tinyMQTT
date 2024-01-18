@@ -122,15 +122,16 @@ int tmq_config_init(tmq_config_t* cfg, const char* filename, const char* delimet
 tmq_str_t tmq_config_get(tmq_config_t* cfg, const char* key)
 {
     tmq_str_t value = NULL;
-    config_value* it = tmq_map_get(cfg->cfg, key);
+    //config_value* it = tmq_map_get(cfg->cfg, key);
+    config_value* it = tmq_map_get_(cfg->cfg.base, &key);
     if(it && !it->deleted) value = tmq_str_new((*it).value);
     return value;
 }
 
 int tmq_config_exist(tmq_config_t* cfg, const char* key)
 {
-    tmq_str_t value = NULL;
-    config_value* it = tmq_map_get(cfg->cfg, key);
+    //config_value* it = tmq_map_get(cfg->cfg, key);
+    config_value* it = tmq_map_get_(cfg->cfg.base, &key);
     return (it && !it->deleted);
 }
 

@@ -5,7 +5,7 @@
 #include "mqtt_db.h"
 #include "mqtt/mqtt_acl.h"
 #include "store/mqtt_msg_store.h"
-#include "tlog.h"
+#include "base/mqtt_util.h"
 
 void store_messages_to_mongodb(mongoc_client_t* mongo_client, const char* mqtt_client_id, sending_packet_t* packets,
                                int n_packets)
@@ -96,6 +96,52 @@ int fetch_messages_from_mongodb(mongoc_client_t* mongo_client, const char* mqtt_
     *result_head = head;
     *result_tail = head ? (sending_packet_t*)p : NULL;
     return cnt;
+}
+
+int validate_connect_password(MYSQL* mysql_conn, const char* username, const char* password)
+{
+    static const char* pwd_query = "SELECT password from tinymqtt_user_table WHERE username = ? LIMIT 1";
+    unsigned long username_len = strlen(username);
+    MYSQL_BIND param_bind;
+    bzero(&param_bind, sizeof(MYSQL_BIND));
+    param_bind.buffer_type = MYSQL_TYPE_STRING;
+    param_bind.buffer = (char*)username;
+    param_bind.buffer_length = username_len;
+    param_bind.length = &username_len;
+    param_bind.is_null = (bool*)0;
+    MYSQL_STMT* stmt = mysql_stmt_init(mysql_conn);
+    if(!stmt)
+        fatal_error("mysql_stmt_init(), out of memory");
+    if(mysql_stmt_prepare(stmt, pwd_query, strlen(pwd_query)))
+        fatal_error("mysql_stmt_prepare() error");
+    if(mysql_stmt_bind_param(stmt, &param_bind))
+        fatal_error("mysql_stmt_bind_param() error");
+    if(mysql_stmt_execute(stmt))
+        fatal_error("mysql_stmt_execute() error");
+    char stored_password[100] = {0};
+    unsigned long password_len;
+    bool password_null;
+    MYSQL_BIND result_bind;
+    bzero(&result_bind, sizeof(MYSQL_BIND));
+    result_bind.buffer_type = MYSQL_TYPE_STRING;
+    result_bind.buffer = stored_password;
+    result_bind.buffer_length = 100;
+    result_bind.length = &password_len;
+    result_bind.is_null = &password_null;
+    if(mysql_stmt_bind_result(stmt, &result_bind))
+        fatal_error("mysql_stmt_bind_result() error");
+    if(mysql_stmt_store_result(stmt))
+        fatal_error("mysql_stmt_store_result() error");
+    int success = 0;
+    if(!mysql_stmt_fetch(stmt))
+    {
+        char* password_encoded = password_encode((char*)password);
+        if(strcmp(stored_password, password_encoded) == 0)
+            success = 1;
+        free(password_encoded);
+    }
+    mysql_stmt_close(stmt);
+    return success;
 }
 
 void load_acl_from_mysql(MYSQL* mysql_conn, tmq_acl_t* acl)

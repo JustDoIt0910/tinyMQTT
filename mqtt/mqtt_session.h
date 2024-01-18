@@ -51,9 +51,9 @@ typedef struct tmq_session_s
 #define SESSION_RELEASE(session) release_ref((tmq_ref_counted_t*) (session))
 
 tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message, close_cb on_close, tmq_tcp_conn_t* conn,
-                               char* client_id, uint8_t clean_session, uint16_t keep_alive, char* will_topic,
-                               char* will_message, uint8_t will_qos, uint8_t will_retain, uint8_t max_inflight,
-                               message_store_t* message_store);
+                               char* client_id, char* username, uint8_t clean_session, uint16_t keep_alive,
+                               char* will_topic, char* will_message, uint8_t will_qos, uint8_t will_retain,
+                               uint8_t max_inflight, message_store_t* message_store);
 void tmq_session_close(tmq_session_t* session, int force_clean);
 void tmq_session_publish(tmq_session_t* session, tmq_str_t topic, tmq_str_t payload, uint8_t qos, uint8_t retain);
 void tmq_session_subscribe(tmq_session_t* session, const char* topic_filter, uint8_t qos);

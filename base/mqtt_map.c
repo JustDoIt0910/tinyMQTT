@@ -11,6 +11,8 @@
 unsigned hash_str(const void* key)
 {
     const char* strkey = *(const char**)key;
+    if(!strkey)
+        return 0;
     const uint64_t m = UINT64_C(0xc6a4a7935bd1e995);
     const size_t len = strlen(strkey);
     const unsigned char *p = (const unsigned char *) strkey;
@@ -61,6 +63,8 @@ int equal_str(const void* k1, const void* k2)
 {
     const char* s1 = *(const char**)k1;
     const char* s2 = *(const char**)k2;
+    if(!s1 && !s2)
+        return 1;
     return !strcmp(s1, s2);
 }
 

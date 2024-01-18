@@ -33,10 +33,10 @@ static void tcp_conn_close_callback(tmq_tcp_conn_t* conn, void* arg)
                 .op = SESSION_FORCE_CLOSE,
                 .session = conn_ctx->upstream.session
         };
-        session_task_ctx* task_ctx = malloc(sizeof(session_task_ctx));
-        task_ctx->broker = broker;
-        task_ctx->req = req;
-        tmq_executor_post(&broker->executor, handle_session_req, task_ctx, 1);
+        session_operation_t* operation = malloc(sizeof(session_operation_t));
+        operation->broker = broker;
+        operation->req = req;
+        tmq_executor_post(&broker->executor, handle_session_req, operation, 1);
     }
 
     char conn_name[50];
@@ -117,10 +117,10 @@ static void connect_complete_handler(void* owner, tmq_mail_t mail)
                         : SESSION_FORCE_CLOSE,
                 .session = resp->session
         };
-        session_task_ctx* ctx = malloc(sizeof(session_task_ctx));
-        ctx->broker = broker;
-        ctx->req = req;
-        tmq_executor_post(&broker->executor, handle_session_req, ctx,1);
+        session_operation_t* operation = malloc(sizeof(session_operation_t));
+        operation->broker = broker;
+        operation->req = req;
+        tmq_executor_post(&broker->executor, handle_session_req, operation, 1);
 
         TCP_CONN_RELEASE(resp->conn);
         return;
@@ -146,16 +146,16 @@ static void connect_complete_handler(void* owner, tmq_mail_t mail)
 
 static void send_packet_handler(void* owner, tmq_mail_t mail)
 {
-    packet_send_task* send_task = mail;
-    tmq_send_any_packet(send_task->conn, &send_task->pkt);
-    tmq_any_pkt_cleanup(&send_task->pkt);
-    TCP_CONN_RELEASE(send_task->conn);
-    free(send_task);
+    packet_send_ctx_t* ctx = mail;
+    tmq_send_any_packet(ctx->conn, &ctx->pkt);
+    tmq_any_pkt_cleanup(&ctx->pkt);
+    TCP_CONN_RELEASE(ctx->conn);
+    free(ctx);
 }
 
 static void broadcast_handler(void* owner, tmq_mail_t mail)
 {
-    broadcast_task_ctx* broadcast_task = mail;
+    broadcast_ctx_t* broadcast_task = mail;
     tmq_message* message = &broadcast_task->message;
     subscribe_info_t* info = tmq_vec_begin(broadcast_task->subscribers);
     for(; info != tmq_vec_end(broadcast_task->subscribers); info++)

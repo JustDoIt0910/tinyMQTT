@@ -49,35 +49,22 @@ static void session_close_callback(void* arg, tmq_session_t* session, int force_
     SESSION_RELEASE(session);
 }
 
+static message_store_t* get_message_store(tmq_broker_t* broker)
+{
+    if(broker->mongodb_pool)
+    {
+        tmq_str_t mongodb_store_trigger = tmq_config_get(&broker->conf, "mongodb_store_trigger");
+        int trigger = mongodb_store_trigger ? atoi(mongodb_store_trigger): DEFAULT_MONGODB_STORE_TRIGGER;
+        tmq_str_free(mongodb_store_trigger);
+        return tmq_message_store_mongodb_new(trigger);
+    }
+    return tmq_message_store_memory_new();
+}
+
 static void mqtt_publish(void* arg, tmq_session_t* session, char* topic, tmq_message* message, uint8_t retain);
 
 static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt* connect_pkt)
 {
-    /* validate username and password if anonymous login is not allowed */
-    int success = 1;
-    tmq_str_t allow_anonymous = tmq_config_get(&broker->conf, "allow_anonymous");
-    if(strcmp(allow_anonymous, "true") != 0)
-    {
-        if(!tmq_config_exist(&broker->pwd_conf, connect_pkt->username))
-        {
-            success = 0;
-            make_connect_respond(conn->io_context, conn, NOT_AUTHORIZED, NULL, 0);
-        }
-        else
-        {
-            tmq_str_t pwd_stored = tmq_config_get(&broker->pwd_conf, connect_pkt->username);
-            char* pwd_encoded = password_encode(connect_pkt->password);
-            if(strcmp(pwd_encoded, pwd_stored) != 0)
-            {
-                success = 0;
-                make_connect_respond(conn->io_context, conn, NOT_AUTHORIZED, NULL, 0);
-            }
-            tmq_str_free(pwd_stored);
-            free(pwd_encoded);
-        }
-    }
-    if(!success) goto cleanup;
-
     char* will_topic = NULL, *will_message = NULL;
     uint8_t will_qos = 0, will_retain = 0;
     if(CONNECT_WILL_FLAG(connect_pkt->flags))
@@ -98,7 +85,7 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
         connect_pkt->client_id = tmq_str_append_char(connect_pkt->client_id, ']');
     }
     tmq_session_t** session = tmq_map_get(broker->sessions, connect_pkt->client_id);
-    /* if there is an active session associted with this client id */
+    /* if there is an active session associated with this client id */
     if(session && (*session)->state == OPEN)
         make_connect_respond(conn->io_context, conn, IDENTIFIER_REJECTED, NULL, 0);
 
@@ -113,9 +100,9 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
         {
             tmq_session_close(*session, 1);
             tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish, session_close_callback, conn,
-                                                         connect_pkt->client_id, 1, connect_pkt->keep_alive, will_topic,
-                                                         will_message, will_qos, will_retain, broker->inflight_window_size,
-                                                         tmq_message_store_mongodb_new(10));
+                                                         connect_pkt->client_id, connect_pkt->username, 1, connect_pkt->keep_alive,
+                                                         will_topic, will_message, will_qos, will_retain,
+                                                         broker->inflight_window_size, get_message_store(broker));
             tmq_map_put(broker->sessions, connect_pkt->client_id, SESSION_SHARE(new_session));
             make_connect_respond(conn->io_context, conn, CONNECTION_ACCEPTED, new_session, 1);
         }
@@ -132,30 +119,29 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
     {
         int clean_session = CONNECT_CLEAN_SESSION(connect_pkt->flags) != 0;
         tmq_session_t* new_session = tmq_session_new(broker, mqtt_publish, session_close_callback, conn,
-                                                     connect_pkt->client_id, clean_session, connect_pkt->keep_alive, will_topic,
-                                                     will_message, will_qos, will_retain, broker->inflight_window_size,
-                                                     tmq_message_store_mongodb_new(10));
+                                                     connect_pkt->client_id, connect_pkt->username, clean_session, connect_pkt->keep_alive,
+                                                     will_topic, will_message, will_qos, will_retain,
+                                                     broker->inflight_window_size, get_message_store(broker));
         tmq_map_put(broker->sessions, connect_pkt->client_id, SESSION_SHARE(new_session));
         make_connect_respond(conn->io_context, conn, CONNECTION_ACCEPTED, new_session, 0);
     }
-    cleanup:
-    tmq_str_free(allow_anonymous);
     tmq_connect_pkt_cleanup(connect_pkt);
+    free(connect_pkt);
 }
 
 /* handle session creating and closing */
 void handle_session_req(void* arg)
 {
-    session_task_ctx* ctx = arg;
-    tmq_broker_t* broker = ctx->broker;
-    session_req* req = &ctx->req;
+    session_operation_t* operation = arg;
+    tmq_broker_t* broker = operation->broker;
+    session_req* req = &operation->req;
 
     /* handle connect request */
     if(req->op == SESSION_CONNECT)
     {
-        session_connect_req *connect_req = &req->connect_req;
+        session_connect_req* connect_req = &req->connect_req;
         /* try to start a mqtt session */
-        start_session(broker, connect_req->conn, &connect_req->connect_pkt);
+        start_session(broker, connect_req->conn, connect_req->connect_pkt);
     }
     /* handle session disconnect or force-close */
     else
@@ -184,9 +170,9 @@ void handle_session_req(void* arg)
 /* handle subscribe/unsubscribe */
 static void handle_topic_req(void* arg)
 {
-    topic_task_ctx* ctx = arg;
-    tmq_broker_t* broker = ctx->broker;
-    topic_req * req = &ctx->req;
+    topic_operation_t* operation = arg;
+    tmq_broker_t* broker = operation->broker;
+    topic_req * req = &operation->req;
 
     tmq_session_t** session = tmq_map_get(broker->sessions, req->client_id);
     if(!session || (*session)->state == CLOSED)
@@ -207,7 +193,7 @@ static void handle_topic_req(void* arg)
         topic_filter_qos* tf = tmq_vec_begin(req->subscribe_pkt.topics);
         for(; tf != tmq_vec_end(req->subscribe_pkt.topics); tf++)
         {
-            if(tmq_acl_auth(&broker->acl, *session, tf->topic_filter, SUB) == DENY)
+            if(broker->acl_enabled && tmq_acl_auth(&broker->acl, *session, tf->topic_filter, SUB) == DENY)
             {
                 tlog_info("subscribe{client=%s, topic=%s, qos=%u} denied", req->client_id, tf->topic_filter, tf->qos);
                 continue;
@@ -228,7 +214,7 @@ static void handle_topic_req(void* arg)
         for(retain_message_t** it = tmq_vec_begin(all_retain); it != tmq_vec_end(all_retain); it++)
         {
             retain_message_t* retain_msg = *it;
-            broadcast_task_ctx* broadcast_task = malloc(sizeof(broadcast_task_ctx));
+            broadcast_ctx_t* broadcast_task = malloc(sizeof(broadcast_ctx_t));
             broadcast_task->topic = tmq_str_new(retain_msg->retain_topic);
             broadcast_task->message.message = tmq_str_new(retain_msg->retain_msg.message);
             broadcast_task->message.qos = retain_msg->retain_msg.qos;
@@ -266,10 +252,10 @@ static void handle_topic_req(void* arg)
 /* handle publish */
 static void handle_publish_req(void* arg)
 {
-    publish_task_ctx* ctx = arg;
+    publish_ctx_t* operation = arg;
 
-    tmq_broker_t* broker = ctx->broker;
-    publish_req* req = &ctx->req;
+    tmq_broker_t* broker = operation->broker;
+    publish_req* req = &operation->req;
 
     tmq_topics_publish(&broker->topics_tree, req->topic, &req->message, req->retain);
     tmq_str_free(req->topic);
@@ -277,19 +263,106 @@ static void handle_publish_req(void* arg)
     free(arg);
 }
 
+typedef struct password_validate_context_s
+{
+    tmq_broker_t* broker;
+    tmq_tcp_conn_t* conn;
+    tmq_connect_pkt* connect_pkt;
+} password_validate_context_t;
+
+static void validate_password_in_thread_pool(void* arg)
+{
+    password_validate_context_t* ctx = arg;
+    MYSQL* mysql_client = tmq_mysql_conn_pool_pop(&ctx->broker->mysql_pool);
+    if(ctx->connect_pkt->username &&
+    ctx->connect_pkt->password &&
+    validate_connect_password(mysql_client, ctx->connect_pkt->username, ctx->connect_pkt->password))
+    {
+        session_req req = {
+                .op = SESSION_CONNECT,
+                .connect_req = {
+                        .conn = ctx->conn,
+                        .connect_pkt = ctx->connect_pkt
+                }
+        };
+        session_operation_t* operation = malloc(sizeof(session_operation_t));
+        operation->broker = ctx->broker;
+        operation->req = req;
+        tmq_executor_post(&ctx->broker->executor, handle_session_req, operation, 1);
+    }
+    else
+    {
+        tmq_connect_pkt_cleanup(ctx->connect_pkt);
+        free(ctx->connect_pkt);
+        make_connect_respond(ctx->conn->io_context, ctx->conn, NOT_AUTHORIZED, NULL, 0);
+    }
+    tmq_mysql_conn_pool_push(&ctx->broker->mysql_pool, mysql_client);
+    free(ctx);
+}
+
 void mqtt_connect(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt* connect_pkt)
 {
+    /* validate username and password if anonymous login is not allowed */
+    int validate_success = 1;
+    int validate_in_progress = 0;
+    tmq_str_t allow_anonymous = tmq_config_get(&broker->conf, "allow_anonymous");
+    if(!allow_anonymous || !tmq_str_equal(allow_anonymous, "true"))
+    {
+        if(broker->mysql_enabled)
+        {
+            password_validate_context_t* ctx = malloc(sizeof(password_validate_context_t));
+            bzero(ctx, sizeof(password_validate_context_t));
+            ctx->broker = broker;
+            ctx->conn = TCP_CONN_SHARE(conn),
+            ctx->connect_pkt = connect_pkt;
+            struct thrdpool_task task = {
+                    .routine = validate_password_in_thread_pool,
+                    .context = ctx
+            };
+            thrdpool_schedule(&task, broker->thread_pool);
+            validate_in_progress = 1;
+        }
+        else
+        {
+            if(!tmq_config_exist(&broker->pwd_conf, connect_pkt->username))
+                validate_success = 0;
+            else
+            {
+                tmq_str_t pwd_stored = tmq_config_get(&broker->pwd_conf, connect_pkt->username);
+                char* pwd_encoded = password_encode(connect_pkt->password);
+                if(strcmp(pwd_encoded, pwd_stored) != 0)
+                    validate_success = 0;
+                tmq_str_free(pwd_stored);
+                free(pwd_encoded);
+            }
+        }
+    }
+    tmq_str_free(allow_anonymous);
+    /* validate_in_progress=1 means validation is performed in thread pool */
+    if(validate_in_progress)
+        return;
+    if(!validate_success)
+    {
+        tmq_connack_pkt pkt = {
+                .return_code = NOT_AUTHORIZED,
+                .ack_flags = 0
+        };
+        send_conn_ack_packet(conn, &pkt);
+        tmq_connect_pkt_cleanup(connect_pkt);
+        free(connect_pkt);
+        return;
+    }
     session_req req = {
             .op = SESSION_CONNECT,
             .connect_req = {
                     .conn = TCP_CONN_SHARE(conn),
-                    .connect_pkt = *connect_pkt
+                    .connect_pkt = connect_pkt
             }
     };
-    session_task_ctx* ctx = malloc(sizeof(session_task_ctx));
-    ctx->broker = broker;
-    ctx->req = req;
-    tmq_executor_post(&broker->executor, handle_session_req, ctx,1);
+    session_operation_t* operation = malloc(sizeof(session_operation_t));
+    operation->broker = broker;
+    operation->req = req;
+    tmq_executor_post(&broker->executor, handle_session_req, operation, 1);
 }
 
 void mqtt_disconnect(tmq_broker_t* broker, tmq_session_t* session)
@@ -298,10 +371,10 @@ void mqtt_disconnect(tmq_broker_t* broker, tmq_session_t* session)
             .op = SESSION_DISCONNECT,
             .session = session
     };
-    session_task_ctx* ctx = malloc(sizeof(session_task_ctx));
+    session_operation_t* ctx = malloc(sizeof(session_operation_t));
     ctx->broker = broker;
     ctx->req = req;
-    tmq_executor_post(&broker->executor, handle_session_req, ctx,1);
+    tmq_executor_post(&broker->executor, handle_session_req, ctx, 1);
 }
 
 void mqtt_subscribe(tmq_broker_t* broker, tmq_str_t client_id, tmq_subscribe_pkt* subscribe_pkt)
@@ -311,10 +384,10 @@ void mqtt_subscribe(tmq_broker_t* broker, tmq_str_t client_id, tmq_subscribe_pkt
             .client_id = client_id,
             .subscribe_pkt = *subscribe_pkt
     };
-    topic_task_ctx* ctx = malloc(sizeof(topic_task_ctx));
-    ctx->broker = broker;
-    ctx->req = req;
-    tmq_executor_post(&broker->executor, handle_topic_req, ctx,1);
+    topic_operation_t* operation = malloc(sizeof(topic_operation_t));
+    operation->broker = broker;
+    operation->req = req;
+    tmq_executor_post(&broker->executor, handle_topic_req, operation, 1);
 }
 
 void mqtt_unsubscribe(tmq_broker_t* broker, tmq_str_t client_id,
@@ -325,7 +398,7 @@ void mqtt_unsubscribe(tmq_broker_t* broker, tmq_str_t client_id,
             .client_id = client_id,
             .unsubscribe_pkt = *unsubscribe_pkt
     };
-    topic_task_ctx* ctx = malloc(sizeof(topic_task_ctx));
+    topic_operation_t* ctx = malloc(sizeof(topic_operation_t));
     ctx->broker = broker;
     ctx->req = req;
     tmq_executor_post(&broker->executor, handle_topic_req, ctx,1);
@@ -334,25 +407,25 @@ void mqtt_unsubscribe(tmq_broker_t* broker, tmq_str_t client_id,
 void mqtt_publish(void* arg, tmq_session_t* session, char* topic, tmq_message* message, uint8_t retain)
 {
     tmq_broker_t* broker = arg;
-    if(tmq_acl_auth(&broker->acl, session, topic, PUB) == DENY)
+    if(broker->acl_enabled && tmq_acl_auth(&broker->acl, session, topic, PUB) == DENY)
         return;
     publish_req req = {
             .topic = topic,
             .message = *message,
             .retain = retain
     };
-    publish_task_ctx* ctx = malloc(sizeof(publish_task_ctx));
+    publish_ctx_t* ctx = malloc(sizeof(publish_ctx_t));
     ctx->broker = broker;
     ctx->req = req;
-    tmq_executor_post(&broker->executor, handle_publish_req, ctx,0);
+    tmq_executor_post(&broker->executor, handle_publish_req, ctx, 0);
 }
 
 static void mqtt_broadcast(tmq_broker_t* broker, char* topic, tmq_message* message, subscribe_map_t* subscribers)
 {
-    broadcast_task_ctx** broadcast_tasks = malloc(sizeof(broadcast_task_ctx*) * broker->io_threads);
+    broadcast_ctx_t** broadcast_tasks = malloc(sizeof(broadcast_ctx_t*) * broker->io_threads);
     for(int i = 0; i < broker->io_threads; i++)
     {
-        broadcast_tasks[i] = malloc(sizeof(broadcast_task_ctx));
+        broadcast_tasks[i] = malloc(sizeof(broadcast_ctx_t));
         broadcast_tasks[i]->topic = tmq_str_new(topic);
         broadcast_tasks[i]->message.message = tmq_str_new(message->message);
         broadcast_tasks[i]->message.qos = message->qos;
@@ -375,6 +448,8 @@ static void mqtt_broadcast(tmq_broker_t* broker, char* topic, tmq_message* messa
 int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
 {
     if(!broker) return -1;
+    bzero(broker, sizeof(tmq_broker_t));
+    /* read tinymqtt configure file */
     if(tmq_config_init(&broker->conf, cfg, "=") == 0)
         tlog_info("read config file %s ok", cfg);
     else
@@ -382,18 +457,77 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
         tlog_error("read config file error");
         return -1;
     }
-    tmq_str_t pwd_file_path = tmq_config_get(&broker->conf, "password_file");
-    if(!pwd_file_path)
-        pwd_file_path = tmq_str_new("pwd.conf");
-    if(tmq_config_init(&broker->pwd_conf, pwd_file_path, ":") == 0)
-        tlog_info("read password file %s ok", pwd_file_path);
+    broker->acl_enabled = 0;
+    tmq_str_t acl_enable = tmq_config_get(&broker->conf, "acl_enable");
+    if(acl_enable && tmq_str_equal(acl_enable, "true"))
+        broker->acl_enabled = 1;
+    tmq_str_free(acl_enable);
+    /* if mysql is configured, initialize mysql connection pool and load acl rules */
+    tmq_str_t mysql_enable = tmq_config_get(&broker->conf, "mysql_enable");
+    if(mysql_enable && tmq_str_equal(mysql_enable, "true"))
+    {
+        broker->mysql_enabled = 1;
+        tmq_str_t mysql_host = tmq_config_get(&broker->conf, "mysql_host");
+        tmq_str_t mysql_pt = tmq_config_get(&broker->conf, "mysql_port");
+        tmq_str_t mysql_user = tmq_config_get(&broker->conf, "mysql_username");
+        tmq_str_t mysql_pwd = tmq_config_get(&broker->conf, "mysql_password");
+        tmq_str_t mysql_db = tmq_config_get(&broker->conf, "mysql_db");
+        tmq_str_t mysql_pool_size = tmq_config_get(&broker->conf, "mysql_pool_size");
+        const char* host = mysql_host ? mysql_host: DEFAULT_MYSQL_HOST;
+        int port = mysql_pt ? atoi(mysql_pt): DEFAULT_MYSQL_PORT;
+        if(!mysql_user)
+        {
+            tlog_error("mysql username isn't specified");
+            return -1;
+        }
+        if(!mysql_pwd)
+        {
+            tlog_error("mysql password isn't specified");
+            return -1;
+        }
+        const char* db_name = mysql_db ? mysql_db: DEFAULT_MYSQL_DB;
+        int pool_size = mysql_pool_size ? atoi(mysql_pool_size): DEFAULT_MYSQL_POOL_SIZE;
+        tmq_mysql_conn_pool_init(&broker->mysql_pool, host, port, mysql_user, mysql_pwd,db_name, pool_size);
+        tmq_acl_init(&broker->acl, DENY);
+        load_acl_from_mysql(tmq_mysql_conn_pool_pop(&broker->mysql_pool), &broker->acl);
+        tmq_str_free(mysql_host);
+        tmq_str_free(mysql_pt);
+        tmq_str_free(mysql_user);
+        tmq_str_free(mysql_pwd);
+        tmq_str_free(mysql_db);
+        tmq_str_free(mysql_pool_size);
+    }
+    /* otherwise, use password file and disable acl */
     else
     {
-        tlog_error("read password file error");
+        tmq_str_t pwd_file_path = tmq_config_get(&broker->conf, "password_file");
+        if(!pwd_file_path)
+            pwd_file_path = tmq_str_new("pwd.conf");
+        if(tmq_config_init(&broker->pwd_conf, pwd_file_path, ":") == 0)
+            tlog_info("read password file %s ok", pwd_file_path);
+        else
+        {
+            tlog_error("read password file error");
+            tmq_str_free(pwd_file_path);
+            return -1;
+        }
         tmq_str_free(pwd_file_path);
-        return -1;
+        broker->acl_enabled = 0;
     }
-    tmq_str_free(pwd_file_path);
+    tmq_str_free(mysql_enable);
+
+    tmq_str_t mongodb_uri = tmq_config_get(&broker->conf, "mongodb_uri");
+    if(mongodb_uri)
+    {
+        mongoc_init();
+        bson_error_t error;
+        mongoc_uri_t* uri = mongoc_uri_new_with_error(mongodb_uri, &error);
+        if(!uri)
+            fatal_error("mongodb uri error: %s", error.message);
+        broker->mongodb_pool = mongoc_client_pool_new(uri);
+        mongoc_client_pool_set_error_api(broker->mongodb_pool, 2);
+    }
+    tmq_str_free(mongodb_uri);
 
     tmq_event_loop_init(&broker->loop);
     tmq_codec_init(&broker->codec, SERVER_CODEC);
@@ -404,18 +538,16 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
     tlog_info("listening on port %u", port);
 
     tmq_str_t inflight_window_str = tmq_config_get(&broker->conf, "inflight_window");
-    broker->inflight_window_size = inflight_window_str ?
-            strtoul(inflight_window_str, NULL, 10):
-            1;
+    broker->inflight_window_size = inflight_window_str ? strtoul(inflight_window_str, NULL, 10): 1;
     tmq_str_free(inflight_window_str);
 
     tmq_acceptor_init(&broker->acceptor, &broker->loop, port);
     tmq_acceptor_set_cb(&broker->acceptor, dispatch_new_connection, broker);
 
+    /* initialize io contexts */
     tmq_str_t io_group_num_str = tmq_config_get(&broker->conf, "io_threads");
     broker->io_threads = io_group_num_str ? strtoul(io_group_num_str, NULL, 10): DEFAULT_IO_THREADS;
     tmq_str_free(io_group_num_str);
-
     tlog_info("start with %d io threads", broker->io_threads);
     broker->io_contexts = malloc(sizeof(tmq_io_context_t) * broker->io_threads);
     for(int i = 0; i <  broker->io_threads; i++)
@@ -425,23 +557,11 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
     tmq_executor_init(&broker->executor, 2);
     broker->thread_pool = thrdpool_create(10, 0);
 
-    tmq_acl_init(&broker->acl, DENY);
-    tmq_mysql_conn_pool_init(&broker->mysql_pool, "localhost", 3306, "root", "20010910cheng", "tinymqtt_db", 50);
-    mongoc_init();
-    bson_error_t error;
-    mongoc_uri_t* uri = mongoc_uri_new_with_error("mongodb://localhost:27017", &error);
-    if(!uri)
-        fatal_error("mongodb uri error: %s", error.message);
-    broker->mongodb_pool = mongoc_client_pool_new(uri);
-    mongoc_client_pool_set_error_api(broker->mongodb_pool, 2);
-
     tmq_map_str_init(&broker->sessions, tmq_session_t*, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
     tmq_topics_init(&broker->topics_tree, broker, mqtt_broadcast);
 
     /* ignore SIGPIPE signal */
     signal(SIGPIPE, SIG_IGN);
-
-    load_acl_from_mysql(tmq_mysql_conn_pool_pop(&broker->mysql_pool), &broker->acl);
     return 0;
 }
 

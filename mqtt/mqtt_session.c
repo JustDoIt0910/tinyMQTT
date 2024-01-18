@@ -68,9 +68,9 @@ static void session_cleanup_(tmq_ref_counted_t* obj)
 }
 
 tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message, close_cb on_close, tmq_tcp_conn_t* conn,
-                               char* client_id, uint8_t clean_session, uint16_t keep_alive, char* will_topic,
-                               char* will_message, uint8_t will_qos, uint8_t will_retain, uint8_t max_inflight,
-                               message_store_t* message_store)
+                               char* client_id, char* username, uint8_t clean_session, uint16_t keep_alive,
+                               char* will_topic, char* will_message, uint8_t will_qos, uint8_t will_retain,
+                               uint8_t max_inflight, message_store_t* message_store)
 {
     tmq_session_t* session = malloc(sizeof(tmq_session_t));
     if(!session) fatal_error("malloc() error: out of memory");
@@ -83,6 +83,7 @@ tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message, cl
     session->clean_session = clean_session;
     session->conn = TCP_CONN_SHARE(conn);
     session->client_id = tmq_str_new(client_id);
+    session->username = tmq_str_new(username);
     session->keep_alive = keep_alive;
     session->last_pkt_ts = time_now();
     session->inflight_window_size = max_inflight;
@@ -248,10 +249,10 @@ void tmq_session_send_packet(tmq_session_t* session, tmq_any_packet_t* pkt, int 
     else
     {
         tmq_io_context_t* context = session->conn->io_context;
-        packet_send_task* send_task = malloc(sizeof(packet_send_task));
-        send_task->conn = TCP_CONN_SHARE(session->conn);
-        send_task->pkt = *pkt;
-        tmq_mailbox_push(&context->packet_sending_tasks, send_task);
+        packet_send_ctx_t* send_ctx = malloc(sizeof(packet_send_ctx_t));
+        send_ctx->conn = TCP_CONN_SHARE(session->conn);
+        send_ctx->pkt = *pkt;
+        tmq_mailbox_push(&context->packet_sending_tasks, send_ctx);
     }
 }
 

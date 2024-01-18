@@ -10,7 +10,7 @@
 #include <stdlib.h>
 
 
-/*************** session operation tasks *****************/
+/*************** session operations *****************/
 typedef enum session_req_op_e
 {
     SESSION_CONNECT,
@@ -20,7 +20,7 @@ typedef enum session_req_op_e
 
 typedef struct session_connect_req
 {
-    tmq_connect_pkt connect_pkt;
+    tmq_connect_pkt* connect_pkt;
     tmq_tcp_conn_t* conn;
 } session_connect_req;
 
@@ -34,13 +34,13 @@ typedef struct session_req
     };
 } session_req;
 
-typedef struct session_task_ctx
+typedef struct session_operation_s
 {
     tmq_broker_t* broker;
     session_req req;
-}session_task_ctx;
+} session_operation_t;
 
-/*************** topic operation tasks *****************/
+/*************** topic operations *****************/
 typedef enum topic_req_op_e
 {
     TOPIC_SUBSCRIBE,
@@ -58,11 +58,11 @@ typedef struct topic_req
     };
 } topic_req;
 
-typedef struct topic_task_ctx
+typedef struct topic_operation_s
 {
     tmq_broker_t* broker;
     topic_req req;
-}topic_task_ctx;
+} topic_operation_t;
 
 /*************** publish task *****************/
 typedef struct publish_req
@@ -72,25 +72,25 @@ typedef struct publish_req
     uint8_t retain;
 } publish_req;
 
-typedef struct publish_task_ctx
+typedef struct publish_ctx_s
 {
     tmq_broker_t* broker;
     publish_req req;
-} publish_task_ctx;
+} publish_ctx_t;
 
-typedef struct broadcast_task_ctx
+typedef struct broadcast_ctx_s
 {
     tmq_str_t topic;
     tmq_message message;
     int retain;
     tmq_vec(subscribe_info_t) subscribers;
-} broadcast_task_ctx;
+} broadcast_ctx_t;
 
 /*************** packet sending task *****************/
-typedef struct packet_send_task
+typedef struct packet_send_ctx_s
 {
     tmq_tcp_conn_t* conn;
     tmq_any_packet_t pkt;
-} packet_send_task;
+} packet_send_ctx_t;
 
 #endif //TINYMQTT_MQTT_TASKS_H

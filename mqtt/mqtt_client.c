@@ -130,10 +130,10 @@ void on_connect_response(tiny_mqtt* mqtt, tmq_connack_pkt* connack_pkt)
     ctx->conn_state = IN_SESSION;
     if(!mqtt->session)
         mqtt->session = tmq_session_new(mqtt, on_mqtt_message, NULL, mqtt->conn, mqtt->connect_options.client_id,
-                                        mqtt->connect_options.clean_session, mqtt->connect_options.keep_alive,
-                                        mqtt->connect_options.will_topic, mqtt->connect_options.will_message,
-                                        mqtt->connect_options.will_qos, mqtt->connect_options.will_retain, 1,
-                                        tmq_message_store_memory_new());
+                                        mqtt->connect_options.username, mqtt->connect_options.clean_session,
+                                        mqtt->connect_options.keep_alive, mqtt->connect_options.will_topic,
+                                        mqtt->connect_options.will_message, mqtt->connect_options.will_qos,
+                                        mqtt->connect_options.will_retain, 1, tmq_message_store_memory_new());
     else
     {
         mqtt->session->state = OPEN;

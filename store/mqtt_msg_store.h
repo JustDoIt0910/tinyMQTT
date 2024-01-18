@@ -62,12 +62,12 @@ typedef struct message_store_mongodb_s
     MESSAGE_STORE_PUBLIC_MEMBERS
     sending_packet_t* buffer_queue_head;
     sending_packet_t** buffer_queue_tail;
-    uint16_t thresh;
+    uint16_t trigger;
     uint16_t buffer_size;
     uint8_t states;
 } message_store_mongodb_t;
 
 message_store_t* tmq_message_store_memory_new();
-message_store_t* tmq_message_store_mongodb_new(uint16_t trigger_thresh);
+message_store_t* tmq_message_store_mongodb_new(uint16_t trigger);
 
 #endif //TINYMQTT_MQTT_MSG_STORE_H

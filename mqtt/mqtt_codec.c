@@ -102,47 +102,47 @@ static decode_status parse_connect_packet(tmq_codec_t* codec, tmq_tcp_conn_t* co
         send_conn_ack_packet(conn, &pkt);
         return PROTOCOL_ERROR;
     }
-    tmq_connect_pkt connect_pkt;
-    bzero(&connect_pkt, sizeof(tmq_connect_pkt));
-    connect_pkt.flags = flags;
-    connect_pkt.keep_alive = keep_alive;
+    tmq_connect_pkt* connect_pkt = malloc(sizeof(tmq_connect_pkt));
+    bzero(connect_pkt, sizeof(tmq_connect_pkt));
+    connect_pkt->flags = flags;
+    connect_pkt->keep_alive = keep_alive;
     if(client_id_len > 0)
     {
         /* read client identifier */
-        connect_pkt.client_id = tmq_str_new_len(NULL, client_id_len);
-        tmq_buffer_read(buffer, connect_pkt.client_id, client_id_len);
+        connect_pkt->client_id = tmq_str_new_len(NULL, client_id_len);
+        tmq_buffer_read(buffer, connect_pkt->client_id, client_id_len);
     }
     if(CONNECT_WILL_FLAG(flags))
     {
         /* read will topic and will message */
         uint16_t field_len;
         tmq_buffer_read16(buffer, &field_len);
-        connect_pkt.will_topic = tmq_str_new_len(NULL, field_len);
-        tmq_buffer_read(buffer, connect_pkt.will_topic, field_len);
+        connect_pkt->will_topic = tmq_str_new_len(NULL, field_len);
+        tmq_buffer_read(buffer, connect_pkt->will_topic, field_len);
         tmq_buffer_read16(buffer, &field_len);
-        connect_pkt.will_message = tmq_str_new_len(NULL, field_len);
-        tmq_buffer_read(buffer, connect_pkt.will_message, field_len);
+        connect_pkt->will_message = tmq_str_new_len(NULL, field_len);
+        tmq_buffer_read(buffer, connect_pkt->will_message, field_len);
     }
     if(CONNECT_USERNAME_FLAG(flags))
     {
         /* read username if username flag is 1 */
         uint16_t username_len;
         tmq_buffer_read16(buffer, &username_len);
-        connect_pkt.username = tmq_str_new_len(NULL, username_len);
-        tmq_buffer_read(buffer, connect_pkt.username, username_len);
+        connect_pkt->username = tmq_str_new_len(NULL, username_len);
+        tmq_buffer_read(buffer, connect_pkt->username, username_len);
     }
     if(CONNECT_PASSWORD_FLAG(flags))
     {
         /* read password if password flag is 1 */
         uint16_t password_len;
         tmq_buffer_read16(buffer, &password_len);
-        connect_pkt.password = tmq_str_new_len(NULL, password_len);
-        tmq_buffer_read(buffer, connect_pkt.password, password_len);
+        connect_pkt->password = tmq_str_new_len(NULL, password_len);
+        tmq_buffer_read(buffer, connect_pkt->password, password_len);
     }
     tcp_conn_ctx* ctx = conn->context;
     /* deliver this CONNECT packet to the broker */
     ctx->conn_state = STARTING_SESSION;
-    codec->on_connect(ctx->upstream.broker, conn, &connect_pkt);
+    codec->on_connect(ctx->upstream.broker, conn, connect_pkt);
     return DECODE_OK;
 }
 

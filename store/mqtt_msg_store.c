@@ -244,7 +244,7 @@ static int mongodb_store_store_message(message_store_t* store, tmq_session_t* se
     int send_now = 0;
     sending_pkt->store_timestamp = session->store_timestamp++;
     message_store_mongodb_t* mongodb_store = (message_store_mongodb_t*)store;
-    if((mongodb_store->total_size < mongodb_store->thresh / 2 && !HAS_BUFFERED_MESSAGES(mongodb_store->states)) ||
+    if((mongodb_store->total_size < mongodb_store->trigger / 2 && !HAS_BUFFERED_MESSAGES(mongodb_store->states)) ||
     sending_pkt->packet.packet_type == MQTT_PUBREL)
         send_now = memory_store_store_message(store, session, sending_pkt);
     else
@@ -254,7 +254,7 @@ static int mongodb_store_store_message(message_store_t* store, tmq_session_t* se
         *mongodb_store->buffer_queue_tail = sending_pkt;
         mongodb_store->buffer_queue_tail = &sending_pkt->next;
         SET_BUFFERED_MESSAGES(mongodb_store->states);
-        if(mongodb_store->total_size >= mongodb_store->thresh)
+        if(mongodb_store->total_size >= mongodb_store->trigger)
         {
             if(FETCHING(mongodb_store->states) || STORING(mongodb_store->states))
                 SET_NEED_STORE(mongodb_store->states);
@@ -323,11 +323,11 @@ message_store_t* tmq_message_store_memory_new()
     return (message_store_t*)store;
 }
 
-message_store_t* tmq_message_store_mongodb_new(uint16_t trigger_thresh)
+message_store_t* tmq_message_store_mongodb_new(uint16_t trigger)
 {
     message_store_mongodb_t* store = malloc(sizeof(message_store_mongodb_t));
     bzero(store, sizeof(message_store_mongodb_t));
-    store->thresh = trigger_thresh;
+    store->trigger = trigger;
     store->buffer_queue_tail = &store->buffer_queue_head;
     store->acknowledge_and_next = mongodb_store_acknowledge;
     store->store_message = mongodb_store_store_message;

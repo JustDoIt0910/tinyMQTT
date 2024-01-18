@@ -21,6 +21,7 @@ void store_messages_to_mongodb(mongoc_client_t* mongo_client, const char* mqtt_c
                                int n_packets);
 int fetch_messages_from_mongodb(mongoc_client_t* mongo_client, const char* mqtt_client_id, int limit,
                                 sending_packet_t** result_head, sending_packet_t** result_tail);
+int validate_connect_password(MYSQL* mysql_conn, const char* username, const char* password);
 void load_acl_from_mysql(MYSQL* mysql_conn, tmq_acl_t* acl);
 
 #endif //TINYMQTT_MQTT_DB_H

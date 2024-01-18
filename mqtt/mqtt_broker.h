@@ -19,7 +19,12 @@
 #include "thrdpool/thrdpool.h"
 #include <mongoc/mongoc.h>
 
-#define DEFAULT_IO_THREADS  4
+#define DEFAULT_IO_THREADS              4
+#define DEFAULT_MYSQL_HOST              "localhost"
+#define DEFAULT_MYSQL_PORT              3306
+#define DEFAULT_MYSQL_DB                "tinymqtt_db"
+#define DEFAULT_MYSQL_POOL_SIZE         50
+#define DEFAULT_MONGODB_STORE_TRIGGER   50
 
 typedef tmq_map(char*, tmq_session_t*) tmq_session_map;
 typedef struct tmq_broker_s
@@ -39,6 +44,8 @@ typedef struct tmq_broker_s
     tmq_topics_t topics_tree;
     uint8_t inflight_window_size;
     int io_threads;
+    int mysql_enabled;
+    int acl_enabled;
 } tmq_broker_t;
 
 int tmq_broker_init(tmq_broker_t* broker, const char* cfg);
