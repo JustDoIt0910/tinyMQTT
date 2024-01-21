@@ -2,13 +2,11 @@
 // Created by zr on 23-4-20.
 //
 
-#ifndef TINYMQTT_MQTT_CODEC_H
-#define TINYMQTT_MQTT_CODEC_H
-#include "mqtt_packet.h"
+#ifndef TINYMQTT_MQTT_PROTO_CODEC_H
+#define TINYMQTT_MQTT_PROTO_CODEC_H
+#include "mqtt/mqtt_packet.h"
+#include "mqtt_codec.h"
 
-typedef struct tmq_codec_s tmq_codec_t;
-typedef struct tmq_tcp_conn_s tmq_tcp_conn_t;
-typedef struct tmq_buffer_s tmq_buffer_t;
 typedef struct tmq_broker_s tmq_broker_t;
 typedef struct tmq_client_s tiny_mqtt;
 typedef struct tmq_session_s tmq_session_t;
@@ -22,7 +20,6 @@ typedef struct tmq_fixed_header
 #define PACKET_TYPE(header) (((header).type_flags >> 4) & 0x0F)
 #define FLAGS(header)       (((header).type_flags) & 0x0F)
 
-typedef void (*tcp_message_decoder_f) (tmq_codec_t* codec, tmq_tcp_conn_t* conn, tmq_buffer_t* buffer);
 typedef void (*connect_pkt_cb) (tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt* connect_pkt);
 typedef void (*connack_pkt_cb) (tiny_mqtt* client, tmq_connack_pkt* connack_pkt);
 typedef void (*publish_pkt_cb) (tmq_session_t* session, tmq_publish_pkt* publish_pkt);
@@ -38,13 +35,9 @@ typedef void (*pingreq_pkt_cb) (tmq_session_t* session);
 typedef void (*pingresp_pkt_cb) (tmq_session_t* session);
 typedef void (*disconnect_pkt_cb) (tmq_broker_t* broker, tmq_session_t* session);
 
-typedef enum tmq_codec_type_e {CLIENT_CODEC, SERVER_CODEC} tmq_codec_type;
-
-typedef struct tmq_codec_s
+typedef struct tmq_mqtt_codec_s
 {
-    tmq_codec_type type;
-    tcp_message_decoder_f decode_tcp_message;
-
+    CODEC_PUBLIC_MEMBERS
     connect_pkt_cb on_connect;
     connack_pkt_cb on_conn_ack;
 
@@ -54,18 +47,18 @@ typedef struct tmq_codec_s
     pubrel_pkt_cb on_pub_rel;
     pubcomp_pkt_cb on_pub_comp;
 
-    subscribe_pkt_cb on_subsribe;
+    subscribe_pkt_cb on_subscribe;
     suback_pkt_cb on_sub_ack;
-    unsubscribe_pkt_cb on_unsubcribe;
+    unsubscribe_pkt_cb on_unsubscribe;
     unsuback_pkt_cb on_unsub_ack;
 
     pingreq_pkt_cb on_ping_req;
     pingresp_pkt_cb on_ping_resp;
 
     disconnect_pkt_cb on_disconnect;
-} tmq_codec_t;
+} tmq_mqtt_codec_t;
 
-typedef enum decode_status_e
+typedef enum mqtt_decode_status_e
 {
     DECODE_OK,
     NEED_MORE_DATA,
@@ -73,24 +66,24 @@ typedef enum decode_status_e
     BAD_PACKET_FORMAT,
     PROTOCOL_ERROR,
     UNEXPECTED_PACKET
-} decode_status;
+} mqtt_decode_status;
 
-typedef enum parsing_state_e
+typedef enum mqtt_parsing_state_e
 {
     PARSING_FIXED_HEADER,
     PARSING_REMAIN_LENGTH,
     PARSING_BODY
-} parsing_state;
+} mqtt_parsing_state;
 
-typedef struct pkt_parsing_ctx_s
+typedef struct mqtt_parsing_ctx_s
 {
-    parsing_state state;
+    mqtt_parsing_state state;
     tmq_fixed_header fixed_header;
     /* save the current multiplier when decoding remain_length */
     uint32_t multiplier;
-} pkt_parsing_ctx;
+} mqtt_parsing_ctx_t;
 
-void tmq_codec_init(tmq_codec_t* codec, tmq_codec_type type);
+void tmq_mqtt_codec_init(tmq_mqtt_codec_t* codec, tmq_codec_type type);
 
 void send_connect_packet(tmq_tcp_conn_t* conn, void* pkt);
 void send_conn_ack_packet(tmq_tcp_conn_t* conn, void* pkt);
@@ -109,4 +102,4 @@ void send_disconnect_packet(tmq_tcp_conn_t* conn, void* pkt);
 
 void tmq_send_any_packet(tmq_tcp_conn_t* conn, tmq_any_packet_t* pkt);
 
-#endif //TINYMQTT_MQTT_CODEC_H
+#endif //TINYMQTT_MQTT_PROTO_CODEC_H

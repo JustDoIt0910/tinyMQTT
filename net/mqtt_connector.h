@@ -4,7 +4,7 @@
 
 #ifndef TINYMQTT_MQTT_CONNECTOR_H
 #define TINYMQTT_MQTT_CONNECTOR_H
-#include "base/mqtt_socket.h"
+#include "mqtt_socket.h"
 #include "event/mqtt_event.h"
 #define INITIAL_RETRY_INTERVAL 1.0
 

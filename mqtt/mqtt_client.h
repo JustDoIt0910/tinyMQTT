@@ -7,7 +7,7 @@
 #include "net/mqtt_tcp_conn.h"
 #include "net/mqtt_connector.h"
 #include "mqtt_session.h"
-#include "mqtt_codec.h"
+#include "codec/mqtt_proto_codec.h"
 
 #define NETWORK_ERROR -1
 
@@ -48,7 +48,7 @@ typedef struct tmq_client_s
     tmq_event_loop_t loop;
     tmq_tcp_conn_t* conn;
     tmq_session_t* session;
-    tmq_codec_t codec;
+    tmq_mqtt_codec_t codec;
 
     pthread_t io_thread;
     pthread_mutex_t lk;

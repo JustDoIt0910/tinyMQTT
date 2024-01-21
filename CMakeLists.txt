@@ -15,7 +15,7 @@ include_directories(${LIBMONGOC_INCLUDE_DIRS})
 include_directories(${LIBMYSQLCLIENT_INCLUDE_DIRS})
 
 set(TINYMQTT_LIB_SRC
-        base/mqtt_socket.c
+        net/mqtt_socket.c
         base/mqtt_util.c
         base/mqtt_map.c
         base/mqtt_vec.c
@@ -31,7 +31,8 @@ set(TINYMQTT_LIB_SRC
         mqtt/mqtt_packet.c
         mqtt/mqtt_session.c
         mqtt/mqtt_topic.c
-        mqtt/mqtt_codec.c
+        codec/mqtt_proto_codec.c
+        codec/mqtt_console_codec.c
         mqtt/mqtt_io_context.c
         mqtt/mqtt_executor.c
         mqtt/mqtt_broker.c
@@ -64,5 +65,5 @@ add_executable(broker broker.c)
 add_executable(tinymqtt_pwd tools/tinymqtt_pwd.c)
 add_executable(tinymqtt_pub tools/tinymqtt_pub.c)
 add_executable(tinymqtt_sub tools/tinymqtt_sub.c)
-add_executable(tinymqtt_console tools/tinymqtt_console.c)
+add_executable(tinymqtt_console tools/tinymqtt_shell.c tools/mqtt_console_cmd.c)
 

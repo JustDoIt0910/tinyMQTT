@@ -3,7 +3,7 @@
 //
 #include "mqtt_socket.h"
 #include "tlog.h"
-#include "mqtt_util.h"
+#include "base/mqtt_util.h"
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/tcp.h>
@@ -16,10 +16,22 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/un.h>
 
 tmq_socket_t tmq_tcp_socket()
 {
     int fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, IPPROTO_TCP);
+    if(fd < 0)
+        fatal_error("socket() error %d: %s", errno, strerror(errno));
+    return fd;
+}
+
+tmq_socket_t tmq_unix_socket(int nonblock)
+{
+    int type = SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC;
+    if(nonblock)
+        type |= SOCK_NONBLOCK;
+    int fd = socket(AF_LOCAL, type, 0);
     if(fd < 0)
         fatal_error("socket() error %d: %s", errno, strerror(errno));
     return fd;
@@ -32,11 +44,7 @@ int tmq_socket_nonblocking(tmq_socket_t fd)
         fatal_error("fcntl() error %d: %s", errno, strerror(errno));
     ops |= O_NONBLOCK;
     if(fcntl(fd, F_SETFL, ops) < 0)
-    {
         fatal_error("fcntl() error %d: %s", errno, strerror(errno));
-        tlog_exit();
-        abort();
-    }
     return 0;
 }
 
@@ -112,6 +120,17 @@ void tmq_socket_bind(tmq_socket_t fd, const char* ip, int port)
         fatal_error("bind() error %d: %s", errno, strerror(errno));
 }
 
+void tmq_unix_socket_bind(tmq_socket_t fd, const char* path)
+{
+    unlink(path);
+    struct sockaddr_un addr;
+    bzero(&addr, sizeof(struct sockaddr_un));
+    addr.sun_family = AF_LOCAL;
+    strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
+    if(bind(fd, (struct sockaddr*)(&addr), sizeof(addr)) < 0)
+        fatal_error("bind() error %d: %s", errno, strerror(errno));
+}
+
 void tmq_socket_listen(tmq_socket_t fd)
 {
     if(listen(fd, 32768) < 0)
@@ -146,6 +165,15 @@ int tmq_socket_connect(tmq_socket_t fd, tmq_socket_addr_t addr)
 {
     socklen_t len = sizeof(tmq_socket_addr_t);
     return connect(fd, (struct sockaddr*)&addr, len);
+}
+
+int tmq_unix_socket_connect(tmq_socket_t fd, const char* path)
+{
+    struct sockaddr_un addr;
+    bzero(&addr, sizeof(struct sockaddr_un));
+    addr.sun_family = AF_LOCAL;
+    strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
+    return connect(fd, (struct sockaddr*)(&addr), sizeof(addr));
 }
 
 ssize_t tmq_socket_read(tmq_socket_t fd, char* buf, size_t len) { return read(fd, buf, len);}

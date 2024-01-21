@@ -13,13 +13,30 @@
 
 static void dispatch_new_connection(tmq_socket_t conn, void* arg)
 {
-    tmq_broker_t* broker = (tmq_broker_t*) arg;
+    tmq_broker_t* broker = arg;
 
     /* dispatch tcp connection using round-robin */
     tmq_io_context_t* next_context = &broker->io_contexts[broker->next_io_context++];
     if(broker->next_io_context >=  broker->io_threads)
         broker->next_io_context = 0;
     tmq_mailbox_push(&next_context->pending_tcp_connections, (tmq_mail_t)(intptr_t)(conn));
+}
+
+static void new_console_connection(tmq_socket_t conn, void* arg)
+{
+    tmq_broker_t* broker = arg;
+    if(broker->console_client)
+    {
+        tmq_socket_close(conn);
+        return;
+    }
+    tmq_tcp_conn_t* console = tmq_tcp_conn_new(&broker->loop, NULL, conn, (tmq_codec_t*)&broker->console_codec);
+    console->state = CONNECTED;
+    console_conn_ctx_t* ctx = malloc(sizeof(console_conn_ctx_t));
+    ctx->broker = broker;
+    ctx->parsing_ctx.state = PARSING_HEADER;
+    tmq_tcp_conn_set_context(console, ctx, NULL);
+    broker->console_client = console;
 }
 
 /* Construct a result of connecting request and notify the corresponding io thread.
@@ -445,6 +462,11 @@ static void mqtt_broadcast(tmq_broker_t* broker, char* topic, tmq_message* messa
     free(broadcast_tasks);
 }
 
+void console_add_user(tmq_broker_t* broker, const char* username, const char* password)
+{
+    tlog_info("add user %s: %s", username, password);
+}
+
 int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
 {
     if(!broker) return -1;
@@ -530,7 +552,8 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
     tmq_str_free(mongodb_uri);
 
     tmq_event_loop_init(&broker->loop);
-    tmq_codec_init(&broker->codec, SERVER_CODEC);
+    tmq_mqtt_codec_init(&broker->mqtt_codec, SERVER_CODEC);
+    tmq_console_codec_init(&broker->console_codec);
 
     tmq_str_t port_str = tmq_config_get(&broker->conf, "port");
     unsigned int port = port_str ? strtoul(port_str, NULL, 10): 1883;
@@ -543,6 +566,8 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
 
     tmq_acceptor_init(&broker->acceptor, &broker->loop, port);
     tmq_acceptor_set_cb(&broker->acceptor, dispatch_new_connection, broker);
+    tmq_unix_acceptor_init(&broker->console_acceptor, &broker->loop, "/tmp/tinymqtt_console.path");
+    tmq_acceptor_set_cb(&broker->console_acceptor, new_console_connection, broker);
 
     /* initialize io contexts */
     tmq_str_t io_group_num_str = tmq_config_get(&broker->conf, "io_threads");
@@ -574,6 +599,7 @@ void tmq_broker_run(tmq_broker_t* broker)
         tmq_io_context_run(&broker->io_contexts[i]);
 
     tmq_acceptor_listen(&broker->acceptor);
+    tmq_acceptor_listen(&broker->console_acceptor);
     tmq_event_loop_run(&broker->loop);
 
     /* clean up */

@@ -24,7 +24,8 @@ static void acceptor_cb(tmq_socket_t fd, uint32_t event, void* arg)
     }
     else if(acceptor->connection_cb)
     {
-        tmq_socket_tcp_no_delay(conn, 1);
+        if(!acceptor->is_unix)
+            tmq_socket_tcp_no_delay(conn, 1);
         acceptor->connection_cb(conn, acceptor->arg);
     }
 }
@@ -32,6 +33,7 @@ static void acceptor_cb(tmq_socket_t fd, uint32_t event, void* arg)
 void tmq_acceptor_init(tmq_acceptor_t* acceptor, tmq_event_loop_t* loop, uint16_t port)
 {
     if(!acceptor) return;
+    bzero(acceptor, sizeof(tmq_acceptor_t));
     acceptor->loop = loop;
     acceptor->listening = 0;
     acceptor->lis_socket = tmq_tcp_socket();
@@ -40,6 +42,20 @@ void tmq_acceptor_init(tmq_acceptor_t* acceptor, tmq_event_loop_t* loop, uint16_
     acceptor->idle_socket = open("/dev/null", O_RDONLY | O_CLOEXEC);
     acceptor->new_conn_handler = tmq_event_handler_new(acceptor->lis_socket, EPOLLIN,
                                   acceptor_cb, acceptor, 0);
+    tmq_handler_register(loop, acceptor->new_conn_handler);
+}
+
+void tmq_unix_acceptor_init(tmq_acceptor_t* acceptor, tmq_event_loop_t* loop, const char* path)
+{
+    if(!acceptor) return;
+    bzero(acceptor, sizeof(tmq_acceptor_t));
+    acceptor->loop = loop;
+    acceptor->listening = 0;
+    acceptor->lis_socket = tmq_unix_socket(1);
+    acceptor->is_unix = 1;
+    tmq_unix_socket_bind(acceptor->lis_socket, path);
+    acceptor->new_conn_handler = tmq_event_handler_new(acceptor->lis_socket, EPOLLIN,
+                                                       acceptor_cb, acceptor, 0);
     tmq_handler_register(loop, acceptor->new_conn_handler);
 }
 

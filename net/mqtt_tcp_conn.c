@@ -19,6 +19,8 @@ static void read_cb_(tmq_socket_t fd, uint32_t event, void* arg)
         conn_close_(conn);
     else if(n < 0)
     {
+        if(errno == EINTR)
+            return;
         tlog_error("tmq_buffer_read_fd() error: n < 0");
         conn_close_(conn);
     }
@@ -51,7 +53,11 @@ static void write_cb_(tmq_socket_t fd, uint32_t event, void* arg)
     else
     {
         if(n < 0)
+        {
+            if(errno == EINTR)
+                return;
             tlog_info("tmq_buffer_write_fd() error: %s", strerror(errno));
+        }
     	conn->is_writing = 0;
         conn_close_(conn);
     }
@@ -143,7 +149,7 @@ void tmq_tcp_conn_write(tmq_tcp_conn_t* conn, char* data, size_t size)
     {
         wrote = 0;
         /* EWOULDBLOCK(EAGAIN) isn't an error */
-        if(errno != EWOULDBLOCK)
+        if(errno != EWOULDBLOCK && errno != EAGAIN && errno != EINTR)
         {
             tlog_info("write error: %s", strerror(errno));
             conn_close_(conn);

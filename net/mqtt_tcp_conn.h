@@ -4,10 +4,10 @@
 
 #ifndef TINYMQTT_MQTT_TCP_CONN_H
 #define TINYMQTT_MQTT_TCP_CONN_H
-#include "base/mqtt_socket.h"
+#include "mqtt_socket.h"
 #include "mqtt_buffer.h"
 #include "event/mqtt_event.h"
-#include "mqtt/mqtt_codec.h"
+#include "codec/mqtt_codec.h"
 #include <pthread.h>
 
 typedef struct tmq_io_context_s tmq_io_context_t;

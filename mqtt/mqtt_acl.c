@@ -147,6 +147,9 @@ tmq_permission_e tmq_acl_auth(tmq_acl_t* acl, tmq_session_t* session, char* topi
     tmq_topic_split(topic_filter, &levels);
     pthread_rwlock_rdlock(&acl->lk);
     acl_tree_node_t* node = match(acl->root, 0, 0, &levels);
+    for(tmq_str_t* it = tmq_vec_begin(levels); it != tmq_vec_end(levels); it++)
+        tmq_str_free(*it);
+    tmq_vec_free(levels);
     if(!node)
         return acl->nomatch_permission;
     tmq_permission_e perm = UNKNOWN;

@@ -9,7 +9,7 @@
 #include "base/mqtt_str.h"
 #include "base/mqtt_map.h"
 #include "base/mqtt_config.h"
-#include "mqtt_codec.h"
+#include "codec/mqtt_proto_codec.h"
 #include "mqtt_io_context.h"
 #include "mqtt_topic.h"
 #include "mqtt_types.h"
@@ -31,7 +31,9 @@ typedef struct tmq_broker_s
 {
     tmq_event_loop_t loop;
     tmq_acceptor_t acceptor;
-    tmq_codec_t codec;
+    tmq_acceptor_t console_acceptor;
+    tmq_mqtt_codec_t mqtt_codec;
+    tmq_console_codec_t console_codec;
     tmq_executor_t executor;
     tmq_config_t conf, pwd_conf;
     tmq_acl_t acl;
@@ -39,9 +41,10 @@ typedef struct tmq_broker_s
     mongoc_client_pool_t* mongodb_pool;
     thrdpool_t* thread_pool;
     tmq_io_context_t* io_contexts;
-    int next_io_context;
+    tmq_tcp_conn_t* console_client;
     tmq_session_map sessions;
     tmq_topics_t topics_tree;
+    int next_io_context;
     uint8_t inflight_window_size;
     int io_threads;
     int mysql_enabled;

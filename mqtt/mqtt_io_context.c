@@ -19,7 +19,7 @@ extern void handle_session_req(void* arg);
 static void tcp_conn_close_callback(tmq_tcp_conn_t* conn, void* arg)
 {
     tmq_io_context_t* context = conn->io_context;
-    tcp_conn_ctx* conn_ctx = conn->context;
+    tcp_conn_ctx_t* conn_ctx = conn->context;
     assert(conn_ctx != NULL);
 
     /* IN_SESSION state means that the client closed the connection without sending
@@ -55,7 +55,7 @@ static void mqtt_keepalive(void* arg)
     for(; tmq_map_has_next(it); tmq_map_next(context->tcp_conns, it))
     {
         tmq_tcp_conn_t* conn = *(tmq_tcp_conn_t**) (it.second);
-        tcp_conn_ctx* ctx = conn->context;
+        tcp_conn_ctx_t* ctx = conn->context;
         if(ctx->conn_state != IN_SESSION)
             continue;
         tmq_session_t* session = ctx->upstream.session;
@@ -81,11 +81,11 @@ static void new_tcp_connection_handler(void* owner, tmq_mail_t mail)
     tmq_io_context_t* context = owner;
     tmq_socket_t sock = (tmq_socket_t)(intptr_t)mail;
 
-    tmq_tcp_conn_t* conn = tmq_tcp_conn_new(&context->loop, context, sock, &context->broker->codec);
+    tmq_tcp_conn_t* conn = tmq_tcp_conn_new(&context->loop, context, sock, (tmq_codec_t*)&context->broker->mqtt_codec);
     conn->on_close = tcp_conn_close_callback;
     conn->state = CONNECTED;
 
-    tcp_conn_ctx* conn_ctx = malloc(sizeof(tcp_conn_ctx));
+    tcp_conn_ctx_t* conn_ctx = malloc(sizeof(tcp_conn_ctx_t));
     conn_ctx->upstream.broker = context->broker;
     conn_ctx->conn_state = NO_SESSION;
     conn_ctx->parsing_ctx.state = PARSING_FIXED_HEADER;
@@ -103,7 +103,7 @@ static void connect_complete_handler(void* owner, tmq_mail_t mail)
 {
     tmq_io_context_t* context = owner;
     session_connect_resp* resp = mail;
-    tcp_conn_ctx* conn_ctx = resp->conn->context;
+    tcp_conn_ctx_t* conn_ctx = resp->conn->context;
 
     /* if the client sent a disconnect packet or closed the tcp connection before the
      * session-establishing procedure complete, we need to close the session in the broker */

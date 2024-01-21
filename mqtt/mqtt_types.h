@@ -5,9 +5,9 @@
 #ifndef TINYMQTT_MQTT_TYPES_H
 #define TINYMQTT_MQTT_TYPES_H
 #include "base/mqtt_vec.h"
-#include "mqtt/mqtt_codec.h"
+#include "codec/mqtt_proto_codec.h"
+#include "codec/mqtt_console_codec.h"
 
-typedef tmq_vec(tmq_any_packet_t) packet_list;
 typedef enum conn_state_e
 {
     NO_SESSION,
@@ -27,8 +27,14 @@ typedef struct tcp_conn_ctx_s
         tiny_mqtt* client;
     } upstream;
     conn_state_e conn_state;
-    pkt_parsing_ctx parsing_ctx;
-} tcp_conn_ctx;
+    mqtt_parsing_ctx_t parsing_ctx;
+} tcp_conn_ctx_t;
+
+typedef struct console_conn_ctx_s
+{
+    tmq_broker_t* broker;
+    console_parsing_ctx_t parsing_ctx;
+} console_conn_ctx_t;
 
 typedef struct session_connect_resp
 {
