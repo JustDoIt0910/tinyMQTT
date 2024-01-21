@@ -20,7 +20,7 @@ int connect_to_broker()
     return fd;
 }
 
-void add_user(args_map* args, void* context)
+void add_new_user(args_map* args, void* context)
 {
     char** user = tmq_map_get(*args, "username");
     char** pwd = tmq_map_get(*args, "password");
@@ -61,7 +61,7 @@ void init_commands(tmq_console_cmd_t* cmd)
 {
     tmq_console_cmd_init(cmd);
 
-    CONSOLE_COMMAND(cmd, add_user, "add", "user", CONSOLE_VARIABLE("username"), CONSOLE_VARIABLE("password"));
+    CONSOLE_COMMAND(cmd, add_new_user, "add", "user", CONSOLE_VARIABLE("username"), CONSOLE_VARIABLE("password"));
     CONSOLE_COMMAND(cmd, del_user, "del", "user", CONSOLE_VARIABLE("username"));
     CONSOLE_COMMAND(cmd, change_user_pwd, "change", "password", "of", CONSOLE_VARIABLE("username"),
                     CONSOLE_VARIABLE("new_password"));

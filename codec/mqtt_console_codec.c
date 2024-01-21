@@ -54,13 +54,13 @@ static void decode_tcp_message_(tmq_codec_t* codec, tmq_tcp_conn_t* conn, tmq_bu
     } while(buffer->readable_bytes > 0 && parsing_ctx->state == PARSING_HEADER);
 }
 
-extern void console_add_user(tmq_broker_t* broker, const char* username, const char* password);
+extern void add_user(tmq_broker_t* broker, const char* username, const char* password);
 
 void tmq_console_codec_init(tmq_console_codec_t* codec)
 {
     codec->type = SERVER_CODEC;
     codec->decode_tcp_message = decode_tcp_message_;
-    codec->on_add_user = console_add_user;
+    codec->on_add_user = add_user;
 }
 
 ssize_t writen(int fd, const char* data, size_t n)

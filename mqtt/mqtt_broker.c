@@ -280,6 +280,8 @@ static void handle_publish_req(void* arg)
     free(arg);
 }
 
+/************************* thread pool tasks **************************/
+
 typedef struct password_validate_context_s
 {
     tmq_broker_t* broker;
@@ -292,8 +294,8 @@ static void validate_password_in_thread_pool(void* arg)
     password_validate_context_t* ctx = arg;
     MYSQL* mysql_client = tmq_mysql_conn_pool_pop(&ctx->broker->mysql_pool);
     if(ctx->connect_pkt->username &&
-    ctx->connect_pkt->password &&
-    validate_connect_password(mysql_client, ctx->connect_pkt->username, ctx->connect_pkt->password))
+       ctx->connect_pkt->password &&
+       mysql_validate_connect_password(mysql_client, ctx->connect_pkt->username, ctx->connect_pkt->password))
     {
         session_req req = {
                 .op = SESSION_CONNECT,
@@ -316,6 +318,32 @@ static void validate_password_in_thread_pool(void* arg)
     tmq_mysql_conn_pool_push(&ctx->broker->mysql_pool, mysql_client);
     free(ctx);
 }
+
+typedef enum user_op_type_e {ADD, DEL, MOD} user_op_type;
+typedef struct user_op_context_s
+{
+    user_op_type op;
+    tmq_broker_t* broker;
+    tmq_str_t username;
+    tmq_str_t password;
+} user_op_context_t;
+
+static void user_operation_in_thread_pool(void* arg)
+{
+    user_op_context_t* ctx = arg;
+    char* pwd_encoded = password_encode(ctx->password);
+    MYSQL* mysql_client = tmq_mysql_conn_pool_pop(&ctx->broker->mysql_pool);
+    if(mysql_add_user(mysql_client, ctx->username, pwd_encoded) != -1)
+        tlog_info("add user success");
+    else tlog_info("add user failed");
+    tmq_mysql_conn_pool_push(&ctx->broker->mysql_pool, mysql_client);
+    tmq_str_free(ctx->username);
+    tmq_str_free(ctx->password);
+    free(pwd_encoded);
+    free(ctx);
+}
+
+/************************************************************/
 
 void mqtt_connect(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt* connect_pkt)
 {
@@ -418,7 +446,7 @@ void mqtt_unsubscribe(tmq_broker_t* broker, tmq_str_t client_id,
     topic_operation_t* ctx = malloc(sizeof(topic_operation_t));
     ctx->broker = broker;
     ctx->req = req;
-    tmq_executor_post(&broker->executor, handle_topic_req, ctx,1);
+    tmq_executor_post(&broker->executor, handle_topic_req, ctx, 1);
 }
 
 void mqtt_publish(void* arg, tmq_session_t* session, char* topic, tmq_message* message, uint8_t retain)
@@ -462,9 +490,21 @@ static void mqtt_broadcast(tmq_broker_t* broker, char* topic, tmq_message* messa
     free(broadcast_tasks);
 }
 
-void console_add_user(tmq_broker_t* broker, const char* username, const char* password)
+void add_user(tmq_broker_t* broker, const char* username, const char* password)
 {
-    tlog_info("add user %s: %s", username, password);
+    if(!broker->mysql_enabled)
+        tlog_fatal("mysql is required to store user info");
+    user_op_context_t* ctx = malloc(sizeof(user_op_context_t));
+    bzero(ctx, sizeof(user_op_context_t));
+    ctx->broker = broker;
+    ctx->op = ADD;
+    ctx->username = tmq_str_new(username);
+    ctx->password = tmq_str_new(password);
+    struct thrdpool_task task = {
+            .routine = user_operation_in_thread_pool,
+            .context = ctx
+    };
+    thrdpool_schedule(&task, broker->thread_pool);
 }
 
 int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
@@ -511,7 +551,7 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
         int pool_size = mysql_pool_size ? atoi(mysql_pool_size): DEFAULT_MYSQL_POOL_SIZE;
         tmq_mysql_conn_pool_init(&broker->mysql_pool, host, port, mysql_user, mysql_pwd,db_name, pool_size);
         tmq_acl_init(&broker->acl, DENY);
-        load_acl_from_mysql(tmq_mysql_conn_pool_pop(&broker->mysql_pool), &broker->acl);
+        mysql_load_acl(tmq_mysql_conn_pool_pop(&broker->mysql_pool), &broker->acl);
         tmq_str_free(mysql_host);
         tmq_str_free(mysql_pt);
         tmq_str_free(mysql_user);

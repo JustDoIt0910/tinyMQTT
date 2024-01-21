@@ -8,7 +8,7 @@ CREATE TABLE `tinymqtt_user_table` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `username` VARCHAR(100) DEFAULT NULL,
     `password` VARCHAR(100) DEFAULT NULL,
-    `created` DATETIME DEFAULT NULL,
+    `created` DATETIME DEFAULT NOW(),
     PRIMARY KEY (`id`),
     UNIQUE KEY `mqtt_username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -98,7 +98,62 @@ int fetch_messages_from_mongodb(mongoc_client_t* mongo_client, const char* mqtt_
     return cnt;
 }
 
-int validate_connect_password(MYSQL* mysql_conn, const char* username, const char* password)
+static MYSQL_STMT* execute_statement(MYSQL* conn, const char* query, MYSQL_BIND* param_bind, MYSQL_BIND* result_bind)
+{
+    MYSQL_STMT* stmt = mysql_stmt_init(conn);
+    if(!stmt)
+        fatal_error("mysql_stmt_init(), out of memory");
+    if(mysql_stmt_prepare(stmt, query, strlen(query)))
+        fatal_error("mysql_stmt_prepare() error");
+    if(param_bind && mysql_stmt_bind_param(stmt, param_bind))
+        fatal_error("mysql_stmt_bind_param() error");
+    if(mysql_stmt_execute(stmt))
+        fatal_error("mysql_stmt_execute() error");
+    if(result_bind)
+    {
+        if(mysql_stmt_bind_result(stmt, result_bind))
+            fatal_error("mysql_stmt_bind_result() error");
+        if(mysql_stmt_store_result(stmt))
+            fatal_error("mysql_stmt_store_result() error");
+    }
+    return stmt;
+}
+
+int mysql_add_user(MYSQL* mysql_conn, const char* username, const char* password)
+{
+    char find_user_query[100] = {0};
+    sprintf(find_user_query, "SELECT id from tinymqtt_user_table WHERE username = '%s'", username);
+    if(mysql_real_query(mysql_conn, find_user_query, strlen(find_user_query)) != 0)
+    {
+        tlog_error("mysql_real_query() error");
+        return -1;
+    }
+    MYSQL_RES* res = mysql_store_result(mysql_conn);
+    if(!res) return -1;
+    // user already exists
+    if(mysql_fetch_row(res))
+        return -1;
+    static const char* insert_user = "INSERT INTO tinymqtt_user_table(username, password) VALUES(?, ?)";
+    MYSQL_BIND param_bind[2];
+    unsigned long username_len = strlen(username);
+    unsigned long password_len = strlen(password);
+    bzero(param_bind, sizeof(param_bind));
+    param_bind[0].buffer_type = param_bind[1].buffer_type = MYSQL_TYPE_STRING;
+    param_bind[0].buffer = (char*)username;
+    param_bind[0].buffer_length = username_len;
+    param_bind[0].length = &username_len;
+    param_bind[0].is_null = (bool*)0;
+    param_bind[1].buffer = (char*)password;
+    param_bind[1].buffer_length = password_len;
+    param_bind[1].length = &password_len;
+    param_bind[1].is_null = (bool*)0;
+
+    MYSQL_STMT* stmt = execute_statement(mysql_conn, insert_user, param_bind, NULL);
+    mysql_stmt_close(stmt);
+    return 0;
+}
+
+int mysql_validate_connect_password(MYSQL* mysql_conn, const char* username, const char* password)
 {
     static const char* pwd_query = "SELECT password from tinymqtt_user_table WHERE username = ? LIMIT 1";
     unsigned long username_len = strlen(username);
@@ -109,15 +164,7 @@ int validate_connect_password(MYSQL* mysql_conn, const char* username, const cha
     param_bind.buffer_length = username_len;
     param_bind.length = &username_len;
     param_bind.is_null = (bool*)0;
-    MYSQL_STMT* stmt = mysql_stmt_init(mysql_conn);
-    if(!stmt)
-        fatal_error("mysql_stmt_init(), out of memory");
-    if(mysql_stmt_prepare(stmt, pwd_query, strlen(pwd_query)))
-        fatal_error("mysql_stmt_prepare() error");
-    if(mysql_stmt_bind_param(stmt, &param_bind))
-        fatal_error("mysql_stmt_bind_param() error");
-    if(mysql_stmt_execute(stmt))
-        fatal_error("mysql_stmt_execute() error");
+
     char stored_password[100] = {0};
     unsigned long password_len;
     bool password_null;
@@ -128,10 +175,8 @@ int validate_connect_password(MYSQL* mysql_conn, const char* username, const cha
     result_bind.buffer_length = 100;
     result_bind.length = &password_len;
     result_bind.is_null = &password_null;
-    if(mysql_stmt_bind_result(stmt, &result_bind))
-        fatal_error("mysql_stmt_bind_result() error");
-    if(mysql_stmt_store_result(stmt))
-        fatal_error("mysql_stmt_store_result() error");
+
+    MYSQL_STMT* stmt = execute_statement(mysql_conn, pwd_query, &param_bind, &result_bind);
     int success = 0;
     if(!mysql_stmt_fetch(stmt))
     {
@@ -140,11 +185,12 @@ int validate_connect_password(MYSQL* mysql_conn, const char* username, const cha
             success = 1;
         free(password_encoded);
     }
+    mysql_stmt_free_result(stmt);
     mysql_stmt_close(stmt);
     return success;
 }
 
-void load_acl_from_mysql(MYSQL* mysql_conn, tmq_acl_t* acl)
+void mysql_load_acl(MYSQL* mysql_conn, tmq_acl_t* acl)
 {
     static const char* acl_query = "SELECT * FROM tinymqtt_acl_table";
     if(mysql_real_query(mysql_conn, acl_query, strlen(acl_query)) != 0)
