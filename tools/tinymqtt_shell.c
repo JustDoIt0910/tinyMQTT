@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <signal.h>
 #include "mqtt_console_cmd.h"
 #include "codec/mqtt_console_codec.h"
 #include "net/mqtt_socket.h"
@@ -25,34 +26,36 @@ void add_new_user(args_map* args, void* context)
     char** user = tmq_map_get(*args, "username");
     char** pwd = tmq_map_get(*args, "password");
     int fd = *(int*)context;
-    printf("add user {%s: %s}\n", *user, *pwd);
-    send_add_user_message(fd, *user, *pwd);
+    if(send_add_user_message(fd, *user, *pwd) < 0 || receive_user_operation_reply(fd) < 0)
+    {
+        printf("connection closed\n");
+        exit(0);
+    }
 }
 
 void del_user(args_map* args, void* context)
 {
-    printf("del_user\n");
+    printf("not implemented\n");
 }
 
 void change_user_pwd(args_map* args, void* context)
 {
-    printf("change_user_pwd\n");
+    printf("not implemented\n");
 }
 
 void add_acl_rule(args_map* args, void* context)
 {
-    char** perm = tmq_map_get(*args, "permission");
-    printf("add_acl_rule\n");
+    printf("not implemented\n");
 }
 
 void list_acl_rules(args_map* args, void* context)
 {
-    printf("list_acl_rules\n");
+    printf("not implemented\n");
 }
 
 void list_subscription_of_user(args_map* args, void* context)
 {
-    printf("list_subscription_of_user\n");
+    printf("not implemented\n");
 }
 
 void quit(args_map* args, void* context){ exit(0);}
@@ -80,6 +83,8 @@ void init_commands(tmq_console_cmd_t* cmd)
 
 int main()
 {
+    /* ignore SIGPIPE signal */
+    signal(SIGPIPE, SIG_IGN);
     tmq_console_cmd_t cmd;
     init_commands(&cmd);
 

@@ -58,6 +58,8 @@ void tmq_tcp_conn_write(tmq_tcp_conn_t* conn, char* data, size_t size);
 void tmq_tcp_conn_shutdown(tmq_tcp_conn_t* conn);
 void tmq_tcp_conn_force_close(tmq_tcp_conn_t* conn);
 int tmq_tcp_conn_id(tmq_tcp_conn_t* conn, char* buf, size_t buf_size);
+sa_family_t tmq_tcp_conn_family(tmq_tcp_conn_t* conn);
+void tmq_tcp_conn_set_codec(tmq_tcp_conn_t* conn, tmq_codec_t* codec);
 void tmq_tcp_conn_set_context(tmq_tcp_conn_t* conn, void* ctx, context_cleanup_cb cleanup_cb);
 void tmq_tcp_conn_free(tmq_tcp_conn_t* conn);
 

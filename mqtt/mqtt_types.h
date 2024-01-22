@@ -50,4 +50,16 @@ typedef struct tmq_message
     uint8_t qos;
 } tmq_message;
 
+typedef enum user_op_type_e {ADD, DEL, MOD} user_op_type;
+typedef struct user_op_context_s
+{
+    user_op_type op;
+    tmq_broker_t* broker;
+    tmq_tcp_conn_t* conn;
+    tmq_str_t username;
+    tmq_str_t password;
+    int success;
+    tmq_str_t reason;
+} user_op_context_t;
+
 #endif //TINYMQTT_MQTT_TYPES_H

@@ -41,7 +41,6 @@ typedef struct tmq_broker_s
     mongoc_client_pool_t* mongodb_pool;
     thrdpool_t* thread_pool;
     tmq_io_context_t* io_contexts;
-    tmq_tcp_conn_t* console_client;
     tmq_session_map sessions;
     tmq_topics_t topics_tree;
     int next_io_context;

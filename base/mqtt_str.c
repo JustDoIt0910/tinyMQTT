@@ -32,6 +32,7 @@ tmq_str_t tmq_str_empty() { return tmq_str_new_len("", 0); }
 
 size_t tmq_str_len(tmq_str_t s)
 {
+    if(!s) return 0;
     tmq_ds_t* hdr = TMQ_DS_HDR(s);
     return hdr->len;
 }

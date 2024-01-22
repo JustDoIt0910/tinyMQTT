@@ -78,23 +78,32 @@ static void mqtt_keepalive(void* arg)
 
 static void new_tcp_connection_handler(void* owner, tmq_mail_t mail)
 {
-    tmq_io_context_t* context = owner;
+    tmq_io_context_t* io_context = owner;
     tmq_socket_t sock = (tmq_socket_t)(intptr_t)mail;
 
-    tmq_tcp_conn_t* conn = tmq_tcp_conn_new(&context->loop, context, sock, (tmq_codec_t*)&context->broker->mqtt_codec);
-    conn->on_close = tcp_conn_close_callback;
+    tmq_tcp_conn_t* conn = tmq_tcp_conn_new(&io_context->loop, io_context, sock, (tmq_codec_t*)&io_context->broker->mqtt_codec);
+    if(tmq_tcp_conn_family(conn) == AF_LOCAL)
+    {
+        console_conn_ctx_t* ctx = malloc(sizeof(console_conn_ctx_t));
+        ctx->broker = io_context->broker;
+        ctx->parsing_ctx.state = PARSING_HEADER;
+        tmq_tcp_conn_set_context(conn, ctx, NULL);
+        tmq_tcp_conn_set_codec(conn, (tmq_codec_t*)&io_context->broker->console_codec);
+    }
+    else
+    {
+        tcp_conn_ctx_t* conn_ctx = malloc(sizeof(tcp_conn_ctx_t));
+        conn_ctx->upstream.broker = io_context->broker;
+        conn_ctx->conn_state = NO_SESSION;
+        conn_ctx->parsing_ctx.state = PARSING_FIXED_HEADER;
+        tmq_tcp_conn_set_context(conn, conn_ctx, NULL);
+        conn->on_close = tcp_conn_close_callback;
+    }
     conn->state = CONNECTED;
-
-    tcp_conn_ctx_t* conn_ctx = malloc(sizeof(tcp_conn_ctx_t));
-    conn_ctx->upstream.broker = context->broker;
-    conn_ctx->conn_state = NO_SESSION;
-    conn_ctx->parsing_ctx.state = PARSING_FIXED_HEADER;
-    tmq_tcp_conn_set_context(conn, conn_ctx, NULL);
-
     char conn_name[50];
     tmq_tcp_conn_id(conn, conn_name, sizeof(conn_name));
     TCP_CONN_SHARE(conn);
-    tmq_map_put(context->tcp_conns, conn_name, conn);
+    tmq_map_put(io_context->tcp_conns, conn_name, conn);
     assert(conn->ref_cnt == 3);
     //tlog_info("new connection [%s]", conn_name);
 }

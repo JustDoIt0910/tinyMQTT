@@ -28,7 +28,7 @@ tmq_socket_t tmq_tcp_socket()
 
 tmq_socket_t tmq_unix_socket(int nonblock)
 {
-    int type = SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC;
+    int type = SOCK_STREAM | SOCK_CLOEXEC;
     if(nonblock)
         type |= SOCK_NONBLOCK;
     int fd = socket(AF_LOCAL, type, 0);

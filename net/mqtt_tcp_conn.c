@@ -193,6 +193,10 @@ int tmq_tcp_conn_id(tmq_tcp_conn_t* conn, char* buf, size_t buf_size)
     return ret;
 }
 
+sa_family_t tmq_tcp_conn_family(tmq_tcp_conn_t* conn) { return conn->local_addr.sin_family; }
+
+void tmq_tcp_conn_set_codec(tmq_tcp_conn_t* conn, tmq_codec_t* codec) { conn->codec = codec; }
+
 void tmq_tcp_conn_set_context(tmq_tcp_conn_t* conn, void* ctx, context_cleanup_cb clean_up)
 {
     if(!conn) return;

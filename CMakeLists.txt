@@ -65,5 +65,5 @@ add_executable(broker broker.c)
 add_executable(tinymqtt_pwd tools/tinymqtt_pwd.c)
 add_executable(tinymqtt_pub tools/tinymqtt_pub.c)
 add_executable(tinymqtt_sub tools/tinymqtt_sub.c)
-add_executable(tinymqtt_console tools/tinymqtt_shell.c tools/mqtt_console_cmd.c)
+add_executable(tinymqtt_shell tools/tinymqtt_shell.c tools/mqtt_console_cmd.c)
 

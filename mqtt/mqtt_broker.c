@@ -14,29 +14,11 @@
 static void dispatch_new_connection(tmq_socket_t conn, void* arg)
 {
     tmq_broker_t* broker = arg;
-
     /* dispatch tcp connection using round-robin */
     tmq_io_context_t* next_context = &broker->io_contexts[broker->next_io_context++];
     if(broker->next_io_context >=  broker->io_threads)
         broker->next_io_context = 0;
     tmq_mailbox_push(&next_context->pending_tcp_connections, (tmq_mail_t)(intptr_t)(conn));
-}
-
-static void new_console_connection(tmq_socket_t conn, void* arg)
-{
-    tmq_broker_t* broker = arg;
-    if(broker->console_client)
-    {
-        tmq_socket_close(conn);
-        return;
-    }
-    tmq_tcp_conn_t* console = tmq_tcp_conn_new(&broker->loop, NULL, conn, (tmq_codec_t*)&broker->console_codec);
-    console->state = CONNECTED;
-    console_conn_ctx_t* ctx = malloc(sizeof(console_conn_ctx_t));
-    ctx->broker = broker;
-    ctx->parsing_ctx.state = PARSING_HEADER;
-    tmq_tcp_conn_set_context(console, ctx, NULL);
-    broker->console_client = console;
 }
 
 /* Construct a result of connecting request and notify the corresponding io thread.
@@ -289,6 +271,7 @@ typedef struct password_validate_context_s
     tmq_connect_pkt* connect_pkt;
 } password_validate_context_t;
 
+// validate password in thread pool
 static void validate_password_in_thread_pool(void* arg)
 {
     password_validate_context_t* ctx = arg;
@@ -319,28 +302,45 @@ static void validate_password_in_thread_pool(void* arg)
     free(ctx);
 }
 
-typedef enum user_op_type_e {ADD, DEL, MOD} user_op_type;
-typedef struct user_op_context_s
+// return receipt for user_operation_in_thread_pool(), executed in io threads
+static void user_operation_done(void* arg)
 {
-    user_op_type op;
-    tmq_broker_t* broker;
-    tmq_str_t username;
-    tmq_str_t password;
-} user_op_context_t;
+    user_op_context_t* ctx = arg;
+    send_user_operation_reply(ctx->conn, ctx);
+    TCP_CONN_RELEASE(ctx->conn);
+    tmq_str_free(ctx->username);
+    tmq_str_free(ctx->password);
+    tmq_str_free(ctx->reason);
+    free(ctx);
+}
 
+// add user/delete user/change password in thread pool
 static void user_operation_in_thread_pool(void* arg)
 {
     user_op_context_t* ctx = arg;
-    char* pwd_encoded = password_encode(ctx->password);
-    MYSQL* mysql_client = tmq_mysql_conn_pool_pop(&ctx->broker->mysql_pool);
-    if(mysql_add_user(mysql_client, ctx->username, pwd_encoded) != -1)
-        tlog_info("add user success");
-    else tlog_info("add user failed");
-    tmq_mysql_conn_pool_push(&ctx->broker->mysql_pool, mysql_client);
-    tmq_str_free(ctx->username);
-    tmq_str_free(ctx->password);
-    free(pwd_encoded);
-    free(ctx);
+    tmq_db_return_receipt_t* receipt = malloc(sizeof(tmq_db_return_receipt_t));
+    receipt->receipt_routine = user_operation_done;
+    receipt->arg = ctx;
+    if(ctx->op == ADD)
+    {
+        char* pwd_encoded = password_encode(ctx->password);
+        MYSQL* mysql_client = tmq_mysql_conn_pool_pop(&ctx->broker->mysql_pool);
+        if(mysql_add_user(mysql_client, ctx->username, pwd_encoded) != -1)
+        {
+            tlog_info("add user {%s: %s} success", ctx->username, pwd_encoded);
+            ctx->success = 1;
+        }
+        else
+        {
+            tlog_info("add user {%s: %s} failed", ctx->username, pwd_encoded);
+            ctx->success = 0;
+            ctx->reason = tmq_str_new("user already exists");
+        }
+        tmq_mysql_conn_pool_push(&ctx->broker->mysql_pool, mysql_client);
+        free(pwd_encoded);
+    }
+    tmq_io_context_t* io_context = ctx->conn->io_context;
+    tmq_mailbox_push(&io_context->thread_pool_return_receipts, receipt);
 }
 
 /************************************************************/
@@ -490,13 +490,14 @@ static void mqtt_broadcast(tmq_broker_t* broker, char* topic, tmq_message* messa
     free(broadcast_tasks);
 }
 
-void add_user(tmq_broker_t* broker, const char* username, const char* password)
+void add_user(tmq_broker_t* broker, tmq_tcp_conn_t* conn, const char* username, const char* password)
 {
     if(!broker->mysql_enabled)
         tlog_fatal("mysql is required to store user info");
     user_op_context_t* ctx = malloc(sizeof(user_op_context_t));
     bzero(ctx, sizeof(user_op_context_t));
     ctx->broker = broker;
+    ctx->conn = TCP_CONN_SHARE(conn);
     ctx->op = ADD;
     ctx->username = tmq_str_new(username);
     ctx->password = tmq_str_new(password);
@@ -605,9 +606,9 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
     tmq_str_free(inflight_window_str);
 
     tmq_acceptor_init(&broker->acceptor, &broker->loop, port);
-    tmq_acceptor_set_cb(&broker->acceptor, dispatch_new_connection, broker);
     tmq_unix_acceptor_init(&broker->console_acceptor, &broker->loop, "/tmp/tinymqtt_console.path");
-    tmq_acceptor_set_cb(&broker->console_acceptor, new_console_connection, broker);
+    tmq_acceptor_set_cb(&broker->acceptor, dispatch_new_connection, broker);
+    tmq_acceptor_set_cb(&broker->console_acceptor, dispatch_new_connection, broker);
 
     /* initialize io contexts */
     tmq_str_t io_group_num_str = tmq_config_get(&broker->conf, "io_threads");
