@@ -1,0 +1,33 @@
+# server port
+port=1883
+
+# location of the password file
+password_file=pwd.conf
+
+# if allow anonymous login, the broker won't check the username and password
+allow_anonymous=true
+
+# enable acl
+acl_enable=false
+
+# the maximum number of unacknowledged publish packet
+inflight_window=1
+
+# the number of io thread
+io_threads=8
+
+# mysql configuration
+mysql_enable=true
+mysql_host=localhost
+mysql_port=3306
+mysql_username=root
+mysql_password=xxxxxxxx
+mysql_db=tinymqtt_db
+mysql_pool_size=50
+
+# mongodb message store configuration
+mongodb_uri=mongodb://localhost:27017
+
+# unacknowledged messages will be stored into mongodb
+# after reaching mongodb_store_trigger
+mongodb_store_trigger=100

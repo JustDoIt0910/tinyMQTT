@@ -29,6 +29,7 @@ static void(*payload_parsers[])(tmq_console_codec_t*, tmq_tcp_conn_t*, tmq_buffe
         parse_add_user_message
 };
 
+
 static void decode_tcp_message_(tmq_codec_t* codec, tmq_tcp_conn_t* conn, tmq_buffer_t* buffer)
 {
     tmq_console_codec_t* console_codec = (tmq_console_codec_t *)codec;
