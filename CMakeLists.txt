@@ -39,6 +39,8 @@ set(TINYMQTT_LIB_SRC
         mqtt/mqtt_client.c
         mqtt/mqtt_acl.c
         store/mqtt_msg_store.c
+        cluster/mqtt_discovery.c
+        cluster/mqtt_cluster.c
         db/mqtt_db.c
         db/mqtt_conn_pool.c
         thrdpool/msgqueue.c
