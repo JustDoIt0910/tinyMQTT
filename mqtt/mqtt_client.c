@@ -19,7 +19,7 @@ void tcp_conn_close_cb(tmq_tcp_conn_t* conn, void* arg)
     tiny_mqtt* mqtt = arg;
     TCP_CONN_RELEASE(mqtt->conn);
     mqtt->conn = NULL;
-    tcp_conn_ctx_t* ctx = conn->context;
+    tcp_conn_mqtt_ctx_t* ctx = conn->context;
     if(ctx->conn_state == IN_SESSION)
     {
         tmq_session_close(ctx->upstream.session, 0);
@@ -39,7 +39,7 @@ static void on_tcp_connected(void* arg, tmq_socket_t sock)
     mqtt->conn->on_close = tcp_conn_close_cb;
     mqtt->conn->cb_arg = mqtt;
 
-    tcp_conn_ctx_t* conn_ctx = malloc(sizeof(tcp_conn_ctx_t));
+    tcp_conn_mqtt_ctx_t* conn_ctx = malloc(sizeof(tcp_conn_mqtt_ctx_t));
     conn_ctx->upstream.client = mqtt;
     conn_ctx->conn_state = NO_SESSION;
     conn_ctx->parsing_ctx.state = PARSING_FIXED_HEADER;
@@ -126,7 +126,7 @@ static void on_qos0_publish_finished(void* arg)
 void on_connect_response(tiny_mqtt* mqtt, tmq_connack_pkt* connack_pkt)
 {
     mqtt->connect_res = connack_pkt->return_code;
-    tcp_conn_ctx_t* ctx = mqtt->conn->context;
+    tcp_conn_mqtt_ctx_t* ctx = mqtt->conn->context;
     ctx->conn_state = IN_SESSION;
     if(!mqtt->session)
         mqtt->session = tmq_session_new(mqtt, on_mqtt_message, NULL, mqtt->conn, mqtt->connect_options.client_id,

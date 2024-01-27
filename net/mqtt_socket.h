@@ -10,7 +10,7 @@ typedef int tmq_socket_t;
 typedef struct sockaddr_in tmq_socket_addr_t;
 #define tmq_addr_is_valid(addr) !((addr).sin_addr.s_addr == 0 && (addr).sin_port == 0)
 
-tmq_socket_t tmq_tcp_socket();
+tmq_socket_t tmq_tcp_socket(int nonblock);
 tmq_socket_t tmq_unix_socket(int nonblock);
 int tmq_socket_nonblocking(tmq_socket_t fd);
 void tmq_socket_close(tmq_socket_t fd);

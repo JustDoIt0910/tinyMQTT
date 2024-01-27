@@ -36,7 +36,7 @@ void tmq_acceptor_init(tmq_acceptor_t* acceptor, tmq_event_loop_t* loop, uint16_
     bzero(acceptor, sizeof(tmq_acceptor_t));
     acceptor->loop = loop;
     acceptor->listening = 0;
-    acceptor->lis_socket = tmq_tcp_socket();
+    acceptor->lis_socket = tmq_tcp_socket(1);
     tmq_socket_reuse_addr(acceptor->lis_socket, 1);
     tmq_socket_bind(acceptor->lis_socket, NULL, port);
     acceptor->idle_socket = open("/dev/null", O_RDONLY | O_CLOEXEC);

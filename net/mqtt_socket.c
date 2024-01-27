@@ -18,9 +18,12 @@
 #include <stdio.h>
 #include <sys/un.h>
 
-tmq_socket_t tmq_tcp_socket()
+tmq_socket_t tmq_tcp_socket(int nonblock)
 {
-    int fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, IPPROTO_TCP);
+    int type = SOCK_STREAM | SOCK_CLOEXEC;
+    if(nonblock)
+        type |= SOCK_NONBLOCK;
+    int fd = socket(AF_INET, type, 0);
     if(fd < 0)
         fatal_error("socket() error %d: %s", errno, strerror(errno));
     return fd;
@@ -200,12 +203,12 @@ tmq_socket_addr_t tmq_addr_from_ip_port(const char* ip, uint16_t port)
     return addr;
 }
 
-tmq_socket_addr_t tmq_addr_from_port(uint16_t port, int loopBack)
+tmq_socket_addr_t tmq_addr_from_port(uint16_t port, int loopback)
 {
     tmq_socket_addr_t addr;
     bzero(&addr, sizeof(addr));
     addr.sin_port = htobe16(port);
-    in_addr_t address = loopBack ? INADDR_LOOPBACK : INADDR_ANY;
+    in_addr_t address = loopback ? INADDR_LOOPBACK : INADDR_ANY;
     addr.sin_addr.s_addr = htobe32(address);
     return addr;
 }

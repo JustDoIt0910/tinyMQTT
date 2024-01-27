@@ -11,8 +11,13 @@ pkg_search_module(LIBMYSQLCLIENT REQUIRED mysqlclient)
 MESSAGE(STATUS "libmysqlclient dirs:" ${LIBMYSQLCLIENT_INCLUDE_DIRS})
 MESSAGE(STATUS "libmysqlclient lib:" ${LIBMYSQLCLIENT_LIBRARIES})
 
+pkg_search_module(HIREDIS REQUIRED hiredis)
+MESSAGE(STATUS "hiredis dirs:" ${HIREDIS_INCLUDE_DIRS})
+MESSAGE(STATUS "hiredis lib:" ${HIREDIS_LIBRARIES})
+
 include_directories(${LIBMONGOC_INCLUDE_DIRS})
 include_directories(${LIBMYSQLCLIENT_INCLUDE_DIRS})
+include_directories(${HIREDIS_INCLUDE_DIRS})
 
 set(TINYMQTT_LIB_SRC
         net/mqtt_socket.c
@@ -31,8 +36,10 @@ set(TINYMQTT_LIB_SRC
         mqtt/mqtt_packet.c
         mqtt/mqtt_session.c
         mqtt/mqtt_topic.c
+        codec/mqtt_codec.c
         codec/mqtt_proto_codec.c
         codec/mqtt_console_codec.c
+        codec/mqtt_cluster_codec.c
         mqtt/mqtt_io_context.c
         mqtt/mqtt_executor.c
         mqtt/mqtt_broker.c
@@ -56,7 +63,10 @@ add_definitions(-D_GNU_SOURCE)
 include_directories(${CMAKE_SOURCE_DIR} 3rd/tinylog 3rd/md5-c 3rd/b64.c)
 
 add_library(mqtt ${TINYMQTT_LIB_SRC})
-target_link_libraries (mqtt PRIVATE ${LIBMONGOC_LIBRARIES} ${LIBMYSQLCLIENT_LIBRARIES})
+target_link_libraries (mqtt PRIVATE
+        ${LIBMONGOC_LIBRARIES}
+        ${LIBMYSQLCLIENT_LIBRARIES}
+        ${HIREDIS_LIBRARIES})
 
 link_directories(${CMAKE_BINARY_DIR})
 link_libraries(mqtt pthread)

@@ -6,7 +6,7 @@
 #include "mqtt/mqtt_session.h"
 #include "base/mqtt_util.h"
 #include "mqtt_broker.h"
-#include "mqtt_tasks.h"
+#include "mqtt_contexts.h"
 #include "db/mqtt_db.h"
 #include <stdlib.h>
 #include <errno.h>
@@ -19,7 +19,7 @@ extern void handle_session_req(void* arg);
 static void tcp_conn_close_callback(tmq_tcp_conn_t* conn, void* arg)
 {
     tmq_io_context_t* context = conn->io_context;
-    tcp_conn_ctx_t* conn_ctx = conn->context;
+    tcp_conn_mqtt_ctx_t* conn_ctx = conn->context;
     assert(conn_ctx != NULL);
 
     /* IN_SESSION state means that the client closed the connection without sending
@@ -55,7 +55,7 @@ static void mqtt_keepalive(void* arg)
     for(; tmq_map_has_next(it); tmq_map_next(context->tcp_conns, it))
     {
         tmq_tcp_conn_t* conn = *(tmq_tcp_conn_t**) (it.second);
-        tcp_conn_ctx_t* ctx = conn->context;
+        tcp_conn_mqtt_ctx_t* ctx = conn->context;
         if(ctx->conn_state != IN_SESSION)
             continue;
         tmq_session_t* session = ctx->upstream.session;
@@ -84,7 +84,7 @@ static void new_tcp_connection_handler(void* owner, tmq_mail_t mail)
     tmq_tcp_conn_t* conn = tmq_tcp_conn_new(&io_context->loop, io_context, sock, (tmq_codec_t*)&io_context->broker->mqtt_codec);
     if(tmq_tcp_conn_family(conn) == AF_LOCAL)
     {
-        console_conn_ctx_t* ctx = malloc(sizeof(console_conn_ctx_t));
+        tcp_conn_simple_ctx_t* ctx = malloc(sizeof(tcp_conn_simple_ctx_t));
         ctx->broker = io_context->broker;
         ctx->parsing_ctx.state = PARSING_HEADER;
         tmq_tcp_conn_set_context(conn, ctx, NULL);
@@ -92,7 +92,7 @@ static void new_tcp_connection_handler(void* owner, tmq_mail_t mail)
     }
     else
     {
-        tcp_conn_ctx_t* conn_ctx = malloc(sizeof(tcp_conn_ctx_t));
+        tcp_conn_mqtt_ctx_t* conn_ctx = malloc(sizeof(tcp_conn_mqtt_ctx_t));
         conn_ctx->upstream.broker = io_context->broker;
         conn_ctx->conn_state = NO_SESSION;
         conn_ctx->parsing_ctx.state = PARSING_FIXED_HEADER;
@@ -112,7 +112,7 @@ static void connect_complete_handler(void* owner, tmq_mail_t mail)
 {
     tmq_io_context_t* context = owner;
     session_connect_resp* resp = mail;
-    tcp_conn_ctx_t* conn_ctx = resp->conn->context;
+    tcp_conn_mqtt_ctx_t* conn_ctx = resp->conn->context;
 
     /* if the client sent a disconnect packet or closed the tcp connection before the
      * session-establishing procedure complete, we need to close the session in the broker */

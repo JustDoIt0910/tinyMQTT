@@ -2,13 +2,13 @@
 // Created by just do it on 2023/8/24.
 //
 
-#ifndef TINYMQTT_MQTT_TASKS_H
-#define TINYMQTT_MQTT_TASKS_H
+#ifndef TINYMQTT_MQTT_CONTEXTS_H
+#define TINYMQTT_MQTT_CONTEXTS_H
 #include "mqtt_packet.h"
 #include "mqtt_topic.h"
 #include "base/mqtt_util.h"
+#include "cluster/mqtt_cluster.h"
 #include <stdlib.h>
-
 
 /*************** session operations *****************/
 typedef enum session_req_op_e
@@ -93,4 +93,21 @@ typedef struct packet_send_ctx_s
     tmq_any_packet_t pkt;
 } packet_send_ctx_t;
 
-#endif //TINYMQTT_MQTT_TASKS_H
+/*************** cluster operations ****************/
+
+typedef struct member_operation_s
+{
+    enum member_op_type {MEMBER_ADD, MEMBER_DEL} op;
+    tmq_cluster_t* cluster;
+    tmq_tcp_conn_t* member_conn;
+} member_operation_t;
+
+typedef struct member_route_operation_s
+{
+    enum route_op_type {ROUTE_ADD, ROUTE_DEL} op;
+    tmq_cluster_t* cluster;
+    tmq_str_t member_addr;
+    tmq_str_t topic_filters;
+} member_route_operation_t;
+
+#endif //TINYMQTT_MQTT_CONTEXTS_H

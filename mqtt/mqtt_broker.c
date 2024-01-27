@@ -4,7 +4,8 @@
 #include "mqtt_broker.h"
 #include "mqtt_session.h"
 #include "base/mqtt_util.h"
-#include "mqtt_tasks.h"
+#include "base/mqtt_cmd.h"
+#include "mqtt_contexts.h"
 #include "db/mqtt_db.h"
 #include "thrdpool/thrdpool.h"
 #include <string.h>
@@ -197,13 +198,18 @@ static void handle_topic_req(void* arg)
                 tlog_info("subscribe{client=%s, topic=%s, qos=%u} denied", req->client_id, tf->topic_filter, tf->qos);
                 continue;
             }
+            int topic_exist;
+            topic_tree_node_t* topic_node;
             retain_message_list_t retain = tmq_topics_add_subscription(&broker->topics_tree, tf->topic_filter,
-                                                                       *session, tf->qos);
+                                                                       *session, tf->qos, &topic_exist, &topic_node);
             tlog_info("subscribe{client=%s, topic=%s, qos=%u} success", req->client_id, tf->topic_filter, tf->qos);
             tmq_vec_extend(all_retain, retain);
             tmq_vec_free(retain);
-
             tmq_vec_push_back(sub_ack->return_codes, tf->qos);
+            /* if client subscribes a new topic that doesn't exist before, update the local route table
+             * and synchronize to other cluster members */
+            if(!topic_exist)
+                tmq_cluster_add_route(&broker->cluster, tf->topic_filter, topic_node);
         }
         tmq_subscribe_pkt_cleanup(&req->subscribe_pkt);
         ack.packet_type = MQTT_SUBACK;
@@ -508,7 +514,8 @@ void add_user(tmq_broker_t* broker, tmq_tcp_conn_t* conn, const char* username, 
     thrdpool_schedule(&task, broker->thread_pool);
 }
 
-int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
+extern void mqtt_route_publish(tmq_broker_t* broker, char* topic, tmq_message* message, member_addr_set* matched_members);
+int tmq_broker_init(tmq_broker_t* broker, const char* cfg, tmq_cmd_t* cmd)
 {
     if(!broker) return -1;
     bzero(broker, sizeof(tmq_broker_t));
@@ -596,9 +603,7 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
     tmq_mqtt_codec_init(&broker->mqtt_codec, SERVER_CODEC);
     tmq_console_codec_init(&broker->console_codec);
 
-    tmq_str_t port_str = tmq_config_get(&broker->conf, "port");
-    unsigned int port = port_str ? strtoul(port_str, NULL, 10): 1883;
-    tmq_str_free(port_str);
+    int port = tmq_cmd_get_number(cmd, "port");
     tlog_info("listening on port %u", port);
 
     tmq_str_t inflight_window_str = tmq_config_get(&broker->conf, "inflight_window");
@@ -624,7 +629,9 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg)
     broker->thread_pool = thrdpool_create(10, 0);
 
     tmq_map_str_init(&broker->sessions, tmq_session_t*, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
-    tmq_topics_init(&broker->topics_tree, broker, mqtt_broadcast);
+    tmq_topics_init(&broker->topics_tree, broker, mqtt_broadcast, mqtt_route_publish);
+
+    tmq_cluster_init(broker, &broker->cluster, "127.0.0.1", 6379, "127.0.0.1", tmq_cmd_get_number(cmd, "cluster-port"));
 
     /* ignore SIGPIPE signal */
     signal(SIGPIPE, SIG_IGN);

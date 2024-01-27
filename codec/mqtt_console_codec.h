@@ -7,28 +7,23 @@
 #include "mqtt_codec.h"
 #include <stdint.h>
 
-#define CONSOLE_HEADER_SIZE 3
-
 typedef struct tmq_broker_s tmq_broker_t;
 typedef struct tmq_io_context_s tmq_io_context_t;
 typedef struct user_op_context_s user_op_context_t;
 typedef void(*add_user_message_cb)(tmq_broker_t* broker, tmq_tcp_conn_t* conn, const char* username, const char* password);
 
-typedef enum console_parsing_state_e {PARSING_HEADER, PARSING_PAYLOAD} console_parsing_state;
 typedef enum console_message_type_e
 {
-    ADD_USER
+    ADD_USER,
+    DEL_USER,
+    CHANGE_PWD,
+    ADD_ACL,
+    LIST_ACL
 } console_message_type;
-typedef struct console_parsing_ctx_s
-{
-    console_parsing_state state;
-    console_message_type message_type;
-    uint16_t payload_len;
-} console_parsing_ctx_t;
 
 typedef struct tmq_console_codec_s
 {
-    CODEC_PUBLIC_MEMBERS;
+    LEN_BASED_CODEC_PUBLIC_MEMBERS
     add_user_message_cb on_add_user;
 } tmq_console_codec_t;
 

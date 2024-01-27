@@ -18,7 +18,7 @@ typedef enum conn_state_e
 typedef struct tmq_broker_s tmq_broker_t;
 typedef struct tmq_client_s tiny_mqtt;
 
-typedef struct tcp_conn_ctx_s
+typedef struct tcp_conn_mqtt_ctx_s
 {
     union
     {
@@ -28,13 +28,13 @@ typedef struct tcp_conn_ctx_s
     } upstream;
     conn_state_e conn_state;
     mqtt_parsing_ctx_t parsing_ctx;
-} tcp_conn_ctx_t;
+} tcp_conn_mqtt_ctx_t;
 
-typedef struct console_conn_ctx_s
+typedef struct tcp_conn_simple_ctx_s
 {
     tmq_broker_t* broker;
-    console_parsing_ctx_t parsing_ctx;
-} console_conn_ctx_t;
+    len_based_parsing_ctx_t parsing_ctx;
+} tcp_conn_simple_ctx_t;
 
 typedef struct session_connect_resp
 {

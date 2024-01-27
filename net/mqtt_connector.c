@@ -82,7 +82,7 @@ void tmq_connector_connect(tmq_connector_t* connector)
         tlog_error("using connector without initialization");
         return;
     }
-    tmq_socket_t sock = tmq_tcp_socket();
+    tmq_socket_t sock = tmq_tcp_socket(1);
     int ret = tmq_socket_connect(sock, connector->server_addr);
     int err = (ret == 0) ? 0 : errno;
     switch (err)

@@ -15,6 +15,7 @@
 #include "mqtt_types.h"
 #include "mqtt_executor.h"
 #include "mqtt_acl.h"
+#include "cluster/mqtt_cluster.h"
 #include "db/mqtt_conn_pool.h"
 #include "thrdpool/thrdpool.h"
 #include <mongoc/mongoc.h>
@@ -43,6 +44,7 @@ typedef struct tmq_broker_s
     tmq_io_context_t* io_contexts;
     tmq_session_map sessions;
     tmq_topics_t topics_tree;
+    tmq_cluster_t cluster;
     int next_io_context;
     uint8_t inflight_window_size;
     int io_threads;
@@ -50,7 +52,8 @@ typedef struct tmq_broker_s
     int acl_enabled;
 } tmq_broker_t;
 
-int tmq_broker_init(tmq_broker_t* broker, const char* cfg);
+typedef struct tmq_cmd_s tmq_cmd_t;
+int tmq_broker_init(tmq_broker_t* broker, const char* cfg, tmq_cmd_t* cmd);
 void tmq_broker_run(tmq_broker_t* broker);
 
 #endif //TINYMQTT_MQTT_BROKER_H

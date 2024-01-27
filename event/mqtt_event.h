@@ -72,8 +72,9 @@ typedef struct tmq_event_loop_s
     int quit;
 } tmq_event_loop_t;
 
-#define REF_COUNTED_MEMBERS int ref_cnt;            \
-                            clean_up_func cleaner;
+#define REF_COUNTED_MEMBERS \
+int ref_cnt;                \
+clean_up_func cleaner;
 
 typedef struct tmq_ref_counted_s tmq_ref_counted_t;
 typedef void (*clean_up_func)(struct tmq_ref_counted_s*);
