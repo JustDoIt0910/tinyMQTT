@@ -162,7 +162,7 @@ static mqtt_decode_status parse_conn_ack_packet(tmq_mqtt_codec_t* codec, tmq_tcp
 }
 
 static mqtt_decode_status parse_publish_packet(tmq_mqtt_codec_t* codec, tmq_tcp_conn_t* conn,
-                                          tmq_buffer_t* buffer, uint32_t len)
+                                               tmq_buffer_t* buffer, uint32_t len)
 {
     tmq_publish_pkt publish_pkt;
     tcp_conn_mqtt_ctx_t* ctx = conn->context;
@@ -184,6 +184,11 @@ static mqtt_decode_status parse_publish_packet(tmq_mqtt_codec_t* codec, tmq_tcp_
     publish_pkt.payload = tmq_str_new_len(NULL, payload_len);
     tmq_buffer_read(buffer, publish_pkt.payload, payload_len);
 
+    if(ctx->conn_state == TUNNELED)
+    {
+        ((tmq_cluster_codec_t*)codec)->on_tun_publish(ctx->upstream.broker, &publish_pkt);
+        return DECODE_OK;
+    }
     /* qos = 1, respond with a pub_ack message */
     if(PUBLISH_QOS(publish_pkt.flags) == 1)
     {
@@ -443,7 +448,7 @@ static void decode_tcp_message_(tmq_codec_t* codec, tmq_tcp_conn_t* conn, tmq_bu
             tmq_tcp_conn_force_close(conn);
             break;
         }
-    } while(buffer->readable_bytes > 0 && parsing_ctx->state == PARSING_FIXED_HEADER);
+    } while(ctx->conn_state != TUNNELED && buffer->readable_bytes > 0 && parsing_ctx->state == PARSING_FIXED_HEADER);
 }
 
 /* callbacks for broker */
@@ -491,6 +496,7 @@ int make_fixed_header(tmq_packet_type type, uint8_t flags, uint32_t remain_lengt
     type_flags = (type_flags << 4) | (flags & 0x0F);
     tmq_vec_push_back(*buf, type_flags);
     uint8_t byte;
+    int byte_cnt = 0;
     do
     {
         byte = remain_length % 128;
@@ -498,8 +504,9 @@ int make_fixed_header(tmq_packet_type type, uint8_t flags, uint32_t remain_lengt
         if(remain_length > 0)
             byte = byte | 0x80;
         tmq_vec_push_back(*buf, byte);
+        byte_cnt++;
     } while(remain_length > 0);
-    if(tmq_vec_size(*buf) > 5)
+    if(byte_cnt > 4)
     {
         tlog_error("make_fixed_header() error: remain length is too large");
         return -1;
@@ -594,32 +601,41 @@ void send_conn_ack_packet(tmq_tcp_conn_t* conn, void* pkt)
     tmq_vec_free(buf);
 }
 
+/**
+ * @brief Pack publish packet into byte array. It is used by send_publish_packet() and send_publish_tun_message()
+ * */
+int pack_publish_packet(packet_buf* buf, tmq_publish_pkt* publish_pkt)
+{
+    size_t topic_len = tmq_str_len(publish_pkt->topic);
+    size_t payload_len = tmq_str_len(publish_pkt->payload);
+    uint32_t remain_len = 4 + topic_len + payload_len;
+    /* qos 0 messages have no packet_id */
+    if(PUBLISH_QOS(publish_pkt->flags) == 0)
+        remain_len -= 2;
+    if(make_fixed_header(MQTT_PUBLISH, publish_pkt->flags, remain_len, buf) < 0)
+    {
+        tmq_vec_free(*buf);
+        return -1;
+    }
+    tmq_vec_reserve(*buf, tmq_vec_size(*buf) + remain_len);
+    pack_uint16(buf, topic_len);
+
+    memcpy(tmq_vec_end(*buf), publish_pkt->topic, topic_len);
+    tmq_vec_resize(*buf, tmq_vec_size(*buf) + topic_len);
+
+    if(PUBLISH_QOS(publish_pkt->flags) > 0)
+        pack_uint16(buf, publish_pkt->packet_id);
+    memcpy(tmq_vec_end(*buf), publish_pkt->payload, payload_len);
+    tmq_vec_resize(*buf, tmq_vec_size(*buf) + payload_len);
+    return 0;
+}
+
 void send_publish_packet(tmq_tcp_conn_t* conn, void* pkt)
 {
     tmq_publish_pkt* publish_pkt = pkt;
     packet_buf buf = tmq_vec_make(uint8_t);
-    size_t topic_len = tmq_str_len(publish_pkt->topic);
-    size_t payload_len = tmq_str_len(publish_pkt->payload);
-    uint32_t remain_len = 4 + topic_len + payload_len;
-    /* qos o messages have no packet_id */
-    if(PUBLISH_QOS(publish_pkt->flags) == 0)
-        remain_len -= 2;
-    if(make_fixed_header(MQTT_PUBLISH, publish_pkt->flags, remain_len, &buf) < 0)
-    {
-        tmq_vec_free(buf);
+    if(pack_publish_packet(&buf, publish_pkt) < 0)
         return;
-    }
-    tmq_vec_reserve(buf, tmq_vec_size(buf) + remain_len);
-    pack_uint16(&buf, topic_len);
-
-    memcpy(tmq_vec_end(buf), publish_pkt->topic, topic_len);
-    tmq_vec_resize(buf, tmq_vec_size(buf) + topic_len);
-
-    if(PUBLISH_QOS(publish_pkt->flags) > 0)
-        pack_uint16(&buf, publish_pkt->packet_id);
-    memcpy(tmq_vec_end(buf), publish_pkt->payload, payload_len);
-    tmq_vec_resize(buf, tmq_vec_size(buf) + payload_len);
-
     tmq_tcp_conn_write(conn, (char*) tmq_vec_begin(buf), tmq_vec_size(buf));
     tmq_vec_free(buf);
 }

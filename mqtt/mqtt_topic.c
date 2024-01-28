@@ -284,7 +284,7 @@ void tmq_topics_remove_subscription(tmq_topics_t* topics, char* topic_filter, ch
  * @param retain set to 1 if this is a retained message
  * */
 static void match(tmq_topics_t* topics, topic_tree_node_t* node, int is_multi_wildcard,
-                  str_vec* levels, int n, char* topic, tmq_message* message, int retain)
+                  str_vec* levels, int n, char* topic, mqtt_message* message, int retain)
 {
     if(n == tmq_vec_size(*levels) || is_multi_wildcard)
     {
@@ -345,14 +345,14 @@ static void match(tmq_topics_t* topics, topic_tree_node_t* node, int is_multi_wi
         match(topics, *next, 1, levels, n + 1, topic, message, 0);
 }
 
-void tmq_topics_publish(tmq_topics_t* topics, char* topic, tmq_message* message, int retain)
+void tmq_topics_publish(tmq_topics_t* topics, char* topic, mqtt_message* message, int retain)
 {
     str_vec levels = tmq_vec_make(tmq_str_t);
     tmq_topic_split(topic, &levels);
     match(topics, topics->root, 0, &levels, 0, topic, message, retain);
     if(tmq_map_size(topics->matched_members) > 0)
     {
-        topics->route_on_match(topics->broker, topic, message, &topics->matched_members);
+        topics->route_on_match(&topics->broker->cluster, topic, message, &topics->matched_members);
         tmq_map_clear(topics->matched_members);
     }
     for(tmq_str_t* it = tmq_vec_begin(levels); it != tmq_vec_end(levels); it++)

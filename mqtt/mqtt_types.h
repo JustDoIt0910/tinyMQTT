@@ -12,7 +12,8 @@ typedef enum conn_state_e
 {
     NO_SESSION,
     STARTING_SESSION,
-    IN_SESSION
+    IN_SESSION,
+    TUNNELED
 } conn_state_e;
 
 typedef struct tmq_broker_s tmq_broker_t;
@@ -44,11 +45,11 @@ typedef struct session_connect_resp
     int session_present;
 } session_connect_resp;
 
-typedef struct tmq_message
+typedef struct mqtt_message
 {
     tmq_str_t message;
     uint8_t qos;
-} tmq_message;
+} mqtt_message;
 
 typedef enum user_op_type_e {ADD, DEL, MOD} user_op_type;
 typedef struct user_op_context_s

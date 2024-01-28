@@ -39,11 +39,4 @@ void tmq_cluster_init(tmq_broker_t* broker, tmq_cluster_t* node, const char* red
                            const char* node_ip, uint16_t node_port);
 void tmq_cluster_add_route(tmq_cluster_t* node, const char* topic_filter, topic_tree_node_t* topic_node);
 
-typedef enum cluster_message_type_e
-{
-    CLUSTER_ROUTE_SYNC,
-    CLUSTER_ROUTE_DEL,
-    CLUSTER_PUBLISH
-} cluster_message_type;
-
 #endif //TINYMQTT_MQTT_CLUSTER_H

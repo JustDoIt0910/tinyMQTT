@@ -61,8 +61,7 @@ static message_store_t* get_message_store(tmq_broker_t* broker)
     return tmq_message_store_memory_new();
 }
 
-static void mqtt_publish(void* arg, tmq_session_t* session, char* topic, tmq_message* message, uint8_t retain);
-
+void mqtt_publish(void* arg, tmq_session_t* session, char* topic, mqtt_message* message, uint8_t retain);
 static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt* connect_pkt)
 {
     char* will_topic = NULL, *will_message = NULL;
@@ -152,9 +151,9 @@ void handle_session_req(void* arg)
             /* send the will-message if session closed without receiving a disconnect packet */
             if(session->will_topic)
             {
-                tmq_message will_msg = {
+                mqtt_message will_msg = {
                         .qos = session->will_qos,
-                        .message = session->will_message
+                        .message = tmq_str_new(session->will_message)
                 };
                 tmq_topics_publish(&broker->topics_tree, session->will_topic,
                                    &will_msg, session->will_retain);
@@ -455,10 +454,10 @@ void mqtt_unsubscribe(tmq_broker_t* broker, tmq_str_t client_id,
     tmq_executor_post(&broker->executor, handle_topic_req, ctx, 1);
 }
 
-void mqtt_publish(void* arg, tmq_session_t* session, char* topic, tmq_message* message, uint8_t retain)
+void mqtt_publish(void* arg, tmq_session_t* session, char* topic, mqtt_message* message, uint8_t retain)
 {
     tmq_broker_t* broker = arg;
-    if(broker->acl_enabled && tmq_acl_auth(&broker->acl, session, topic, PUB) == DENY)
+    if(session && broker->acl_enabled && tmq_acl_auth(&broker->acl, session, topic, PUB) == DENY)
         return;
     publish_req req = {
             .topic = topic,
@@ -471,7 +470,7 @@ void mqtt_publish(void* arg, tmq_session_t* session, char* topic, tmq_message* m
     tmq_executor_post(&broker->executor, handle_publish_req, ctx, 0);
 }
 
-static void mqtt_broadcast(tmq_broker_t* broker, char* topic, tmq_message* message, subscribe_map_t* subscribers)
+static void mqtt_broadcast(tmq_broker_t* broker, char* topic, mqtt_message* message, subscribe_map_t* subscribers)
 {
     broadcast_ctx_t** broadcast_tasks = malloc(sizeof(broadcast_ctx_t*) * broker->io_threads);
     for(int i = 0; i < broker->io_threads; i++)
@@ -514,7 +513,7 @@ void add_user(tmq_broker_t* broker, tmq_tcp_conn_t* conn, const char* username, 
     thrdpool_schedule(&task, broker->thread_pool);
 }
 
-extern void mqtt_route_publish(tmq_broker_t* broker, char* topic, tmq_message* message, member_addr_set* matched_members);
+extern void mqtt_tun_publish(tmq_cluster_t* cluster, char* topic, mqtt_message* message, member_addr_set* matched_members);
 int tmq_broker_init(tmq_broker_t* broker, const char* cfg, tmq_cmd_t* cmd)
 {
     if(!broker) return -1;
@@ -603,7 +602,7 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg, tmq_cmd_t* cmd)
     tmq_mqtt_codec_init(&broker->mqtt_codec, SERVER_CODEC);
     tmq_console_codec_init(&broker->console_codec);
 
-    int port = tmq_cmd_get_number(cmd, "port");
+    int port = (int)tmq_cmd_get_number(cmd, "port");
     tlog_info("listening on port %u", port);
 
     tmq_str_t inflight_window_str = tmq_config_get(&broker->conf, "inflight_window");
@@ -617,7 +616,7 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg, tmq_cmd_t* cmd)
 
     /* initialize io contexts */
     tmq_str_t io_group_num_str = tmq_config_get(&broker->conf, "io_threads");
-    broker->io_threads = io_group_num_str ? strtoul(io_group_num_str, NULL, 10): DEFAULT_IO_THREADS;
+    broker->io_threads = io_group_num_str ? (int)strtoul(io_group_num_str, NULL, 10): DEFAULT_IO_THREADS;
     tmq_str_free(io_group_num_str);
     tlog_info("start with %d io threads", broker->io_threads);
     broker->io_contexts = malloc(sizeof(tmq_io_context_t) * broker->io_threads);
@@ -629,7 +628,7 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg, tmq_cmd_t* cmd)
     broker->thread_pool = thrdpool_create(10, 0);
 
     tmq_map_str_init(&broker->sessions, tmq_session_t*, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
-    tmq_topics_init(&broker->topics_tree, broker, mqtt_broadcast, mqtt_route_publish);
+    tmq_topics_init(&broker->topics_tree, broker, mqtt_broadcast, mqtt_tun_publish);
 
     tmq_cluster_init(broker, &broker->cluster, "127.0.0.1", 6379, "127.0.0.1", tmq_cmd_get_number(cmd, "cluster-port"));
 

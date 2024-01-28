@@ -174,9 +174,9 @@ void tmq_session_handle_unsuback(tmq_session_t* session, tmq_unsuback_pkt* unsub
 void tmq_session_handle_publish(tmq_session_t* session, tmq_publish_pkt* publish_pkt)
 {
     session->last_pkt_ts = time_now();
-    tmq_message message = {
+    mqtt_message message = {
             .qos = PUBLISH_QOS(publish_pkt->flags),
-            .message = tmq_str_new(publish_pkt->payload)
+            .message = publish_pkt->payload
     };
     /* for qos2 message, check if it is a redelivery */
     if(PUBLISH_QOS(publish_pkt->flags) == 2)
@@ -192,9 +192,8 @@ void tmq_session_handle_publish(tmq_session_t* session, tmq_publish_pkt* publish
             return;
         }
     }
-    session->on_new_message(session->upstream, session, tmq_str_new(publish_pkt->topic),
-                            &message, PUBLISH_RETAIN(publish_pkt->flags));
-    tmq_publish_pkt_cleanup(publish_pkt);
+    session->on_new_message(session->upstream, session, publish_pkt->topic, &message,
+                            PUBLISH_RETAIN(publish_pkt->flags));
 }
 
 void tmq_session_handle_pingreq(tmq_session_t* session) {session->last_pkt_ts = time_now();}

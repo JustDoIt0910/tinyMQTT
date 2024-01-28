@@ -165,7 +165,7 @@ static void send_packet_handler(void* owner, tmq_mail_t mail)
 static void broadcast_handler(void* owner, tmq_mail_t mail)
 {
     broadcast_ctx_t* broadcast_task = mail;
-    tmq_message* message = &broadcast_task->message;
+    mqtt_message* message = &broadcast_task->message;
     subscribe_info_t* info = tmq_vec_begin(broadcast_task->subscribers);
     for(; info != tmq_vec_end(broadcast_task->subscribers); info++)
     {

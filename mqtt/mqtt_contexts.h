@@ -68,7 +68,7 @@ typedef struct topic_operation_s
 typedef struct publish_req
 {
     tmq_str_t topic;
-    tmq_message message;
+    mqtt_message message;
     uint8_t retain;
 } publish_req;
 
@@ -81,7 +81,7 @@ typedef struct publish_ctx_s
 typedef struct broadcast_ctx_s
 {
     tmq_str_t topic;
-    tmq_message message;
+    mqtt_message message;
     int retain;
     tmq_vec(subscribe_info_t) subscribers;
 } broadcast_ctx_t;

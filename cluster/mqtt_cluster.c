@@ -56,11 +56,13 @@ typedef struct cluster_publish_msg
     /* conn of cluster member to synchronize with */
     tmq_tcp_conn_t* conn;
     tmq_str_t topic;
-    tmq_message message;
+    mqtt_message message;
+    int retain;
 } cluster_publish_msg;
 
 static void handle_cluster_member_operation(void* arg);
 static void handle_cluster_route_operation(void* arg);
+extern void mqtt_publish(void* arg, tmq_session_t* session, char* topic, mqtt_message* message, uint8_t retain);
 /*********************************************************************************************/
 /* Handlers below are called in broker's main IO thread */
 static void new_conn_handler(void* owner, tmq_mail_t mail)
@@ -92,20 +94,33 @@ void add_route_message_handler(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_s
     tmq_executor_post(&broker->executor, handle_cluster_route_operation, route_op, 0);
 }
 
-void send_route_sync_del_message(tmq_tcp_conn_t* conn, cluster_message_type type, tmq_str_t payload);
+void receive_tunnel_publish_handler(tmq_broker_t* broker, tmq_publish_pkt* publish_pkt)
+{
+    mqtt_message message = {
+            .qos = PUBLISH_QOS(publish_pkt->flags),
+            .message = publish_pkt->payload
+    };
+    mqtt_publish(broker, NULL, publish_pkt->topic, &message, PUBLISH_RETAIN(publish_pkt->flags));
+}
+
 static void send_message_handler(void* owner, tmq_mail_t mail)
 {
     tmq_cluster_t* cluster = owner;
     cluster_message_type message_type = (uintptr_t)(mail) & 0x07;
     struct {tmq_tcp_conn_t* conn;}* message = (void*)((uintptr_t)(mail) & ~0x07);
-    if(message_type == CLUSTER_PUBLISH)
+    if(message_type == CLUSTER_TUN_PUBLISH)
     {
         cluster_publish_msg* cluster_publish = (cluster_publish_msg*)message;
+        send_publish_tun_message(message->conn, cluster_publish->topic,
+                                 &cluster_publish->message, cluster_publish->retain);
+        tmq_str_free(cluster_publish->topic);
+        tmq_str_free(cluster_publish->message.message);
     }
     else
     {
         cluster_route_sync_msg* cluster_route_sync = (cluster_route_sync_msg*)message;
         send_route_sync_del_message(message->conn, message_type, cluster_route_sync->topic_filters);
+        tmq_str_free(cluster_route_sync->topic_filters);
     }
     TCP_CONN_RELEASE(message->conn);
     free(message);
@@ -163,10 +178,19 @@ void handle_cluster_route_operation(void* arg)
     free(route_op);
 }
 
-void mqtt_route_publish(tmq_broker_t* broker, char* topic, tmq_message* message, member_addr_set* matched_members)
+void mqtt_tun_publish(tmq_cluster_t* cluster, char* topic, mqtt_message* message, member_addr_set* matched_members)
 {
     for(tmq_map_iter_t it = tmq_map_iter(*matched_members); tmq_map_has_next(it); tmq_map_next(*matched_members, it))
-        printf("{%s, %s} ==> %s\n", message->message, topic, (char*)it.first);
+    {
+        cluster_publish_msg* cluster_pub = malloc(sizeof(cluster_publish_msg));
+        cluster_pub->topic = tmq_str_new(topic);
+        cluster_pub->message.message = tmq_str_new(message->message);
+        cluster_pub->message.qos = message->qos;
+        cluster_pub->retain = 0;
+        cluster_pub->conn = TCP_CONN_SHARE(*tmq_map_get(cluster->members, (char*)(it.first)));
+        cluster_pub = (cluster_publish_msg*)((uintptr_t)cluster_pub | CLUSTER_TUN_PUBLISH);
+        tmq_mailbox_push(&cluster->message_send_box, cluster_pub);
+    }
 }
 
 /*********************************************************************************************/
@@ -198,7 +222,7 @@ void tmq_cluster_init(tmq_broker_t* broker, tmq_cluster_t* cluster, const char* 
     tmq_map_str_init(&cluster->members, tmq_tcp_conn_t*, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
     tmq_mailbox_init(&cluster->new_conn_box, &broker->loop, cluster, new_conn_handler);
     tmq_mailbox_init(&cluster->message_send_box, &broker->loop, cluster, send_message_handler);
-    tmq_cluster_codec_init(&cluster->codec);
+    tmq_cluster_codec_init(&cluster->codec, &broker->mqtt_codec, broker);
 
     tmq_redis_discovery_set_context(&cluster->discovery, cluster);
     tmq_redis_discovery_init(&broker->loop, &cluster->discovery, redis_ip, redis_port, on_new_member_discovered, NULL);

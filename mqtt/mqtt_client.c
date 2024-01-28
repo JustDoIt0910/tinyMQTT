@@ -83,7 +83,7 @@ static void on_tcp_connect_failed(void* arg)
     else tmq_event_loop_quit(&mqtt->loop, 0);
 }
 
-static void on_mqtt_message(void* arg, tmq_session_t* session, char* topic, tmq_message* message, uint8_t retain)
+static void on_mqtt_message(void* arg, tmq_session_t* session, char* topic, mqtt_message* message, uint8_t retain)
 {
     tiny_mqtt* mqtt = arg;
     if(mqtt->on_message)

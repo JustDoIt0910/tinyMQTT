@@ -10,7 +10,7 @@
 
 typedef struct retain_message_s
 {
-    tmq_message retain_msg;
+    mqtt_message retain_msg;
     tmq_str_t retain_topic;
 } retain_message_t;
 typedef tmq_vec(retain_message_t*) retain_message_list_t;
@@ -48,8 +48,9 @@ typedef struct topic_tree_node_s
 } topic_tree_node_t;
 
 typedef tmq_map(char*, int) member_addr_set;
-typedef void(*client_match_cb)(tmq_broker_t* broker, char* topic, tmq_message* message, subscribe_map_t* subscribers);
-typedef void(*route_match_cb)(tmq_broker_t* broker, char* topic, tmq_message* message, member_addr_set* matched_members);
+typedef struct tmq_cluster_s tmq_cluster_t;
+typedef void(*client_match_cb)(tmq_broker_t* broker, char* topic, mqtt_message* message, subscribe_map_t* subscribers);
+typedef void(*route_match_cb)(tmq_cluster_t* cluster, char* topic, mqtt_message* message, member_addr_set* matched_members);
 typedef struct tmq_topics_s
 {
     topic_tree_node_t* root;
@@ -65,7 +66,7 @@ retain_message_list_t tmq_topics_add_subscription(tmq_topics_t* topics, char* to
                                                   uint8_t qos, int* topic_exist, topic_tree_node_t** end_node);
 void tmq_topics_add_route(tmq_topics_t* topics, char* topic_filter, char* member_addr, topic_tree_node_t** end_node);
 void tmq_topics_remove_subscription(tmq_topics_t* topics, char* topic_filter, char* client_id);
-void tmq_topics_publish(tmq_topics_t* topics, char* topic, tmq_message* message, int retain);
+void tmq_topics_publish(tmq_topics_t* topics, char* topic, mqtt_message* message, int retain);
 void tmq_topic_split(char* str, str_vec* levels);
 void tmq_topics_info(tmq_topics_t* topics);
 
