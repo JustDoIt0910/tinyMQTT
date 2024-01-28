@@ -70,6 +70,7 @@ typedef struct publish_req
     tmq_str_t topic;
     mqtt_message message;
     uint8_t retain;
+    uint8_t is_tunneled_pub;
 } publish_req;
 
 typedef struct publish_ctx_s

@@ -66,7 +66,7 @@ retain_message_list_t tmq_topics_add_subscription(tmq_topics_t* topics, char* to
                                                   uint8_t qos, int* topic_exist, topic_tree_node_t** end_node);
 void tmq_topics_add_route(tmq_topics_t* topics, char* topic_filter, char* member_addr, topic_tree_node_t** end_node);
 void tmq_topics_remove_subscription(tmq_topics_t* topics, char* topic_filter, char* client_id);
-void tmq_topics_publish(tmq_topics_t* topics, char* topic, mqtt_message* message, int retain);
+void tmq_topics_publish(tmq_topics_t* topics, char* topic, mqtt_message* message, int retain, int is_tunneled);
 void tmq_topic_split(char* str, str_vec* levels);
 void tmq_topics_info(tmq_topics_t* topics);
 

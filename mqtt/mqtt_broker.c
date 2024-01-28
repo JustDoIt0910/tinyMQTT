@@ -156,7 +156,7 @@ void handle_session_req(void* arg)
                         .message = tmq_str_new(session->will_message)
                 };
                 tmq_topics_publish(&broker->topics_tree, session->will_topic,
-                                   &will_msg, session->will_retain);
+                                   &will_msg, session->will_retain, 0);
             }
             tlog_info("session[%s] closed forcely", session->client_id);
         }
@@ -261,7 +261,7 @@ static void handle_publish_req(void* arg)
     tmq_broker_t* broker = operation->broker;
     publish_req* req = &operation->req;
 
-    tmq_topics_publish(&broker->topics_tree, req->topic, &req->message, req->retain);
+    tmq_topics_publish(&broker->topics_tree, req->topic, &req->message, req->retain, req->is_tunneled_pub);
     tmq_str_free(req->topic);
     tmq_str_free(req->message.message);
     free(arg);
@@ -462,7 +462,8 @@ void mqtt_publish(void* arg, tmq_session_t* session, char* topic, mqtt_message* 
     publish_req req = {
             .topic = topic,
             .message = *message,
-            .retain = retain
+            .retain = retain,
+            .is_tunneled_pub = (session == NULL)
     };
     publish_ctx_t* ctx = malloc(sizeof(publish_ctx_t));
     ctx->broker = broker;
