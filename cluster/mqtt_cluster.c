@@ -224,7 +224,6 @@ void tmq_cluster_init(tmq_broker_t* broker, tmq_cluster_t* cluster, const char* 
     tmq_mailbox_init(&cluster->message_send_box, &broker->loop, cluster, send_message_handler);
     tmq_cluster_codec_init(&cluster->codec, &broker->mqtt_codec, broker);
 
-    tmq_redis_discovery_set_context(&cluster->discovery, cluster);
     tmq_redis_discovery_init(&broker->loop, &cluster->discovery, redis_ip, redis_port, on_new_member_discovered, NULL);
     tmq_redis_discovery_set_context(&cluster->discovery, cluster);
 

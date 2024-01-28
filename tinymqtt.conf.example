@@ -31,3 +31,11 @@ mongodb_uri=mongodb://localhost:27017
 # unacknowledged messages will be stored into mongodb
 # after reaching mongodb_store_trigger
 mongodb_store_trigger=100
+
+# cluster configuration
+cluster_enable=true
+# using redis for cluster member automatic discovery
+redis_host=localhost
+redis_port=6379
+# ip address of node
+node_addr=127.0.0.1

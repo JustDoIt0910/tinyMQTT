@@ -96,7 +96,7 @@ static int timer_heap_insert(tmq_timer_heap_t* timer_heap, tmq_timer_t* timer)
     if(!timer) return 0;
     if(timer_heap->size == timer_heap->cap)
     {
-       tmq_timer_t** heap = (tmq_timer_t**) realloc(timer_heap->heap, timer_heap->cap * 2 + 1);
+       tmq_timer_t** heap = (tmq_timer_t**)realloc(timer_heap->heap, timer_heap->cap * 2 + 1);
        if(!heap)
            fatal_error("realloc() error: out of memory");
 
