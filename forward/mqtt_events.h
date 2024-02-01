@@ -3,8 +3,9 @@
 //
 #ifndef TINYMQTT_MQTT_EVENTS_H
 #define TINYMQTT_MQTT_EVENTS_H
-#include <cjson//cJSON.h>
+#include <cjson/cJSON.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include "base/mqtt_str.h"
 
 typedef enum tmq_event_type_e
@@ -35,8 +36,15 @@ typedef enum tmq_expr_type_e
     BINARY_EXPR
 } tmq_expr_type;
 
+typedef union filter_expr_result_u
+{
+    char* str;
+    int64_t integer;
+    bool is_true;
+} filter_expr_result;
+
 typedef struct tmq_filter_expr_s tmq_filter_expr_t;
-typedef int (*filter_expr_eval_f)(tmq_filter_expr_t* expr, tmq_pub_event_data_t* event_data);
+typedef filter_expr_result (*filter_expr_eval_f)(tmq_filter_expr_t* expr, tmq_pub_event_data_t* event_data);
 #define EXPR_PUBLIC_MEMBERS     \
 tmq_expr_type expr_type;        \
 filter_expr_eval_f evaluate;
@@ -45,16 +53,47 @@ typedef struct tmq_filter_expr_s
     EXPR_PUBLIC_MEMBERS
 } tmq_filter_expr_t;
 
+typedef enum tmq_value_expr_type_e
+{
+    EXPR_VALUE_CLIENT_ID,
+    EXPR_VALUE_USERNAME,
+    EXPR_VALUE_QOS,
+    EXPR_VALUE_PAYLOAD
+} tmq_value_expr_type;
+
+typedef struct tmq_filter_value_expr_s
+{
+    EXPR_PUBLIC_MEMBERS
+    tmq_value_expr_type value_type;
+    tmq_str_t payload_field;
+} tmq_filter_value_expr_t;
+
+typedef enum tmq_binary_expr_op_e
+{
+    EXPR_OP_EQ,
+    EXPR_OP_GT,
+    EXPR_OP_GTE,
+    EXPR_OP_LT,
+    EXPR_OP_LTE,
+    EXPR_OP_AND,
+    EXPR_OP_OR
+} tmq_binary_expr_op;
+
 typedef struct tmq_filter_binary_expr_s
 {
     EXPR_PUBLIC_MEMBERS
+    tmq_binary_expr_op op;
     tmq_filter_expr_t* left;
     tmq_filter_expr_t* right;
 } tmq_filter_binary_expr_t;
 
+typedef void (*on_event_f)(tmq_event_t* event, void* arg);
+
 typedef struct tmq_event_listener_s
 {
+    struct tmq_event_listener_s* next;
     tmq_filter_expr_t* filter;
+    on_event_f on_event;
 } tmq_event_listener_t;
 
 #endif //TINYMQTT_MQTT_EVENTS_H
