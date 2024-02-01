@@ -27,8 +27,8 @@ set(TINYMQTT_LIB_SRC
         base/mqtt_str.c
         base/mqtt_config.c
         base/mqtt_cmd.c
-        event/mqtt_event.c
-        event/mqtt_timer.c
+        ev/mqtt_event.c
+        ev/mqtt_timer.c
         net/mqtt_acceptor.c
         net/mqtt_connector.c
         net/mqtt_tcp_conn.c
@@ -50,6 +50,7 @@ set(TINYMQTT_LIB_SRC
         cluster/mqtt_cluster.c
         db/mqtt_db.c
         db/mqtt_conn_pool.c
+        forward/mqtt_events.c
         thrdpool/msgqueue.c
         thrdpool/thrdpool.c
         3rd/tinylog/tlog.c
@@ -66,7 +67,8 @@ add_library(mqtt ${TINYMQTT_LIB_SRC})
 target_link_libraries (mqtt PRIVATE
         ${LIBMONGOC_LIBRARIES}
         ${LIBMYSQLCLIENT_LIBRARIES}
-        ${HIREDIS_LIBRARIES})
+        ${HIREDIS_LIBRARIES}
+        uuid)
 
 link_directories(${CMAKE_BINARY_DIR})
 link_libraries(mqtt pthread)

@@ -5,6 +5,71 @@
 #include "base/mqtt_util.h"
 #include <pthread.h>
 #include <strings.h>
+#include <uuid/uuid.h>
+#include <string.h>
+
+void tmq_redis_lock_init(tmq_redis_lock_t* lock, const char* redis_addr, uint16_t redis_port,
+                         const char* lock_name, int lock_ttl)
+{
+    bzero(lock, sizeof(tmq_redis_lock_t));
+    lock->context = redisConnect(redis_addr, redis_port);
+    if(lock->context->err)
+        fatal_error("connect to redis %s:%hd failed: %s", redis_addr, redis_port, lock->context->errstr);
+    lock->lock_name = tmq_str_new(lock_name);
+    lock->lock_ttl = lock_ttl;
+    uuid_t uuid;
+    bzero(uuid, sizeof(uuid));
+    uuid_generate(uuid);
+    if(uuid_is_null(uuid))
+        fatal_error("failed to generate UUID");
+    lock->node_id = tmq_str_new_len(NULL, 36);
+    uuid_unparse(uuid, lock->node_id);
+}
+
+int tmq_redis_lock_acquire(tmq_redis_lock_t* lock)
+{
+    while(1)
+    {
+        redisReply* reply = (redisReply*)redisCommand(lock->context, "SET %s %s NX EX %d",
+                                                      lock->lock_name, lock->node_id, lock->lock_ttl);
+        if(reply!=NULL)
+        {
+            if(reply->type == REDIS_REPLY_STATUS && strcmp(reply->str, "OK") == 0)
+            {
+                freeReplyObject(reply);
+                break;
+            }
+            freeReplyObject(reply);
+            usleep(TRY_LOCK_INTERVAL_MS * 1000);
+        }
+        else return -1;
+    }
+    return 0;
+}
+
+int tmq_redis_lock_release(tmq_redis_lock_t* lock)
+{
+    const char* release_script = "if redis.call('get',KEYS[1]) == ARGV[1] then "
+                                 "  return redis.call('del',KEYS[1]) "
+                                 "else "
+                                 "  return 0 "
+                                 "end";
+    redisReply* reply = redisCommand(lock->context, "eval %s 1 %s %s", release_script, lock->lock_name, lock->node_id);
+    if(reply && reply->type == REDIS_REPLY_INTEGER && reply->integer == 1)
+    {
+        freeReplyObject(reply);
+        return 0;
+    }
+    if(reply) freeReplyObject(reply);
+    return -1;
+}
+
+void tmq_redis_lock_destroy(tmq_redis_lock_t* lock)
+{
+    redisFree(lock->context);
+    tmq_str_free(lock->lock_name);
+    tmq_str_free(lock->node_id);
+}
 
 void tmq_redis_discovery_init(tmq_event_loop_t* loop, tmq_redis_discovery_t* discovery, const char* addr, uint16_t port,
                               new_node_cb_f on_new_node, remove_node_cb_f on_remove_node)
@@ -16,7 +81,7 @@ void tmq_redis_discovery_init(tmq_event_loop_t* loop, tmq_redis_discovery_t* dis
     discovery->pub_context = redisConnect(addr, port);
     if(discovery->pub_context->err)
         fatal_error("connect to redis %s:%hd failed: %s", addr, port, discovery->pub_context->errstr);
-    discovery->ttl = DEFAULT_TTL;
+    discovery->ttl = DEFAULT_REGISTRY_TTL;
     discovery->loop = loop;
     discovery->on_new_node = on_new_node;
     discovery->on_remove_node = on_remove_node;

@@ -39,7 +39,8 @@ void release_ref(tmq_ref_counted_t* obj)
     int n = decrementAndGet(obj->ref_cnt, 1);
     if(!n)
     {
-        obj->cleaner(obj);
+        if(obj->cleaner)
+            obj->cleaner(obj);
         free(obj);
     }
 }

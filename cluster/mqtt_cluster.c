@@ -231,9 +231,15 @@ void tmq_cluster_init(tmq_broker_t* broker, tmq_cluster_t* cluster, const char* 
     tmq_acceptor_set_cb(&cluster->acceptor, on_member_connect, cluster);
     tmq_acceptor_listen(&cluster->acceptor);
 
-    // TODO use distributed lock to make "register" and "listen" operations atomic
+    tmq_redis_lock_t lock;
+    tmq_redis_lock_init(&lock, redis_ip, redis_port, "registry_lock", 5);
+    tmq_redis_lock_acquire(&lock);
+
     tmq_redis_discovery_register(&cluster->discovery, node_ip, node_port);
     tmq_redis_discovery_listen(&cluster->discovery);
+
+    tmq_redis_lock_release(&lock);
+    tmq_redis_lock_destroy(&lock);
 }
 
 /** @brief  add a new route item to local route table and synchronize this route to cluster members,
