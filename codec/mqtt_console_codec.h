@@ -23,6 +23,7 @@ typedef enum console_message_type_e
 
 typedef struct tmq_console_codec_s
 {
+    CODEC_PUBLIC_MEMBERS
     LEN_BASED_CODEC_PUBLIC_MEMBERS
     add_user_message_cb on_add_user;
 } tmq_console_codec_t;

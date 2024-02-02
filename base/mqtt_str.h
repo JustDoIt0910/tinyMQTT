@@ -37,6 +37,7 @@ void tmq_str_debug(tmq_str_t s);
 tmq_str_t tmq_str_parse_int(int64_t v, int base);
 char tmq_str_at(tmq_str_t s, size_t index);
 int tmq_str_equal(tmq_str_t s1, tmq_str_t s2);
+int tmq_str_startswith(tmq_str_t s, const char* prefix);
 tmq_str_t tmq_str_substr(tmq_str_t s, size_t start, size_t len);
 ssize_t tmq_str_find(tmq_str_t s, char c);
 str_vec tmq_str_split(tmq_str_t s, const char* delimeters);

@@ -33,7 +33,8 @@ typedef struct tmq_pub_event_data_s
 typedef enum tmq_expr_type_e
 {
     VALUE_EXPR,
-    BINARY_EXPR
+    BINARY_EXPR,
+    CONST_EXPR
 } tmq_expr_type;
 
 typedef union filter_expr_result_u
@@ -53,12 +54,19 @@ typedef struct tmq_filter_expr_s
     EXPR_PUBLIC_MEMBERS
 } tmq_filter_expr_t;
 
+typedef struct tmq_filter_const_expr_s
+{
+    EXPR_PUBLIC_MEMBERS
+    tmq_str_t value;
+} tmq_filter_const_expr_t;
+
 typedef enum tmq_value_expr_type_e
 {
     EXPR_VALUE_CLIENT_ID,
     EXPR_VALUE_USERNAME,
     EXPR_VALUE_QOS,
-    EXPR_VALUE_PAYLOAD
+    EXPR_VALUE_PAYLOAD,
+    EXPR_VALUE_INVALID
 } tmq_value_expr_type;
 
 typedef struct tmq_filter_value_expr_s
@@ -79,10 +87,16 @@ typedef enum tmq_binary_expr_op_e
     EXPR_OP_OR
 } tmq_binary_expr_op;
 
+typedef struct operator_into_s
+{
+    tmq_binary_expr_op op;
+    uint8_t priority;
+} operator_into_t;
+
 typedef struct tmq_filter_binary_expr_s
 {
     EXPR_PUBLIC_MEMBERS
-    tmq_binary_expr_op op;
+    operator_into_t op;
     tmq_filter_expr_t* left;
     tmq_filter_expr_t* right;
 } tmq_filter_binary_expr_t;
@@ -95,5 +109,9 @@ typedef struct tmq_event_listener_s
     tmq_filter_expr_t* filter;
     on_event_f on_event;
 } tmq_event_listener_t;
+
+tmq_filter_expr_t* tmq_value_expr_new(tmq_value_expr_type type, const char* payload_field);
+tmq_filter_expr_t* tmq_const_expr_new(const char* value);
+tmq_filter_expr_t* tmq_binary_expr_new(tmq_binary_expr_op op, uint8_t priority);
 
 #endif //TINYMQTT_MQTT_EVENTS_H

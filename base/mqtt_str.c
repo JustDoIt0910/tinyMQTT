@@ -176,6 +176,13 @@ int tmq_str_equal(tmq_str_t s1, tmq_str_t s2)
     return strcmp(s1, s2) == 0;
 }
 
+int tmq_str_startswith(tmq_str_t s, const char* prefix)
+{
+    tmq_ds_t* hdr = TMQ_DS_HDR(s);
+    size_t pre_len = strlen(prefix);
+    return hdr->len < pre_len ? 0 : (strncmp(s, prefix, pre_len) == 0);
+}
+
 tmq_str_t tmq_str_substr(tmq_str_t s, size_t start, size_t len)
 {
     if(start >= tmq_str_len(s) || start + len > tmq_str_len(s))

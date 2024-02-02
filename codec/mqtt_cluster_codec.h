@@ -21,6 +21,7 @@ typedef enum cluster_message_type_e
 
 typedef struct tmq_cluster_codec_s
 {
+    CODEC_PUBLIC_MEMBERS
     LEN_BASED_CODEC_PUBLIC_MEMBERS
     tmq_broker_t* broker;
     tmq_mqtt_codec_t* mqtt_codec;

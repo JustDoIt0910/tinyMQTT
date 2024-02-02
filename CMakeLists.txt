@@ -50,6 +50,7 @@ set(TINYMQTT_LIB_SRC
         cluster/mqtt_cluster.c
         db/mqtt_db.c
         db/mqtt_conn_pool.c
+        forward/mqtt_rule_parser.c
         forward/mqtt_events.c
         thrdpool/msgqueue.c
         thrdpool/thrdpool.c
