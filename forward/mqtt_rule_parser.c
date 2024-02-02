@@ -5,6 +5,7 @@
 #include "base/mqtt_map.h"
 #include "mqtt_events.h"
 #include <ctype.h>
+#include <malloc.h>
 
 static tmq_map(char*, operator_into_t) operators;
 
@@ -18,8 +19,8 @@ void tmq_rule_parser_init()
     operator_into_t lte = {.op = EXPR_OP_LTE, .priority = 3};
     operator_into_t and = {.op = EXPR_OP_AND, .priority = 2};
     operator_into_t or = {.op = EXPR_OP_OR, .priority = 2};
-    operator_into_t left_parentheses = { .priority = 1};
-    operator_into_t right_parentheses = { .priority = 1};
+    operator_into_t left_parentheses = {.op = EXPR_OP_LP, .priority = 1};
+    operator_into_t right_parentheses = {.op = EXPR_OP_RP, .priority = 1};
     operator_into_t end_mark = { .priority = 0};
     tmq_map_put(operators, "==", eq);
     tmq_map_put(operators, ">", gt);
@@ -64,10 +65,12 @@ static tmq_value_expr_type get_value_type(char* name)
 
 tmq_filter_expr_t* parse_filter_expression(const char* expr)
 {
+    tmq_filter_expr_t* root = NULL;
     tmq_vec(tmq_filter_expr_t*) operand_stack = tmq_vec_make(tmq_filter_expr_t*);
     tmq_vec(tmq_filter_expr_t*) operator_stack = tmq_vec_make(tmq_filter_expr_t*);
     const char* ptr = expr;
-    while(ptr)
+    int done = 0;
+    while(ptr && !done)
     {
         ptr = skip_blank(ptr);
         if(!(*ptr) || is_operator(ptr))
@@ -76,25 +79,40 @@ tmq_filter_expr_t* parse_filter_expression(const char* expr)
             operator_into_t* operator = tmq_map_get(operators, op_name);
             if(!operator)
             {
-                break;
+                tmq_str_free(op_name);
+                goto cleanup;
             }
-            if(!tmq_vec_empty(operator_stack))
+            if(!tmq_vec_empty(operator_stack) && operator->op != EXPR_OP_LP)
             {
                 tmq_filter_binary_expr_t** operator_stack_top =
                         (tmq_filter_binary_expr_t**)tmq_vec_at(operator_stack, tmq_vec_size(operator_stack) - 1);
                 while(operator->priority <= (*operator_stack_top)->op.priority)
                 {
+                    if((*operator_stack_top)->op.op == EXPR_OP_LP)
+                    {
+                        tmq_filter_expr_t* lp = *tmq_vec_pop_back(operator_stack);
+                        free(lp);
+                        break;
+                    }
                     tmq_filter_expr_t* right_expr = *tmq_vec_pop_back(operand_stack);
                     tmq_filter_expr_t* left_expr = *tmq_vec_pop_back(operand_stack);
                     tmq_filter_binary_expr_t* binary_expr = *(tmq_filter_binary_expr_t**)(tmq_vec_pop_back(operator_stack));
                     binary_expr->right = right_expr;
                     binary_expr->left = left_expr;
                     tmq_vec_push_back(operand_stack, (tmq_filter_expr_t*)binary_expr);
+                    if(tmq_vec_empty(operator_stack))
+                        break;
+                    operator_stack_top =
+                            (tmq_filter_binary_expr_t**)tmq_vec_at(operator_stack, tmq_vec_size(operator_stack) - 1);
                 }
             }
-            tmq_filter_expr_t* operator_expr = tmq_binary_expr_new(operator->op, operator->priority);
-            tmq_vec_push_back(operator_stack, operator_expr);
-            ptr += tmq_str_len(op_name);
+            if(*ptr && *ptr != ')')
+            {
+                tmq_filter_expr_t* operator_expr = tmq_binary_expr_new(operator->op, operator->priority);
+                tmq_vec_push_back(operator_stack, operator_expr);
+            }
+            if(*ptr) ptr += tmq_str_len(op_name);
+            else done = 1;
             tmq_str_free(op_name);
         }
         else
@@ -116,7 +134,26 @@ tmq_filter_expr_t* parse_filter_expression(const char* expr)
             ptr = p;
         }
     }
-    tmq_filter_expr_t* root = *tmq_vec_pop_back(operand_stack);
+    if(tmq_vec_size(operand_stack) != 1)
+        goto cleanup;
+    root = *tmq_vec_pop_back(operand_stack);
+    cleanup:
+    for(tmq_filter_expr_t** it = tmq_vec_begin(operand_stack); it != tmq_vec_end(operand_stack); it++)
+    {
+        if((*it)->expr_type == VALUE_EXPR)
+            tmq_str_free(((tmq_filter_value_expr_t*)*it)->payload_field);
+        else if((*it)->expr_type == CONST_EXPR)
+            tmq_str_free(((tmq_filter_const_expr_t*)*it)->value);
+        free(*it);
+    }
+    for(tmq_filter_expr_t** it = tmq_vec_begin(operator_stack); it != tmq_vec_end(operator_stack); it++)
+    {
+        if((*it)->expr_type == VALUE_EXPR)
+            tmq_str_free(((tmq_filter_value_expr_t*)*it)->payload_field);
+        else if((*it)->expr_type == CONST_EXPR)
+            tmq_str_free(((tmq_filter_const_expr_t*)*it)->value);
+        free(*it);
+    }
     tmq_vec_free(operand_stack);
     tmq_vec_free(operator_stack);
     return root;

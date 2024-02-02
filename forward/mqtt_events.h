@@ -46,9 +46,13 @@ typedef union filter_expr_result_u
 
 typedef struct tmq_filter_expr_s tmq_filter_expr_t;
 typedef filter_expr_result (*filter_expr_eval_f)(tmq_filter_expr_t* expr, tmq_pub_event_data_t* event_data);
+typedef void (*filter_expr_print_f)(tmq_filter_expr_t* expr);
+
 #define EXPR_PUBLIC_MEMBERS     \
 tmq_expr_type expr_type;        \
-filter_expr_eval_f evaluate;
+filter_expr_eval_f evaluate;    \
+filter_expr_print_f print;
+
 typedef struct tmq_filter_expr_s
 {
     EXPR_PUBLIC_MEMBERS
@@ -84,7 +88,9 @@ typedef enum tmq_binary_expr_op_e
     EXPR_OP_LT,
     EXPR_OP_LTE,
     EXPR_OP_AND,
-    EXPR_OP_OR
+    EXPR_OP_OR,
+    EXPR_OP_LP,
+    EXPR_OP_RP
 } tmq_binary_expr_op;
 
 typedef struct operator_into_s
@@ -113,5 +119,7 @@ typedef struct tmq_event_listener_s
 tmq_filter_expr_t* tmq_value_expr_new(tmq_value_expr_type type, const char* payload_field);
 tmq_filter_expr_t* tmq_const_expr_new(const char* value);
 tmq_filter_expr_t* tmq_binary_expr_new(tmq_binary_expr_op op, uint8_t priority);
+void tmq_print_filter_inorder(tmq_filter_expr_t* filter);
+void tmq_print_filter_preorder(tmq_filter_expr_t* filter);
 
 #endif //TINYMQTT_MQTT_EVENTS_H
