@@ -5,18 +5,18 @@
 #include "forward/mqtt_rule_parser.h"
 #include <stdio.h>
 
-extern tmq_filter_expr_t* parse_filter_expression(const char* expr);
 int main()
 {
     tmq_rule_parser_init();
-    tmq_filter_expr_t* filter = parse_filter_expression("((qos==1&&(username==zr||payload.x==abc))||client_id == 123)");
-    if(!filter)
+    tmq_rule_parse_result_t* result = tmq_rule_parse("select qos, username, payload.x as x "
+                                                     "from test/topic/# "
+                                                     "where ((qos==1&&(username==zr||payload.x==abc))||client_id == 123)");
+    if(result)
+    {
+        tmq_rule_parse_result_print(result);
+    }
+    else
     {
         printf("syntax error\n");
-        return 0;
     }
-    tmq_print_filter_inorder(filter);
-    printf("\n");
-    tmq_print_filter_preorder(filter);
-    printf("\n");
 }

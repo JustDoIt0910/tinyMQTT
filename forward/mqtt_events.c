@@ -4,6 +4,7 @@
 #include "mqtt_events.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <strings.h>
 
 static void print_value_expr(tmq_filter_expr_t* expr)
 {
@@ -67,6 +68,7 @@ static void print_binary_expr(tmq_filter_expr_t* expr)
 tmq_filter_expr_t* tmq_value_expr_new(tmq_value_expr_type type, const char* payload_field)
 {
     tmq_filter_value_expr_t* expr = malloc(sizeof(tmq_filter_value_expr_t));
+    bzero(expr, sizeof(tmq_filter_value_expr_t));
     expr->expr_type = VALUE_EXPR;
     expr->value_type = type;
     expr->print = print_value_expr;
@@ -92,6 +94,15 @@ tmq_filter_expr_t* tmq_binary_expr_new(tmq_binary_expr_op op, uint8_t priority)
     expr->op.op = op;
     expr->op.priority = priority;
     return (tmq_filter_expr_t*)expr;
+}
+
+void tmq_expr_free(tmq_filter_expr_t* expr)
+{
+    if(expr->expr_type == CONST_EXPR)
+        tmq_str_free(((tmq_filter_const_expr_t*)expr)->value);
+    else if(expr->expr_type == VALUE_EXPR)
+        tmq_str_free(((tmq_filter_value_expr_t*)expr)->payload_field);
+    free(expr);
 }
 
 void tmq_print_filter_inorder(tmq_filter_expr_t* filter)

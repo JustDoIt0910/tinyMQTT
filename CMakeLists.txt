@@ -52,6 +52,7 @@ set(TINYMQTT_LIB_SRC
         db/mqtt_conn_pool.c
         forward/mqtt_rule_parser.c
         forward/mqtt_events.c
+        forward/adaptors/mqtt_rabbitmq_adaptor.c
         thrdpool/msgqueue.c
         thrdpool/thrdpool.c
         3rd/tinylog/tlog.c

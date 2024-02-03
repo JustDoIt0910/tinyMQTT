@@ -4,7 +4,21 @@
 
 #ifndef TINYMQTT_MQTT_RULE_PARSER_H
 #define TINYMQTT_MQTT_RULE_PARSER_H
+#include "base/mqtt_map.h"
+#include "mqtt_events.h"
+
+typedef tmq_map(char*, tmq_str_t) select_schema;
+typedef struct tmq_rule_parse_result_s
+{
+    select_schema select_schema_map;
+    tmq_event_type event_source;
+    tmq_str_t source_topic;
+    tmq_filter_expr_t* filter;
+} tmq_rule_parse_result_t;
 
 void tmq_rule_parser_init();
+tmq_rule_parse_result_t* tmq_rule_parse(const char* rule);
+void tmq_rule_parse_result_free(tmq_rule_parse_result_t* result);
+void tmq_rule_parse_result_print(tmq_rule_parse_result_t* result);
 
 #endif //TINYMQTT_MQTT_RULE_PARSER_H

@@ -10,10 +10,10 @@
 
 typedef enum tmq_event_type_e
 {
-    DEVICE_EVENT,
-    TOPIC_EVENT,
-    PUB_EVENT,
-    SUB_UNSUB_EVENT
+    DEVICE,
+    TOPIC,
+    MESSAGE,
+    SUB_UNSUB
 } tmq_event_type;
 
 typedef struct tmq_event_s
@@ -119,6 +119,7 @@ typedef struct tmq_event_listener_s
 tmq_filter_expr_t* tmq_value_expr_new(tmq_value_expr_type type, const char* payload_field);
 tmq_filter_expr_t* tmq_const_expr_new(const char* value);
 tmq_filter_expr_t* tmq_binary_expr_new(tmq_binary_expr_op op, uint8_t priority);
+void tmq_expr_free(tmq_filter_expr_t* expr);
 void tmq_print_filter_inorder(tmq_filter_expr_t* filter);
 void tmq_print_filter_preorder(tmq_filter_expr_t* filter);
 

@@ -3,36 +3,11 @@
 //
 #include "mqtt_rule_parser.h"
 #include "base/mqtt_map.h"
-#include "mqtt_events.h"
 #include <ctype.h>
+#include <string.h>
 #include <malloc.h>
 
 static tmq_map(char*, operator_into_t) operators;
-
-void tmq_rule_parser_init()
-{
-    tmq_map_str_init(&operators, operator_into_t, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
-    operator_into_t eq = {.op = EXPR_OP_EQ, .priority = 3};
-    operator_into_t gt = {.op = EXPR_OP_GT, .priority = 3};
-    operator_into_t gte = {.op = EXPR_OP_GTE, .priority = 3};
-    operator_into_t lt = {.op = EXPR_OP_LT, .priority = 3};
-    operator_into_t lte = {.op = EXPR_OP_LTE, .priority = 3};
-    operator_into_t and = {.op = EXPR_OP_AND, .priority = 2};
-    operator_into_t or = {.op = EXPR_OP_OR, .priority = 2};
-    operator_into_t left_parentheses = {.op = EXPR_OP_LP, .priority = 1};
-    operator_into_t right_parentheses = {.op = EXPR_OP_RP, .priority = 1};
-    operator_into_t end_mark = { .priority = 0};
-    tmq_map_put(operators, "==", eq);
-    tmq_map_put(operators, ">", gt);
-    tmq_map_put(operators, ">=", gte);
-    tmq_map_put(operators, "<", lt);
-    tmq_map_put(operators, "<=", lte);
-    tmq_map_put(operators, "&&", and);
-    tmq_map_put(operators, "||", or);
-    tmq_map_put(operators, "(", left_parentheses);
-    tmq_map_put(operators, ")", right_parentheses);
-    tmq_map_put(operators, "$end", end_mark);
-}
 
 static const char* skip_blank(const char* p)
 {
@@ -63,11 +38,13 @@ static tmq_value_expr_type get_value_type(char* name)
     else return EXPR_VALUE_INVALID;
 }
 
-tmq_filter_expr_t* parse_filter_expression(const char* expr)
+static tmq_filter_expr_t* parse_filter_expression(const char* expr)
 {
     tmq_filter_expr_t* root = NULL;
     tmq_vec(tmq_filter_expr_t*) operand_stack = tmq_vec_make(tmq_filter_expr_t*);
     tmq_vec(tmq_filter_expr_t*) operator_stack = tmq_vec_make(tmq_filter_expr_t*);
+    tmq_vec(tmq_filter_expr_t*) nodes = tmq_vec_make(tmq_filter_expr_t*);
+    tmq_vec(tmq_filter_expr_t*) left_parentheses_nodes = tmq_vec_make(tmq_filter_expr_t*);
     const char* ptr = expr;
     int done = 0;
     while(ptr && !done)
@@ -80,7 +57,7 @@ tmq_filter_expr_t* parse_filter_expression(const char* expr)
             if(!operator)
             {
                 tmq_str_free(op_name);
-                goto cleanup;
+                goto failed;
             }
             if(!tmq_vec_empty(operator_stack) && operator->op != EXPR_OP_LP)
             {
@@ -90,8 +67,7 @@ tmq_filter_expr_t* parse_filter_expression(const char* expr)
                 {
                     if((*operator_stack_top)->op.op == EXPR_OP_LP)
                     {
-                        tmq_filter_expr_t* lp = *tmq_vec_pop_back(operator_stack);
-                        free(lp);
+                        tmq_vec_pop_back(operator_stack);
                         break;
                     }
                     tmq_filter_expr_t* right_expr = *tmq_vec_pop_back(operand_stack);
@@ -110,6 +86,10 @@ tmq_filter_expr_t* parse_filter_expression(const char* expr)
             {
                 tmq_filter_expr_t* operator_expr = tmq_binary_expr_new(operator->op, operator->priority);
                 tmq_vec_push_back(operator_stack, operator_expr);
+                if(operator->op != EXPR_OP_LP)
+                    tmq_vec_push_back(nodes, operator_expr);
+                else
+                    tmq_vec_push_back(left_parentheses_nodes, operator_expr);
             }
             if(*ptr) ptr += tmq_str_len(op_name);
             else done = 1;
@@ -131,30 +111,169 @@ tmq_filter_expr_t* parse_filter_expression(const char* expr)
                 operand_expr = tmq_const_expr_new(value);
             tmq_str_free(value);
             tmq_vec_push_back(operand_stack, operand_expr);
+            tmq_vec_push_back(nodes, operand_expr);
             ptr = p;
         }
     }
     if(tmq_vec_size(operand_stack) != 1)
-        goto cleanup;
+        goto failed;
     root = *tmq_vec_pop_back(operand_stack);
-    cleanup:
-    for(tmq_filter_expr_t** it = tmq_vec_begin(operand_stack); it != tmq_vec_end(operand_stack); it++)
-    {
-        if((*it)->expr_type == VALUE_EXPR)
-            tmq_str_free(((tmq_filter_value_expr_t*)*it)->payload_field);
-        else if((*it)->expr_type == CONST_EXPR)
-            tmq_str_free(((tmq_filter_const_expr_t*)*it)->value);
-        free(*it);
-    }
-    for(tmq_filter_expr_t** it = tmq_vec_begin(operator_stack); it != tmq_vec_end(operator_stack); it++)
-    {
-        if((*it)->expr_type == VALUE_EXPR)
-            tmq_str_free(((tmq_filter_value_expr_t*)*it)->payload_field);
-        else if((*it)->expr_type == CONST_EXPR)
-            tmq_str_free(((tmq_filter_const_expr_t*)*it)->value);
-        free(*it);
-    }
+    goto end;
+    failed:
+    for(tmq_filter_expr_t** it = tmq_vec_begin(nodes); it != tmq_vec_end(nodes); it++)
+        tmq_expr_free(*it);
+    end:
+    for(tmq_filter_expr_t** it = tmq_vec_begin(left_parentheses_nodes); it != tmq_vec_end(left_parentheses_nodes); it++)
+        tmq_expr_free(*it);
+    tmq_vec_free(nodes);
+    tmq_vec_free(left_parentheses_nodes);
     tmq_vec_free(operand_stack);
     tmq_vec_free(operator_stack);
     return root;
+}
+
+void tmq_rule_parser_init()
+{
+    tmq_map_str_init(&operators, operator_into_t, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
+    operator_into_t eq = {.op = EXPR_OP_EQ, .priority = 3};
+    operator_into_t gt = {.op = EXPR_OP_GT, .priority = 3};
+    operator_into_t gte = {.op = EXPR_OP_GTE, .priority = 3};
+    operator_into_t lt = {.op = EXPR_OP_LT, .priority = 3};
+    operator_into_t lte = {.op = EXPR_OP_LTE, .priority = 3};
+    operator_into_t and = {.op = EXPR_OP_AND, .priority = 2};
+    operator_into_t or = {.op = EXPR_OP_OR, .priority = 2};
+    operator_into_t left_parentheses = {.op = EXPR_OP_LP, .priority = 1};
+    operator_into_t right_parentheses = {.op = EXPR_OP_RP, .priority = 1};
+    operator_into_t end_mark = { .priority = 0};
+    tmq_map_put(operators, "==", eq);
+    tmq_map_put(operators, ">", gt);
+    tmq_map_put(operators, ">=", gte);
+    tmq_map_put(operators, "<", lt);
+    tmq_map_put(operators, "<=", lte);
+    tmq_map_put(operators, "&&", and);
+    tmq_map_put(operators, "||", or);
+    tmq_map_put(operators, "(", left_parentheses);
+    tmq_map_put(operators, ")", right_parentheses);
+    tmq_map_put(operators, "$end", end_mark);
+}
+
+tmq_rule_parse_result_t* tmq_rule_parse(const char* rule)
+{
+    if(!rule) return NULL;
+    const char* ptr = skip_blank(rule);
+    if(strncasecmp(ptr, "select ", 7) != 0)
+        return NULL;
+    ptr += 7;
+    tmq_rule_parse_result_t* result = malloc(sizeof(tmq_rule_parse_result_t));
+    bzero(result, sizeof(tmq_rule_parse_result_t));
+    tmq_map_str_init(&result->select_schema_map, tmq_str_t, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
+    ptr = skip_blank(ptr);
+    while(1)
+    {
+        const char* p = ptr;
+        while(*p && !isblank(*p) && *p != ',')
+            p++;
+        tmq_str_t ori_column = tmq_str_new_len(ptr, p - ptr);
+        tmq_map_put(result->select_schema_map, ori_column, ori_column);
+        ptr = skip_blank(p);
+        if(*ptr == ',')
+        {
+            ptr = skip_blank(ptr + 1);
+            continue;
+        }
+        if(strncasecmp(ptr, "as ", 3) == 0)
+        {
+            ptr = skip_blank(ptr + 3);
+            p = ptr;
+            while(*p && !isblank(*p) && *p != ',')
+                p++;
+            tmq_str_t target_column = tmq_str_new_len(ptr, p - ptr);
+            tmq_map_put(result->select_schema_map, ori_column, target_column);
+            tmq_str_free(ori_column);
+            ptr = skip_blank(p);
+            if(*ptr == ',')
+            {
+                ptr = skip_blank(ptr + 1);
+                continue;
+            }
+        }
+        if(strncasecmp(ptr, "from ", 5) == 0)
+        {
+            ptr = skip_blank(ptr + 5);
+            break;
+        }
+        goto failed;
+    }
+    if(*ptr == '{')
+    {
+        const char* p = ptr;
+        while(*p && !isblank(*p) && *p != '}')
+            p++;
+        if(*p != '}')
+            goto failed;
+        tmq_str_t source = tmq_str_new_len(ptr + 1, p - ptr - 1);
+        if(strcasecmp(source, "device") == 0)
+            result->event_source = DEVICE;
+        else if(strcasecmp(source, "topic") == 0)
+            result->event_source = TOPIC;
+        else if(strcasecmp(source, "sub_unsub") == 0)
+            result->event_source = SUB_UNSUB;
+        else
+        {
+            tmq_str_free(source);
+            goto failed;
+        }
+        tmq_str_free(source);
+        ptr = skip_blank(p + 1);
+    }
+    else
+    {
+        const char* p = ptr;
+        while(*p && !isblank(*p))
+            p++;
+        result->event_source = MESSAGE;
+        result->source_topic = tmq_str_new_len(ptr, p - ptr);
+        ptr = skip_blank(p);
+    }
+    if(*ptr)
+    {
+        if(strncasecmp(ptr, "where ", 6) != 0)
+            goto failed;
+        ptr = skip_blank(ptr + 6);
+        result->filter = parse_filter_expression(ptr);
+    }
+    return result;
+
+    failed:
+    tmq_rule_parse_result_free(result);
+    return NULL;
+}
+
+void tmq_rule_parse_result_free(tmq_rule_parse_result_t* result)
+{
+    for(tmq_map_iter_t iter = tmq_map_iter(result->select_schema_map);
+        tmq_map_has_next(iter);
+        tmq_map_next(result->select_schema_map, iter))
+        tmq_str_free(*(tmq_str_t*)iter.second);
+    tmq_str_free(result->source_topic);
+    free(result);
+}
+
+void tmq_rule_parse_result_print(tmq_rule_parse_result_t* result)
+{
+    printf("Schema:\n");
+    for(tmq_map_iter_t iter = tmq_map_iter(result->select_schema_map);
+        tmq_map_has_next(iter);
+        tmq_map_next(result->select_schema_map, iter))
+        printf("{%s->%s}\n", (char*)(iter.first), *(char**)(iter.second));
+    printf("Event Source:\n");
+    if(result->event_source == DEVICE) printf("{DEVICE}\n");
+    else if(result->event_source == TOPIC) printf("{TOPIC}\n");
+    else if(result->event_source == SUB_UNSUB) printf("{SUB_UNSUB}\n");
+    else printf("%s\n", result->source_topic);
+    printf("Expression Tree InOrder:\n");
+    tmq_print_filter_inorder(result->filter);
+    printf("\nExpression Tree PreOrder:\n");
+    tmq_print_filter_preorder(result->filter);
+    printf("\n");
 }
