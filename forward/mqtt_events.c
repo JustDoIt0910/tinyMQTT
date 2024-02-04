@@ -10,29 +10,19 @@ static void print_value_expr(tmq_filter_expr_t* expr)
 {
     tmq_filter_value_expr_t* value_expr = (tmq_filter_value_expr_t*)expr;
     printf("${");
-    switch(value_expr->value_type)
-    {
-        case EXPR_VALUE_CLIENT_ID:
-            printf("client_id");
-            break;
-        case EXPR_VALUE_USERNAME:
-            printf("username");
-            break;
-        case EXPR_VALUE_QOS:
-            printf("qos");
-            break;
-        case EXPR_VALUE_PAYLOAD:
-            printf("payload.%s", value_expr->payload_field);
-            break;
-        default: break;
-    }
+    if(value_expr->field_meta->value_type != JSON_VALUE)
+        printf("%s", value_expr->field_meta->field_name);
+    else
+        printf("payload.%s", value_expr->payload_json_field);
     printf("}");
 }
 
 static void print_const_expr(tmq_filter_expr_t* expr)
 {
     tmq_filter_const_expr_t* const_expr = (tmq_filter_const_expr_t*)expr;
-    printf("%s", const_expr->value);
+    if(const_expr->value.value_type == STR_VALUE)
+        printf("%s", const_expr->value.str);
+    else printf("%ld", const_expr->value.integer);
 }
 
 static void print_binary_expr(tmq_filter_expr_t* expr)
@@ -65,24 +55,35 @@ static void print_binary_expr(tmq_filter_expr_t* expr)
     }
 }
 
-tmq_filter_expr_t* tmq_value_expr_new(tmq_value_expr_type type, const char* payload_field)
+tmq_filter_expr_t* tmq_value_expr_new(event_data_field_meta_t* field_meta, const char* payload_field)
 {
     tmq_filter_value_expr_t* expr = malloc(sizeof(tmq_filter_value_expr_t));
     bzero(expr, sizeof(tmq_filter_value_expr_t));
     expr->expr_type = VALUE_EXPR;
-    expr->value_type = type;
     expr->print = print_value_expr;
-    if(type == EXPR_VALUE_PAYLOAD)
-        expr->payload_field = tmq_str_new(payload_field);
+    expr->field_meta = field_meta;
+    if(expr->field_meta->value_type == JSON_VALUE)
+        expr->payload_json_field = tmq_str_new(payload_field);
     return (tmq_filter_expr_t*)expr;
 }
 
-tmq_filter_expr_t* tmq_const_expr_new(const char* value)
+tmq_filter_expr_t* tmq_const_expr_new(tmq_str_t value)
 {
     tmq_filter_const_expr_t* expr = malloc(sizeof(tmq_filter_const_expr_t));
     expr->expr_type = CONST_EXPR;
     expr->print = print_const_expr;
-    expr->value = tmq_str_new(value);
+    char* failed_ptr = NULL;
+    int64_t integer = strtoll(value, &failed_ptr, 10);
+    if(!failed_ptr)
+    {
+        expr->value.value_type = INT_VALUE;
+        expr->value.integer = integer;
+    }
+    else
+    {
+        expr->value.value_type = STR_VALUE;
+        expr->value.str = tmq_str_new(value);
+    }
     return (tmq_filter_expr_t*)expr;
 }
 
@@ -99,9 +100,12 @@ tmq_filter_expr_t* tmq_binary_expr_new(tmq_binary_expr_op op, uint8_t priority)
 void tmq_expr_free(tmq_filter_expr_t* expr)
 {
     if(expr->expr_type == CONST_EXPR)
-        tmq_str_free(((tmq_filter_const_expr_t*)expr)->value);
+    {
+        if(((tmq_filter_const_expr_t*)expr)->value.value_type == STR_VALUE)
+            tmq_str_free(((tmq_filter_const_expr_t*)expr)->value.str);
+    }
     else if(expr->expr_type == VALUE_EXPR)
-        tmq_str_free(((tmq_filter_value_expr_t*)expr)->payload_field);
+        tmq_str_free(((tmq_filter_value_expr_t*)expr)->payload_json_field);
     free(expr);
 }
 

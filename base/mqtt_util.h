@@ -15,6 +15,9 @@
 #define decrementAndGet(var, val)   __atomic_sub_fetch(&(var), val, __ATOMIC_SEQ_CST)
 #define incrementAndGet(var, val)   __atomic_add_fetch(&(var), val, __ATOMIC_SEQ_CST)
 
+#define OFFSETOF(type, member)      ((unsigned long)(&(((type*)0)->member)))
+#define SIZEOF(type, member)        sizeof(((type*)0)->member)
+
 #define mqtt_tid syscall(SYS_gettid)
 
 #define fatal_error(fmt, ...)           \

@@ -30,15 +30,7 @@ static tmq_str_t get_operator(const char* p)
     return tmq_str_new_len(p, 2);
 }
 
-static tmq_value_expr_type get_value_type(char* name)
-{
-    if(tmq_str_equal(name, "qos")) return EXPR_VALUE_QOS;
-    else if(tmq_str_equal(name, "client_id")) return EXPR_VALUE_CLIENT_ID;
-    else if(tmq_str_equal(name, "username")) return EXPR_VALUE_USERNAME;
-    else return EXPR_VALUE_INVALID;
-}
-
-static tmq_filter_expr_t* parse_filter_expression(const char* expr)
+static tmq_filter_expr_t* parse_filter_expression(tmq_rule_parser_t* parser, const char* expr)
 {
     tmq_filter_expr_t* root = NULL;
     tmq_vec(tmq_filter_expr_t*) operand_stack = tmq_vec_make(tmq_filter_expr_t*);
@@ -102,11 +94,19 @@ static tmq_filter_expr_t* parse_filter_expression(const char* expr)
             while(*p && !isblank(*p) && !is_operator(p))
                 p++;
             tmq_str_t value = tmq_str_new_len(ptr, p - ptr);
-            tmq_value_expr_type value_type;
+            event_data_field_meta_t** meta;
             if(tmq_str_startswith(value, "payload."))
-                operand_expr = tmq_value_expr_new(EXPR_VALUE_PAYLOAD, value + 8);
-            else if((value_type = get_value_type(value)) != EXPR_VALUE_INVALID)
-                operand_expr = tmq_value_expr_new(value_type, NULL);
+            {
+                meta = tmq_map_get(parser->event_source->fields_meta, "payload");
+                if(!meta)
+                {
+                    tmq_str_free(value);
+                    goto failed;
+                }
+                operand_expr = tmq_value_expr_new(*meta, value + 8);
+            }
+            else if((meta = tmq_map_get(parser->event_source->fields_meta, value)) != NULL)
+                operand_expr = tmq_value_expr_new(*meta, NULL);
             else
                 operand_expr = tmq_const_expr_new(value);
             tmq_str_free(value);
@@ -132,8 +132,9 @@ static tmq_filter_expr_t* parse_filter_expression(const char* expr)
     return root;
 }
 
-void tmq_rule_parser_init()
+void tmq_rule_parser_init(tmq_rule_parser_t* parser)
 {
+    bzero(parser, sizeof(tmq_rule_parser_t));
     tmq_map_str_init(&operators, operator_into_t, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
     operator_into_t eq = {.op = EXPR_OP_EQ, .priority = 3};
     operator_into_t gt = {.op = EXPR_OP_GT, .priority = 3};
@@ -157,7 +158,9 @@ void tmq_rule_parser_init()
     tmq_map_put(operators, "$end", end_mark);
 }
 
-tmq_rule_parse_result_t* tmq_rule_parse(const char* rule)
+extern tmq_map(char*, event_source_info_t) event_sources_g;
+
+tmq_rule_parse_result_t* tmq_rule_parse(tmq_rule_parser_t* parser, const char* rule)
 {
     if(!rule) return NULL;
     const char* ptr = skip_blank(rule);
@@ -212,17 +215,14 @@ tmq_rule_parse_result_t* tmq_rule_parse(const char* rule)
         if(*p != '}')
             goto failed;
         tmq_str_t source = tmq_str_new_len(ptr + 1, p - ptr - 1);
-        if(strcasecmp(source, "device") == 0)
-            result->event_source = DEVICE;
-        else if(strcasecmp(source, "topic") == 0)
-            result->event_source = TOPIC;
-        else if(strcasecmp(source, "sub_unsub") == 0)
-            result->event_source = SUB_UNSUB;
-        else
+        event_source_info_t* source_info = tmq_map_get(event_sources_g, source);
+        if(!source_info)
         {
             tmq_str_free(source);
             goto failed;
         }
+        parser->event_source = source_info;
+        result->event_source = source_info->source;
         tmq_str_free(source);
         ptr = skip_blank(p + 1);
     }
@@ -231,6 +231,10 @@ tmq_rule_parse_result_t* tmq_rule_parse(const char* rule)
         const char* p = ptr;
         while(*p && !isblank(*p))
             p++;
+        event_source_info_t* source_info = tmq_map_get(event_sources_g, "message");
+        if(!source_info)
+            goto failed;
+        parser->event_source = source_info;
         result->event_source = MESSAGE;
         result->source_topic = tmq_str_new_len(ptr, p - ptr);
         ptr = skip_blank(p);
@@ -240,7 +244,9 @@ tmq_rule_parse_result_t* tmq_rule_parse(const char* rule)
         if(strncasecmp(ptr, "where ", 6) != 0)
             goto failed;
         ptr = skip_blank(ptr + 6);
-        result->filter = parse_filter_expression(ptr);
+        result->filter = parse_filter_expression(parser, ptr);
+        if(!result->filter)
+            goto failed;
     }
     return result;
 
@@ -269,7 +275,7 @@ void tmq_rule_parse_result_print(tmq_rule_parse_result_t* result)
     printf("Event Source:\n");
     if(result->event_source == DEVICE) printf("{DEVICE}\n");
     else if(result->event_source == TOPIC) printf("{TOPIC}\n");
-    else if(result->event_source == SUB_UNSUB) printf("{SUB_UNSUB}\n");
+    else if(result->event_source == SUBSCRIPTION) printf("{SUB_UNSUB}\n");
     else printf("%s\n", result->source_topic);
     printf("Expression Tree InOrder:\n");
     tmq_print_filter_inorder(result->filter);
