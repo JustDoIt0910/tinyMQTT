@@ -71,7 +71,8 @@ target_link_libraries (mqtt PRIVATE
         ${LIBMONGOC_LIBRARIES}
         ${LIBMYSQLCLIENT_LIBRARIES}
         ${HIREDIS_LIBRARIES}
-        uuid)
+        uuid
+        cjson)
 
 link_directories(${CMAKE_BINARY_DIR})
 link_libraries(mqtt pthread)

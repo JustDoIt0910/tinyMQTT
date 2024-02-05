@@ -25,7 +25,7 @@ static tmq_str_t get_operator(const char* p)
 {
     if(!*p)
         return tmq_str_new("$end");
-    if(*p == '(' || *p == ')' || *p == '>' || *p == '<')
+    if(*p == '(' || *p == ')' || ((*p == '>' || *p == '<') && *(p + 1) != '='))
         return tmq_str_new_len(p, 1);
     return tmq_str_new_len(p, 2);
 }

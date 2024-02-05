@@ -305,6 +305,13 @@ void tmq_map_free_(tmq_map_base_t* m)
     free(m);
 }
 
+void tmq_map_swap_(tmq_map_base_t** m1, tmq_map_base_t** m2)
+{
+    tmq_map_base_t* tmp = *m1;
+    *m1 = *m2;
+    *m2 = tmp;
+}
+
 uint32_t tmq_next_bucket(tmq_map_base_t* m, uint32_t cur)
 {
     for(; cur < m->cap; cur++)

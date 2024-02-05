@@ -26,14 +26,14 @@ typedef struct filter_expr_value_s
     tmq_expr_value_type value_type;
     union
     {
-        char* str;
+        tmq_str_t str;
         int64_t integer;
         bool boolean;
     };
 } filter_expr_value_t;
 
 typedef struct tmq_filter_expr_s tmq_filter_expr_t;
-typedef filter_expr_value_t (*filter_expr_eval_f)(tmq_filter_expr_t* expr, tmq_event_t* event);
+typedef filter_expr_value_t (*filter_expr_eval_f)(tmq_filter_expr_t* expr, void* event_data);
 typedef void (*filter_expr_print_f)(tmq_filter_expr_t* expr);
 
 #define EXPR_PUBLIC_MEMBERS     \
@@ -86,7 +86,7 @@ typedef struct tmq_filter_binary_expr_s
     tmq_filter_expr_t* right;
 } tmq_filter_binary_expr_t;
 
-typedef void (*on_event_f)(tmq_event_t* event, void* arg);
+typedef void (*on_event_f)(void* event_data, void* arg);
 
 typedef struct tmq_event_listener_s
 {
@@ -94,6 +94,10 @@ typedef struct tmq_event_listener_s
     tmq_filter_expr_t* filter;
     on_event_f on_event;
 } tmq_event_listener_t;
+
+typedef struct tmq_rule_parser_s tmq_rule_parser_t;
+tmq_event_listener_t* tmq_make_event_listener(tmq_rule_parser_t* parser, const char* rule, on_event_f on_event);
+void tmq_publish_event(tmq_event_listener_t* listener, void* event_data);
 
 tmq_filter_expr_t* tmq_value_expr_new(event_data_field_meta_t* field_meta, const char* payload_field);
 tmq_filter_expr_t* tmq_const_expr_new(tmq_str_t value);

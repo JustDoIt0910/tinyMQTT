@@ -17,7 +17,7 @@ void tmq_event_sources_init()
     register_event_source(DEVICE, "topic",
                           event_data_field(tmq_topic_event_data_t, action, "action", INT_VALUE),
                           event_data_field(tmq_topic_event_data_t, topic, "topic", STR_VALUE));
-    register_event_source(MESSAGE, "subscription",
+    register_event_source(SUBSCRIPTION, "subscription",
                           event_data_field(tmq_subscription_event_data_t, action, "action", INT_VALUE),
                           event_data_field(tmq_subscription_event_data_t, client_id, "client_id", STR_VALUE),
                           event_data_field(tmq_subscription_event_data_t, username, "username", STR_VALUE),

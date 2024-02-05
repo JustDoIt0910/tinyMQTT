@@ -23,7 +23,8 @@ typedef enum tmq_expr_value_type_e
     STR_VALUE,
     INT_VALUE,
     BOOL_VALUE,
-    JSON_VALUE
+    JSON_VALUE,
+    NULL_VALUE
 } tmq_expr_value_type;
 
 typedef struct event_data_field_meta_s

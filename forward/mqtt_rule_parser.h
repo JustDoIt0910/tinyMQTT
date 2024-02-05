@@ -20,6 +20,7 @@ typedef struct tmq_rule_parser_s
 {
     event_source_info_t* event_source;
     int error_pos;
+    tmq_str_t error_info;
 } tmq_rule_parser_t;
 
 void tmq_rule_parser_init(tmq_rule_parser_t* parser);

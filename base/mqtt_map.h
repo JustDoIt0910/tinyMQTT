@@ -95,6 +95,8 @@ typedef struct tmq_map_iter_s
 
 #define tmq_map_free(m) tmq_map_free_((m).base)
 
+#define tmq_map_swap(m1, m2) tmq_map_swap_(&(m1).base, &(m2).base)
+
 #define tmq_map_iter(m) tmq_map_iter_((m).base)
 #define tmq_map_next(m, iter) tmq_map_iter_next_((m).base, &(iter))
 #define tmq_map_has_next(iter)  iter.bucket_idx != UINT32_MAX
@@ -107,6 +109,7 @@ void* tmq_map_get_(tmq_map_base_t* m, const void* key);
 void tmq_map_erase_(tmq_map_base_t* m, const void* key);
 void tmq_map_clear_(tmq_map_base_t* m);
 void tmq_map_free_(tmq_map_base_t* m);
+void tmq_map_swap_(tmq_map_base_t** m1, tmq_map_base_t** m2);
 tmq_map_iter_t tmq_map_iter_(tmq_map_base_t* m);
 void tmq_map_iter_next_(tmq_map_base_t* m, tmq_map_iter_t* iter);
 
