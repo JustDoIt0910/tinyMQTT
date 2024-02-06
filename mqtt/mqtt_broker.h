@@ -17,6 +17,7 @@
 #include "mqtt_acl.h"
 #include "cluster/mqtt_cluster.h"
 #include "db/mqtt_conn_pool.h"
+#include "forward/adaptors/mqtt_adaptors.h"
 #include "thrdpool/thrdpool.h"
 #include <mongoc/mongoc.h>
 
@@ -27,7 +28,15 @@
 #define DEFAULT_MYSQL_POOL_SIZE         50
 #define DEFAULT_MONGODB_STORE_TRIGGER   50
 
+typedef struct tmq_plugin_handle_s
+{
+    tmq_adaptor_t* adaptor;
+    adaptor_parameter_map adaptor_parameters;
+    void* so_handle;
+} tmq_plugin_handle_t;
+
 typedef tmq_map(char*, tmq_session_t*) tmq_session_map;
+typedef tmq_map(char*, tmq_plugin_handle_t) tmq_plugin_info_map;
 typedef struct tmq_broker_s
 {
     tmq_event_loop_t loop;
@@ -36,7 +45,7 @@ typedef struct tmq_broker_s
     tmq_mqtt_codec_t mqtt_codec;
     tmq_console_codec_t console_codec;
     tmq_executor_t executor;
-    tmq_config_t conf, pwd_conf;
+    tmq_config_t pwd_conf;
     tmq_acl_t acl;
     tmq_mysql_conn_pool_t mysql_pool;
     mongoc_client_pool_t* mongodb_pool;
@@ -45,15 +54,18 @@ typedef struct tmq_broker_s
     tmq_session_map sessions;
     tmq_topics_t topics_tree;
     tmq_cluster_t cluster;
+    tmq_plugin_info_map plugins_info;
     int next_io_context;
     uint8_t inflight_window_size;
     int io_threads;
     int mysql_enabled;
     int acl_enabled;
+    int allow_anonymous;
+    int mongodb_store_trigger;
 } tmq_broker_t;
 
 typedef struct tmq_cmd_s tmq_cmd_t;
-int tmq_broker_init(tmq_broker_t* broker, const char* cfg, tmq_cmd_t* cmd);
+int tmq_broker_init(tmq_broker_t* broker, tmq_config_t* cfg, tmq_cmd_t* cmd, tmq_plugin_info_map* plugins);
 void tmq_broker_run(tmq_broker_t* broker);
 
 #endif //TINYMQTT_MQTT_BROKER_H

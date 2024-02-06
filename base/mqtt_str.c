@@ -187,7 +187,7 @@ tmq_str_t tmq_str_substr(tmq_str_t s, size_t start, size_t len)
 {
     if(start >= tmq_str_len(s) || start + len > tmq_str_len(s))
         return NULL;
-    tmq_str_t sub = tmq_str_new_len(s, len);
+    tmq_str_t sub = tmq_str_new_len(s + start, len);
     return sub;
 }
 
@@ -217,7 +217,8 @@ str_vec tmq_str_split(tmq_str_t s, const char* delimeters)
 
 void tmq_str_trim(tmq_str_t s)
 {
-    if(!s || !tmq_str_len(s)) return;
+    size_t len = tmq_str_len(s);
+    if(!s || !len) return;
     char* p = s;
     while((*p) && isblank(*p)) p++;
     if(!(*p))
@@ -225,10 +226,11 @@ void tmq_str_trim(tmq_str_t s)
         tmq_str_clear(s);
         return;
     }
-    char* p2 = p + 1;
-    while((*p2) && !isblank(*p2)) p2++;
-    memmove(s, p, p2 - p);
-    *(s + (p2 - p)) = 0;
+    char* p2 = s + len - 1;
+    while(isblank(*p2)) p2--;
+    size_t new_len = p2 - p + 1;
+    memmove(s, p, new_len);
+    *(s + new_len) = 0;
     tmq_ds_t* hdr = TMQ_DS_HDR(s);
-    hdr->len = p2 - p;
+    hdr->len = new_len;
 }

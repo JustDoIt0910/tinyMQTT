@@ -1,8 +1,0 @@
-//
-// Created by just do it on 2024/2/3.
-//
-
-#ifndef TINYMQTT_MQTT_RABBITMQ_ADAPTOR_H
-#define TINYMQTT_MQTT_RABBITMQ_ADAPTOR_H
-
-#endif //TINYMQTT_MQTT_RABBITMQ_ADAPTOR_H

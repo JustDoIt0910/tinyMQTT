@@ -19,14 +19,22 @@ include_directories(${LIBMONGOC_INCLUDE_DIRS})
 include_directories(${LIBMYSQLCLIENT_INCLUDE_DIRS})
 include_directories(${HIREDIS_INCLUDE_DIRS})
 
-set(TINYMQTT_LIB_SRC
-        net/mqtt_socket.c
+set(TINYMQTT_BASE_SRC
         base/mqtt_util.c
         base/mqtt_map.c
         base/mqtt_vec.c
         base/mqtt_str.c
         base/mqtt_config.c
         base/mqtt_cmd.c
+        thrdpool/msgqueue.c
+        thrdpool/thrdpool.c
+        3rd/tinylog/tlog.c
+        3rd/md5-c/md5.c
+        3rd/b64.c/encode.c
+        3rd/b64.c/buffer.c)
+
+set(TINYMQTT_LIB_SRC
+        net/mqtt_socket.c
         ev/mqtt_event.c
         ev/mqtt_timer.c
         net/mqtt_acceptor.c
@@ -52,22 +60,16 @@ set(TINYMQTT_LIB_SRC
         db/mqtt_conn_pool.c
         forward/mqtt_rule_parser.c
         forward/mqtt_events.c
-        forward/mqtt_event_source.c
-        forward/adaptors/mqtt_rabbitmq_adaptor.c
-        thrdpool/msgqueue.c
-        thrdpool/thrdpool.c
-        3rd/tinylog/tlog.c
-        3rd/md5-c/md5.c
-        3rd/b64.c/encode.c
-        3rd/b64.c/buffer.c)
+        forward/mqtt_event_source.c)
 set(CMAKE_BUILD_TYPE "Debug")
 
 add_definitions(-D_GNU_SOURCE)
 
 include_directories(${CMAKE_SOURCE_DIR} 3rd/tinylog 3rd/md5-c 3rd/b64.c)
-
-add_library(mqtt ${TINYMQTT_LIB_SRC})
-target_link_libraries (mqtt PRIVATE
+add_compile_options (-fPIC)
+add_library(mqtt_base ${TINYMQTT_BASE_SRC})
+add_library(mqtt_core ${TINYMQTT_LIB_SRC})
+target_link_libraries (mqtt_core PRIVATE
         ${LIBMONGOC_LIBRARIES}
         ${LIBMYSQLCLIENT_LIBRARIES}
         ${HIREDIS_LIBRARIES}
@@ -75,11 +77,13 @@ target_link_libraries (mqtt PRIVATE
         cjson)
 
 link_directories(${CMAKE_BINARY_DIR})
-link_libraries(mqtt pthread)
+link_libraries(mqtt_core mqtt_base pthread)
 
 add_subdirectory(test)
 add_subdirectory(example)
 add_executable(broker broker.c)
+target_link_libraries(broker PRIVATE dl)
+
 add_executable(tinymqtt_pwd tools/tinymqtt_pwd.c)
 add_executable(tinymqtt_pub tools/tinymqtt_pub.c)
 add_executable(tinymqtt_sub tools/tinymqtt_sub.c)

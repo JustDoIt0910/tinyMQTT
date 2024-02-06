@@ -52,12 +52,7 @@ static void session_close_callback(void* arg, tmq_session_t* session, int force_
 static message_store_t* get_message_store(tmq_broker_t* broker)
 {
     if(broker->mongodb_pool)
-    {
-        tmq_str_t mongodb_store_trigger = tmq_config_get(&broker->conf, "mongodb_store_trigger");
-        int trigger = mongodb_store_trigger ? atoi(mongodb_store_trigger): DEFAULT_MONGODB_STORE_TRIGGER;
-        tmq_str_free(mongodb_store_trigger);
-        return tmq_message_store_mongodb_new(trigger);
-    }
+        return tmq_message_store_mongodb_new(broker->mongodb_store_trigger);
     return tmq_message_store_memory_new();
 }
 
@@ -355,8 +350,7 @@ void mqtt_connect(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt* c
     /* validate username and password if anonymous login is not allowed */
     int validate_success = 1;
     int validate_in_progress = 0;
-    tmq_str_t allow_anonymous = tmq_config_get(&broker->conf, "allow_anonymous");
-    if(!allow_anonymous || !tmq_str_equal(allow_anonymous, "true"))
+    if(!broker->allow_anonymous)
     {
         if(broker->mysql_enabled)
         {
@@ -387,7 +381,6 @@ void mqtt_connect(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt* c
             }
         }
     }
-    tmq_str_free(allow_anonymous);
     /* validate_in_progress=1 means validation is performed in thread pool */
     if(validate_in_progress)
         return;
@@ -515,34 +508,47 @@ void add_user(tmq_broker_t* broker, tmq_tcp_conn_t* conn, const char* username, 
 }
 
 extern void mqtt_tun_publish(tmq_cluster_t* cluster, char* topic, mqtt_message* message, member_addr_set* matched_members);
-int tmq_broker_init(tmq_broker_t* broker, const char* cfg, tmq_cmd_t* cmd)
+int tmq_broker_init(tmq_broker_t* broker, tmq_config_t* cfg, tmq_cmd_t* cmd, tmq_plugin_info_map* plugins)
 {
     if(!broker) return -1;
     bzero(broker, sizeof(tmq_broker_t));
-    /* read tinymqtt configure file */
-    if(tmq_config_init(&broker->conf, cfg, "=") == 0)
-        tlog_info("read config file %s ok", cfg);
-    else
-    {
-        tlog_error("read config file error");
-        return -1;
-    }
+
     broker->acl_enabled = 0;
-    tmq_str_t acl_enable = tmq_config_get(&broker->conf, "acl_enable");
+    tmq_str_t acl_enable = tmq_config_get(cfg, "acl_enable");
     if(acl_enable && tmq_str_equal(acl_enable, "true"))
         broker->acl_enabled = 1;
     tmq_str_free(acl_enable);
+
+    tmq_str_t allow_anonymous = tmq_config_get(cfg, "allow_anonymous");
+    if(allow_anonymous && tmq_str_equal(allow_anonymous, "true"))
+        broker->allow_anonymous = 1;
+    tmq_str_free(allow_anonymous);
+
+    tmq_str_t mongodb_store_trigger = tmq_config_get(cfg, "mongodb_store_trigger");
+    broker->mongodb_store_trigger = mongodb_store_trigger ? atoi(mongodb_store_trigger): DEFAULT_MONGODB_STORE_TRIGGER;
+    tmq_str_free(mongodb_store_trigger);
+
+    /* initialize adaptor plugins */
+    tmq_map_str_init(&broker->plugins_info, tmq_plugin_handle_t, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
+    tmq_map_swap(broker->plugins_info, *plugins);
+    tmq_map_iter_t iter = tmq_map_iter(broker->plugins_info);
+    for(; tmq_map_has_next(iter); tmq_map_next(broker->plugins_info, iter))
+    {
+        tmq_plugin_handle_t* handle = (tmq_plugin_handle_t*)(iter.second);
+        handle->adaptor->register_parameters(&handle->adaptor_parameters);
+    }
+
     /* if mysql is configured, initialize mysql connection pool and load acl rules */
-    tmq_str_t mysql_enable = tmq_config_get(&broker->conf, "mysql_enable");
+    tmq_str_t mysql_enable = tmq_config_get(cfg, "mysql_enable");
     if(mysql_enable && tmq_str_equal(mysql_enable, "true"))
     {
         broker->mysql_enabled = 1;
-        tmq_str_t mysql_host = tmq_config_get(&broker->conf, "mysql_host");
-        tmq_str_t mysql_pt = tmq_config_get(&broker->conf, "mysql_port");
-        tmq_str_t mysql_user = tmq_config_get(&broker->conf, "mysql_username");
-        tmq_str_t mysql_pwd = tmq_config_get(&broker->conf, "mysql_password");
-        tmq_str_t mysql_db = tmq_config_get(&broker->conf, "mysql_db");
-        tmq_str_t mysql_pool_size = tmq_config_get(&broker->conf, "mysql_pool_size");
+        tmq_str_t mysql_host = tmq_config_get(cfg, "mysql_host");
+        tmq_str_t mysql_pt = tmq_config_get(cfg, "mysql_port");
+        tmq_str_t mysql_user = tmq_config_get(cfg, "mysql_username");
+        tmq_str_t mysql_pwd = tmq_config_get(cfg, "mysql_password");
+        tmq_str_t mysql_db = tmq_config_get(cfg, "mysql_db");
+        tmq_str_t mysql_pool_size = tmq_config_get(cfg, "mysql_pool_size");
         const char* host = mysql_host ? mysql_host: DEFAULT_MYSQL_HOST;
         int port = mysql_pt ? atoi(mysql_pt): DEFAULT_MYSQL_PORT;
         if(!mysql_user)
@@ -570,7 +576,7 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg, tmq_cmd_t* cmd)
     /* otherwise, use password file and disable acl */
     else
     {
-        tmq_str_t pwd_file_path = tmq_config_get(&broker->conf, "password_file");
+        tmq_str_t pwd_file_path = tmq_config_get(cfg, "password_file");
         if(!pwd_file_path)
             pwd_file_path = tmq_str_new("pwd.conf");
         if(tmq_config_init(&broker->pwd_conf, pwd_file_path, ":") == 0)
@@ -586,7 +592,7 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg, tmq_cmd_t* cmd)
     }
     tmq_str_free(mysql_enable);
 
-    tmq_str_t mongodb_uri = tmq_config_get(&broker->conf, "mongodb_uri");
+    tmq_str_t mongodb_uri = tmq_config_get(cfg, "mongodb_uri");
     if(mongodb_uri)
     {
         mongoc_init();
@@ -606,7 +612,7 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg, tmq_cmd_t* cmd)
     int port = (int)tmq_cmd_get_number(cmd, "port");
     tlog_info("listening on port %u", port);
 
-    tmq_str_t inflight_window_str = tmq_config_get(&broker->conf, "inflight_window");
+    tmq_str_t inflight_window_str = tmq_config_get(cfg, "inflight_window");
     broker->inflight_window_size = inflight_window_str ? strtoul(inflight_window_str, NULL, 10): 1;
     tmq_str_free(inflight_window_str);
 
@@ -616,7 +622,7 @@ int tmq_broker_init(tmq_broker_t* broker, const char* cfg, tmq_cmd_t* cmd)
     tmq_acceptor_set_cb(&broker->console_acceptor, dispatch_new_connection, broker);
 
     /* initialize io contexts */
-    tmq_str_t io_group_num_str = tmq_config_get(&broker->conf, "io_threads");
+    tmq_str_t io_group_num_str = tmq_config_get(cfg, "io_threads");
     broker->io_threads = io_group_num_str ? (int)strtoul(io_group_num_str, NULL, 10): DEFAULT_IO_THREADS;
     tmq_str_free(io_group_num_str);
     tlog_info("start with %d io threads", broker->io_threads);
@@ -652,8 +658,8 @@ void tmq_broker_run(tmq_broker_t* broker)
 
     /* clean up */
     tmq_acceptor_destroy(&broker->acceptor);
-    tmq_config_destroy(&broker->conf);
-    tmq_config_destroy(&broker->pwd_conf);
+    if(!broker->mysql_enabled)
+        tmq_config_destroy(&broker->pwd_conf);
     for(int i = 0; i <  broker->io_threads; i++)
     {
         tmq_io_context_stop(&broker->io_contexts[i]);
