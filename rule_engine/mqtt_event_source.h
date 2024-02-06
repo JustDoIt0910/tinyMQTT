@@ -46,20 +46,32 @@ typedef struct event_source_info_s
 
 typedef struct tmq_device_event_data_s
 {
-    enum {ONLINE, OFFLINE} action;
+    enum
+    {
+        DEVICE_EVENT_ONLINE,
+        DEVICE_EVENT_OFFLINE
+    } action;
     tmq_str_t client_id;
     tmq_str_t username;
 } tmq_device_event_data_t;
 
 typedef struct tmq_topic_event_data_s
 {
-    enum {ADD, REMOVE} action;
+    enum
+    {
+        TOPIC_EVENT_ADD,
+        TOPIC_EVENT_REMOVE
+    } action;
     tmq_str_t topic;
 } tmq_topic_event_data_t;
 
 typedef struct tmq_subscription_event_data_s
 {
-    enum {SUB, UNSUB} action;
+    enum
+    {
+        SUBSCRIPTION_EVENT_SUB,
+        SUBSCRIPTION_EVENT_UNSUB
+    } action;
     tmq_str_t client_id;
     tmq_str_t username;
     tmq_str_t topic;

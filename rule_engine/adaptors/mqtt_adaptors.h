@@ -24,12 +24,14 @@ typedef struct
 
 typedef tmq_map(char*, adaptor_value_type) adaptor_parameter_map;
 typedef tmq_map(char*, adaptor_value_t) adaptor_value_map;
+typedef void(*register_parameters_f)(adaptor_parameter_map*);
+typedef void(*handle_event_f)(adaptor_value_map* parameters, adaptor_value_map* payload);
 
 #define add_parameter(m, name, type)   tmq_map_put((m), name, type)
 
 #define ADAPTOR_PUBLIC_MEMBER                           \
-void(*register_parameters)(adaptor_parameter_map*);     \
-void(*handle_event)(adaptor_value_map* parameters, adaptor_value_map* payload);
+register_parameters_f register_parameters;     \
+handle_event_f handle_event;
 
 typedef struct tmq_adaptor_s
 {

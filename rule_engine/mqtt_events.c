@@ -3,6 +3,7 @@
 //
 #include "mqtt_events.h"
 #include "mqtt_rule_parser.h"
+#include "mqtt/mqtt_broker.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <strings.h>
@@ -257,16 +258,19 @@ void tmq_expr_free(tmq_filter_expr_t* expr)
     free(expr);
 }
 
-tmq_event_listener_t* tmq_make_event_listener(tmq_rule_parser_t* parser, const char* rule, on_event_f on_event)
+tmq_event_listener_t* tmq_make_event_listener(tmq_rule_parser_t* parser, const char* rule, tmq_event_type* event_source)
 {
     tmq_event_listener_t* listener = malloc(sizeof(tmq_event_listener_t));
     bzero(listener, sizeof(tmq_event_listener_t));
     tmq_rule_parse_result_t* result = tmq_rule_parse(parser, rule);
     if(!result)
         return NULL;
-    tmq_rule_parse_result_print(result);
+    //tmq_rule_parse_result_print(result);
     listener->filter = result->filter;
-    listener->on_event = on_event;
+    listener->on_event = result->adaptor->handle_event;
+    *event_source = result->event_source;
+    tmq_vec_init(&listener->mappings, schema_mapping_item_t);
+    tmq_vec_swap(listener->mappings, result->mappings);
     tmq_rule_parse_result_free(result);
     return listener;
 }
@@ -274,7 +278,9 @@ tmq_event_listener_t* tmq_make_event_listener(tmq_rule_parser_t* parser, const c
 void tmq_publish_event(tmq_event_listener_t* listener, void* event_data)
 {
     if(listener->filter->evaluate(listener->filter, event_data).boolean)
-        listener->on_event(event_data, NULL);
+    {
+
+    }
 }
 
 void tmq_print_filter_inorder(tmq_filter_expr_t* filter)

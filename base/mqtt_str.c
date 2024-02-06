@@ -178,9 +178,9 @@ int tmq_str_equal(tmq_str_t s1, tmq_str_t s2)
 
 int tmq_str_startswith(tmq_str_t s, const char* prefix)
 {
-    tmq_ds_t* hdr = TMQ_DS_HDR(s);
+    size_t len = strlen(s);
     size_t pre_len = strlen(prefix);
-    return hdr->len < pre_len ? 0 : (strncmp(s, prefix, pre_len) == 0);
+    return len < pre_len ? 0 : (strncmp(s, prefix, pre_len) == 0);
 }
 
 tmq_str_t tmq_str_substr(tmq_str_t s, size_t start, size_t len)

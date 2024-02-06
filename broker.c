@@ -3,7 +3,6 @@
 //
 #include "tlog.h"
 #include "mqtt/mqtt_broker.h"
-#include "forward/adaptors/mqtt_adaptors.h"
 #include "base/mqtt_cmd.h"
 #include <stdio.h>
 #include <dlfcn.h>

@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include "base/mqtt_str.h"
 #include "mqtt_event_source.h"
+#include "adaptors/mqtt_adaptors.h"
 
 typedef struct tmq_event_s
 {
@@ -86,17 +87,26 @@ typedef struct tmq_filter_binary_expr_s
     tmq_filter_expr_t* right;
 } tmq_filter_binary_expr_t;
 
-typedef void (*on_event_f)(void* event_data, void* arg);
+typedef struct schema_mapping_item_s
+{
+    tmq_filter_expr_t* value_expr;
+    bool map_to_parameter;
+    char mapping_name[50];
+    adaptor_value_type mapping_type;
+} schema_mapping_item_t;
+
+typedef tmq_vec(schema_mapping_item_t) schema_mapping_list;
 
 typedef struct tmq_event_listener_s
 {
     struct tmq_event_listener_s* next;
+    schema_mapping_list mappings;
     tmq_filter_expr_t* filter;
-    on_event_f on_event;
+    handle_event_f on_event;
 } tmq_event_listener_t;
 
 typedef struct tmq_rule_parser_s tmq_rule_parser_t;
-tmq_event_listener_t* tmq_make_event_listener(tmq_rule_parser_t* parser, const char* rule, on_event_f on_event);
+tmq_event_listener_t* tmq_make_event_listener(tmq_rule_parser_t* parser, const char* rule, tmq_event_type* event_source);
 void tmq_publish_event(tmq_event_listener_t* listener, void* event_data);
 
 tmq_filter_expr_t* tmq_value_expr_new(event_data_field_meta_t* field_meta, const char* payload_field);

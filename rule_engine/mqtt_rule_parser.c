@@ -3,6 +3,7 @@
 //
 #include "mqtt_rule_parser.h"
 #include "base/mqtt_map.h"
+#include "mqtt/mqtt_broker.h"
 #include <ctype.h>
 #include <string.h>
 #include <malloc.h>
@@ -132,9 +133,11 @@ static tmq_filter_expr_t* parse_filter_expression(tmq_rule_parser_t* parser, con
     return root;
 }
 
-void tmq_rule_parser_init(tmq_rule_parser_t* parser)
+void tmq_rule_parser_init(tmq_rule_parser_t* parser, tmq_broker_t* broker)
 {
+    tmq_event_sources_init();
     bzero(parser, sizeof(tmq_rule_parser_t));
+    parser->broker = broker;
     tmq_map_str_init(&operators, operator_into_t, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
     operator_into_t eq = {.op = EXPR_OP_EQ, .priority = 3};
     operator_into_t gt = {.op = EXPR_OP_GT, .priority = 3};
@@ -160,6 +163,91 @@ void tmq_rule_parser_init(tmq_rule_parser_t* parser)
 
 extern tmq_map(char*, event_source_info_t) event_sources_g;
 
+typedef tmq_map(char*, tmq_str_t) select_schema;
+
+static int parse_parameter_column(tmq_str_t column, tmq_str_t* plugin_name, tmq_str_t* parameter_name)
+{
+    int ret = 0;
+    if(tmq_str_len(column) <= 2)
+        return -1;
+    tmq_str_t column_ = tmq_str_substr(column, 1, tmq_str_len(column) - 2);
+    ssize_t dot = tmq_str_find(column_, '.');
+    if(dot <= 0)
+    {
+        ret = -1;
+        goto end;
+    }
+    size_t remain_len = tmq_str_len(column_) - dot - 1;
+    if(remain_len <= 0)
+    {
+        ret = -1;
+        goto end;
+    }
+    *plugin_name = tmq_str_new_len(column_, dot);
+    *parameter_name = tmq_str_new_len(column_ + dot + 1, remain_len);
+    end:
+    tmq_str_free(column_);
+    return ret;
+}
+
+static int interpret_schema(tmq_rule_parser_t* parser, tmq_rule_parse_result_t* result, select_schema* schema)
+{
+    tmq_map_iter_t iter = tmq_map_iter(*schema);
+    for(; tmq_map_has_next(iter); tmq_map_next(*schema, iter))
+    {
+        char* source_col = iter.first;
+        tmq_str_t target_col = *(tmq_str_t*)(iter.second);
+        event_data_field_meta_t** meta = NULL;
+        if(tmq_str_startswith(source_col, "payload."))
+            meta = tmq_map_get(parser->event_source->fields_meta, "payload");
+        else
+            meta = tmq_map_get(parser->event_source->fields_meta, source_col);
+        if(!meta) return -1;
+        schema_mapping_item_t mapping_item;
+        bzero(mapping_item.mapping_name, sizeof(mapping_item.mapping_name));
+        if(tmq_str_at(target_col, 0) == '{' && tmq_str_at(target_col, tmq_str_len(target_col) - 1) == '}')
+        {
+            tmq_str_t plugin_name, parameter_name;
+            if(parse_parameter_column(target_col, &plugin_name, &parameter_name) < 0)
+                return -1;
+            tmq_plugin_handle_t* plugin_handle = tmq_map_get(parser->broker->plugins_info, plugin_name);
+            if(!plugin_handle)
+            {
+                tmq_str_free(plugin_name);
+                tmq_str_free(parameter_name);
+                return -1;
+            }
+            result->adaptor = plugin_handle->adaptor;
+            adaptor_value_type* parameter_type = tmq_map_get(plugin_handle->adaptor_parameters, parameter_name);
+            if(!parameter_type)
+            {
+                tmq_str_free(plugin_name);
+                tmq_str_free(parameter_name);
+                return -1;
+            }
+            strcpy(mapping_item.mapping_name, parameter_name);
+            mapping_item.mapping_type = *parameter_type;
+            mapping_item.map_to_parameter = true;
+            tmq_str_free(plugin_name);
+            tmq_str_free(parameter_name);
+        }
+        else
+        {
+            if(tmq_str_startswith(target_col, "payload."))
+                strcpy(mapping_item.mapping_name, target_col + 8);
+            else
+                strcpy(mapping_item.mapping_name, target_col);
+            mapping_item.mapping_type = (adaptor_value_type)(*meta)->value_type;
+            mapping_item.map_to_parameter = false;
+        }
+        mapping_item.value_expr = (*meta)->value_type != JSON_VALUE ?
+                tmq_value_expr_new(*meta, NULL):
+                tmq_value_expr_new(*meta, source_col + 8);
+        tmq_vec_push_back(result->mappings, mapping_item);
+    }
+    return 0;
+}
+
 tmq_rule_parse_result_t* tmq_rule_parse(tmq_rule_parser_t* parser, const char* rule)
 {
     if(!rule) return NULL;
@@ -169,7 +257,9 @@ tmq_rule_parse_result_t* tmq_rule_parse(tmq_rule_parser_t* parser, const char* r
     ptr += 7;
     tmq_rule_parse_result_t* result = malloc(sizeof(tmq_rule_parse_result_t));
     bzero(result, sizeof(tmq_rule_parse_result_t));
-    tmq_map_str_init(&result->select_schema_map, tmq_str_t, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
+    tmq_vec_init(&result->mappings, schema_mapping_item_t);
+    select_schema schema;
+    tmq_map_str_init(&schema, tmq_str_t, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
     ptr = skip_blank(ptr);
     while(1)
     {
@@ -177,7 +267,7 @@ tmq_rule_parse_result_t* tmq_rule_parse(tmq_rule_parser_t* parser, const char* r
         while(*p && !isblank(*p) && *p != ',')
             p++;
         tmq_str_t ori_column = tmq_str_new_len(ptr, p - ptr);
-        tmq_map_put(result->select_schema_map, ori_column, ori_column);
+        tmq_map_put(schema, ori_column, ori_column);
         ptr = skip_blank(p);
         if(*ptr == ',')
         {
@@ -191,7 +281,7 @@ tmq_rule_parse_result_t* tmq_rule_parse(tmq_rule_parser_t* parser, const char* r
             while(*p && !isblank(*p) && *p != ',')
                 p++;
             tmq_str_t target_column = tmq_str_new_len(ptr, p - ptr);
-            tmq_map_put(result->select_schema_map, ori_column, target_column);
+            tmq_map_put(schema, ori_column, target_column);
             tmq_str_free(ori_column);
             ptr = skip_blank(p);
             if(*ptr == ',')
@@ -239,6 +329,8 @@ tmq_rule_parse_result_t* tmq_rule_parse(tmq_rule_parser_t* parser, const char* r
         result->source_topic = tmq_str_new_len(ptr, p - ptr);
         ptr = skip_blank(p);
     }
+    if(interpret_schema(parser, result, &schema) < 0)
+        goto failed;
     if(*ptr)
     {
         if(strncasecmp(ptr, "where ", 6) != 0)
@@ -248,30 +340,31 @@ tmq_rule_parse_result_t* tmq_rule_parse(tmq_rule_parser_t* parser, const char* r
         if(!result->filter)
             goto failed;
     }
-    return result;
+    goto end;
 
     failed:
     tmq_rule_parse_result_free(result);
-    return NULL;
+    result = NULL;
+
+    end:
+    for(tmq_map_iter_t iter = tmq_map_iter(schema); tmq_map_has_next(iter); tmq_map_next(schema, iter))
+        tmq_str_free(*(tmq_str_t*)iter.second);
+    tmq_map_free(schema);
+    return result;
 }
 
 void tmq_rule_parse_result_free(tmq_rule_parse_result_t* result)
 {
-    for(tmq_map_iter_t iter = tmq_map_iter(result->select_schema_map);
-        tmq_map_has_next(iter);
-        tmq_map_next(result->select_schema_map, iter))
-        tmq_str_free(*(tmq_str_t*)iter.second);
+    schema_mapping_item_t* it = tmq_vec_begin(result->mappings);
+    for(; it != tmq_vec_end(result->mappings); it++)
+        tmq_expr_free(it->value_expr);
+    tmq_vec_free(result->mappings);
     tmq_str_free(result->source_topic);
     free(result);
 }
 
 void tmq_rule_parse_result_print(tmq_rule_parse_result_t* result)
 {
-    printf("Schema:\n");
-    for(tmq_map_iter_t iter = tmq_map_iter(result->select_schema_map);
-        tmq_map_has_next(iter);
-        tmq_map_next(result->select_schema_map, iter))
-        printf("{%s->%s}\n", (char*)(iter.first), *(char**)(iter.second));
     printf("Event Source:\n");
     if(result->event_source == DEVICE) printf("{DEVICE}\n");
     else if(result->event_source == TOPIC) printf("{TOPIC}\n");
