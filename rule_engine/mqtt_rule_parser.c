@@ -31,6 +31,17 @@ static tmq_str_t get_operator(const char* p)
     return tmq_str_new_len(p, 2);
 }
 
+static void set_error_info(tmq_rule_parser_t* parser, size_t pos, const char* format, ...)
+{
+    char reason[256] = {0};
+    va_list va;
+    va_start(va, format);
+    vsprintf(reason, format, va);
+    va_end(va);
+    parser->error_pos = pos;
+    parser->error_info = tmq_str_new(reason);
+}
+
 static tmq_filter_expr_t* parse_filter_expression(tmq_rule_parser_t* parser, const char* expr)
 {
     tmq_filter_expr_t* root = NULL;
@@ -50,6 +61,7 @@ static tmq_filter_expr_t* parse_filter_expression(tmq_rule_parser_t* parser, con
             if(!operator)
             {
                 tmq_str_free(op_name);
+                set_error_info(parser, ptr - expr, "Invalid operator %s", op_name);
                 goto failed;
             }
             if(!tmq_vec_empty(operator_stack) && operator->op != EXPR_OP_LP)
@@ -102,6 +114,7 @@ static tmq_filter_expr_t* parse_filter_expression(tmq_rule_parser_t* parser, con
                 if(!meta)
                 {
                     tmq_str_free(value);
+                    set_error_info(parser, ptr - expr, "Event source %s has no payload", parser->event_source->name);
                     goto failed;
                 }
                 operand_expr = tmq_value_expr_new(*meta, value + 8);
@@ -117,7 +130,10 @@ static tmq_filter_expr_t* parse_filter_expression(tmq_rule_parser_t* parser, con
         }
     }
     if(tmq_vec_size(operand_stack) != 1)
+    {
+        set_error_info(parser, ptr - expr, "Syntax error in expression");
         goto failed;
+    }
     root = *tmq_vec_pop_back(operand_stack);
     goto end;
     failed:
@@ -163,7 +179,12 @@ void tmq_rule_parser_init(tmq_rule_parser_t* parser, tmq_broker_t* broker)
 
 extern tmq_map(char*, event_source_info_t) event_sources_g;
 
-typedef tmq_map(char*, tmq_str_t) select_schema;
+typedef struct select_item_s
+{
+    tmq_str_t source_col;
+    tmq_str_t target_col;
+} select_item;
+typedef tmq_vec(select_item) select_schema;
 
 static int parse_parameter_column(tmq_str_t column, tmq_str_t* plugin_name, tmq_str_t* parameter_name)
 {
@@ -192,27 +213,50 @@ static int parse_parameter_column(tmq_str_t column, tmq_str_t* plugin_name, tmq_
 
 static int interpret_schema(tmq_rule_parser_t* parser, tmq_rule_parse_result_t* result, select_schema* schema)
 {
-    tmq_map_iter_t iter = tmq_map_iter(*schema);
-    for(; tmq_map_has_next(iter); tmq_map_next(*schema, iter))
+    for(select_item* it = tmq_vec_begin(*schema); it != tmq_vec_end(*schema); it++)
     {
-        char* source_col = iter.first;
-        tmq_str_t target_col = *(tmq_str_t*)(iter.second);
+        tmq_str_t source_col = it->source_col;
+        tmq_str_t target_col = it->target_col;
         event_data_field_meta_t** meta = NULL;
-        if(tmq_str_startswith(source_col, "payload."))
-            meta = tmq_map_get(parser->event_source->fields_meta, "payload");
+        int is_const_expr = 0;
+        tmq_expr_value_type const_value_type;
+        if(tmq_str_is_string(source_col))
+        {
+            const_value_type = STR_VALUE;
+            is_const_expr = 1;
+        }
+        else if(tmq_str_to_int(source_col, NULL))
+        {
+            const_value_type = INT_VALUE;
+            is_const_expr = 1;
+        }
         else
-            meta = tmq_map_get(parser->event_source->fields_meta, source_col);
-        if(!meta) return -1;
+        {
+            if(tmq_str_startswith(source_col, "payload."))
+                meta = tmq_map_get(parser->event_source->fields_meta, "payload");
+            else
+                meta = tmq_map_get(parser->event_source->fields_meta, source_col);
+            if(!meta)
+            {
+                set_error_info(parser, 0, "Event source \"%s\" has no field named \"%s\"",
+                               parser->event_source->name, source_col);
+                return -1;
+            }
+        }
         schema_mapping_item_t mapping_item;
         bzero(mapping_item.mapping_name, sizeof(mapping_item.mapping_name));
         if(tmq_str_at(target_col, 0) == '{' && tmq_str_at(target_col, tmq_str_len(target_col) - 1) == '}')
         {
             tmq_str_t plugin_name, parameter_name;
             if(parse_parameter_column(target_col, &plugin_name, &parameter_name) < 0)
+            {
+                set_error_info(parser, 0, "Invalid parameter: %s", target_col);
                 return -1;
+            }
             tmq_plugin_handle_t* plugin_handle = tmq_map_get(parser->broker->plugins_info, plugin_name);
             if(!plugin_handle)
             {
+                set_error_info(parser, 0, "adaptor plugin \"%s\" is not loaded", plugin_name);
                 tmq_str_free(plugin_name);
                 tmq_str_free(parameter_name);
                 return -1;
@@ -221,12 +265,13 @@ static int interpret_schema(tmq_rule_parser_t* parser, tmq_rule_parse_result_t* 
             adaptor_value_type* parameter_type = tmq_map_get(plugin_handle->adaptor_parameters, parameter_name);
             if(!parameter_type)
             {
+                set_error_info(parser, 0, "adaptor plugin \"%s\" has no parameter named \"%s\"",
+                               plugin_name, parameter_name);
                 tmq_str_free(plugin_name);
                 tmq_str_free(parameter_name);
                 return -1;
             }
             strcpy(mapping_item.mapping_name, parameter_name);
-            mapping_item.mapping_type = *parameter_type;
             mapping_item.map_to_parameter = true;
             tmq_str_free(plugin_name);
             tmq_str_free(parameter_name);
@@ -237,12 +282,20 @@ static int interpret_schema(tmq_rule_parser_t* parser, tmq_rule_parse_result_t* 
                 strcpy(mapping_item.mapping_name, target_col + 8);
             else
                 strcpy(mapping_item.mapping_name, target_col);
-            mapping_item.mapping_type = (adaptor_value_type)(*meta)->value_type;
             mapping_item.map_to_parameter = false;
         }
-        mapping_item.value_expr = (*meta)->value_type != JSON_VALUE ?
-                tmq_value_expr_new(*meta, NULL):
-                tmq_value_expr_new(*meta, source_col + 8);
+        if(!is_const_expr)
+        {
+            mapping_item.mapping_type = (adaptor_value_type)(*meta)->value_type;
+            mapping_item.value_expr = (*meta)->value_type != JSON_VALUE ?
+                                      tmq_value_expr_new(*meta, NULL):
+                                      tmq_value_expr_new(*meta, source_col + 8);
+        }
+        else
+        {
+            mapping_item.mapping_type = (adaptor_value_type)const_value_type;
+            mapping_item.value_expr = tmq_const_expr_new(source_col);
+        }
         tmq_vec_push_back(result->mappings, mapping_item);
     }
     return 0;
@@ -253,36 +306,43 @@ tmq_rule_parse_result_t* tmq_rule_parse(tmq_rule_parser_t* parser, const char* r
     if(!rule) return NULL;
     const char* ptr = skip_blank(rule);
     if(strncasecmp(ptr, "select ", 7) != 0)
+    {
+        set_error_info(parser, ptr - rule, "Syntax error in expression");
         return NULL;
+    }
     ptr += 7;
     tmq_rule_parse_result_t* result = malloc(sizeof(tmq_rule_parse_result_t));
     bzero(result, sizeof(tmq_rule_parse_result_t));
     tmq_vec_init(&result->mappings, schema_mapping_item_t);
     select_schema schema;
-    tmq_map_str_init(&schema, tmq_str_t, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
+    tmq_vec_init(&schema, select_item);
     ptr = skip_blank(ptr);
     while(1)
     {
+        int has_alias = 0;
         const char* p = ptr;
         while(*p && !isblank(*p) && *p != ',')
             p++;
-        tmq_str_t ori_column = tmq_str_new_len(ptr, p - ptr);
-        tmq_map_put(schema, ori_column, ori_column);
+        select_item select = {
+                .source_col = tmq_str_new_len(ptr, p - ptr)
+        };
         ptr = skip_blank(p);
         if(*ptr == ',')
         {
+            select.target_col = tmq_str_new(select.source_col);
+            tmq_vec_push_back(schema, select);
             ptr = skip_blank(ptr + 1);
             continue;
         }
         if(strncasecmp(ptr, "as ", 3) == 0)
         {
+            has_alias = 1;
             ptr = skip_blank(ptr + 3);
             p = ptr;
             while(*p && !isblank(*p) && *p != ',')
                 p++;
-            tmq_str_t target_column = tmq_str_new_len(ptr, p - ptr);
-            tmq_map_put(schema, ori_column, target_column);
-            tmq_str_free(ori_column);
+            select.target_col = tmq_str_new_len(ptr, p - ptr);
+            tmq_vec_push_back(schema, select);
             ptr = skip_blank(p);
             if(*ptr == ',')
             {
@@ -292,9 +352,15 @@ tmq_rule_parse_result_t* tmq_rule_parse(tmq_rule_parser_t* parser, const char* r
         }
         if(strncasecmp(ptr, "from ", 5) == 0)
         {
+            if(!has_alias)
+            {
+                select.target_col = tmq_str_new(select.source_col);
+                tmq_vec_push_back(schema, select);
+            }
             ptr = skip_blank(ptr + 5);
             break;
         }
+        set_error_info(parser, ptr - rule, "Syntax error in expression");
         goto failed;
     }
     if(*ptr == '{')
@@ -303,11 +369,15 @@ tmq_rule_parse_result_t* tmq_rule_parse(tmq_rule_parser_t* parser, const char* r
         while(*p && !isblank(*p) && *p != '}')
             p++;
         if(*p != '}')
+        {
+            set_error_info(parser, ptr - rule, "Syntax error in expression");
             goto failed;
+        }
         tmq_str_t source = tmq_str_new_len(ptr + 1, p - ptr - 1);
         event_source_info_t* source_info = tmq_map_get(event_sources_g, source);
         if(!source_info)
         {
+            set_error_info(parser, ptr - rule, "Invalid event source: %s", source);
             tmq_str_free(source);
             goto failed;
         }
@@ -323,7 +393,10 @@ tmq_rule_parse_result_t* tmq_rule_parse(tmq_rule_parser_t* parser, const char* r
             p++;
         event_source_info_t* source_info = tmq_map_get(event_sources_g, "message");
         if(!source_info)
+        {
+            set_error_info(parser, ptr - rule, "Invalid event source: %s", "message");
             goto failed;
+        }
         parser->event_source = source_info;
         result->event_source = MESSAGE;
         result->source_topic = tmq_str_new_len(ptr, p - ptr);
@@ -331,10 +404,18 @@ tmq_rule_parse_result_t* tmq_rule_parse(tmq_rule_parser_t* parser, const char* r
     }
     if(interpret_schema(parser, result, &schema) < 0)
         goto failed;
+    if(!result->adaptor)
+    {
+        set_error_info(parser, ptr - rule, "Adaptor is not specified");
+        goto failed;
+    }
     if(*ptr)
     {
         if(strncasecmp(ptr, "where ", 6) != 0)
+        {
+            set_error_info(parser, ptr - rule, "Syntax error in expression");
             goto failed;
+        }
         ptr = skip_blank(ptr + 6);
         result->filter = parse_filter_expression(parser, ptr);
         if(!result->filter)
@@ -347,9 +428,12 @@ tmq_rule_parse_result_t* tmq_rule_parse(tmq_rule_parser_t* parser, const char* r
     result = NULL;
 
     end:
-    for(tmq_map_iter_t iter = tmq_map_iter(schema); tmq_map_has_next(iter); tmq_map_next(schema, iter))
-        tmq_str_free(*(tmq_str_t*)iter.second);
-    tmq_map_free(schema);
+    for(select_item* it = tmq_vec_begin(schema); it != tmq_vec_end(schema); it++)
+    {
+        tmq_str_free(it->source_col);
+        tmq_str_free(it->target_col);
+    }
+    tmq_vec_free(schema);
     return result;
 }
 

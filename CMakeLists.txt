@@ -60,7 +60,8 @@ set(TINYMQTT_LIB_SRC
         db/mqtt_conn_pool.c
         rule_engine/mqtt_rule_parser.c
         rule_engine/mqtt_events.c
-        rule_engine/mqtt_event_source.c)
+        rule_engine/mqtt_event_source.c
+        rule_engine/mqtt_rule_engine.c)
 set(CMAKE_BUILD_TYPE "Debug")
 
 add_definitions(-D_GNU_SOURCE)

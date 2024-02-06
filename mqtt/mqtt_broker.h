@@ -17,7 +17,7 @@
 #include "mqtt_acl.h"
 #include "cluster/mqtt_cluster.h"
 #include "db/mqtt_conn_pool.h"
-#include "rule_engine/mqtt_rule_parser.h"
+#include "rule_engine/mqtt_rule_engine.h"
 #include "rule_engine/adaptors/mqtt_adaptors.h"
 #include "thrdpool/thrdpool.h"
 #include <mongoc/mongoc.h>
@@ -56,7 +56,7 @@ typedef struct tmq_broker_s
     tmq_topics_t topics_tree;
     tmq_cluster_t cluster;
     tmq_plugin_info_map plugins_info;
-    tmq_rule_parser_t rule_parser;
+    tmq_rule_engine_t rule_engine;
     int next_io_context;
     uint8_t inflight_window_size;
     int io_threads;

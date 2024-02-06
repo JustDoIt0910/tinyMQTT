@@ -210,9 +210,8 @@ tmq_filter_expr_t* tmq_const_expr_new(tmq_str_t value)
     expr->expr_type = CONST_EXPR;
     expr->evaluate = const_expr_evaluate;
     expr->print = print_const_expr;
-    char* failed_ptr = NULL;
-    int64_t integer = strtoll(value, &failed_ptr, 10);
-    if(!failed_ptr || !*failed_ptr)
+    int64_t integer;
+    if(tmq_str_to_int(value, &integer))
     {
         expr->value.value_type = INT_VALUE;
         expr->value.integer = integer;
@@ -230,7 +229,10 @@ tmq_filter_expr_t* tmq_const_expr_new(tmq_str_t value)
     else
     {
         expr->value.value_type = STR_VALUE;
-        expr->value.str = tmq_str_new(value);
+        if(tmq_str_is_string(value))
+            expr->value.str = tmq_str_substr(value, 1, tmq_str_len(value) - 2);
+        else
+            expr->value.str = tmq_str_new(value);
     }
     return (tmq_filter_expr_t*)expr;
 }
@@ -256,31 +258,6 @@ void tmq_expr_free(tmq_filter_expr_t* expr)
     else if(expr->expr_type == VALUE_EXPR)
         tmq_str_free(((tmq_filter_value_expr_t*)expr)->payload_json_field);
     free(expr);
-}
-
-tmq_event_listener_t* tmq_make_event_listener(tmq_rule_parser_t* parser, const char* rule, tmq_event_type* event_source)
-{
-    tmq_event_listener_t* listener = malloc(sizeof(tmq_event_listener_t));
-    bzero(listener, sizeof(tmq_event_listener_t));
-    tmq_rule_parse_result_t* result = tmq_rule_parse(parser, rule);
-    if(!result)
-        return NULL;
-    //tmq_rule_parse_result_print(result);
-    listener->filter = result->filter;
-    listener->on_event = result->adaptor->handle_event;
-    *event_source = result->event_source;
-    tmq_vec_init(&listener->mappings, schema_mapping_item_t);
-    tmq_vec_swap(listener->mappings, result->mappings);
-    tmq_rule_parse_result_free(result);
-    return listener;
-}
-
-void tmq_publish_event(tmq_event_listener_t* listener, void* event_data)
-{
-    if(listener->filter->evaluate(listener->filter, event_data).boolean)
-    {
-
-    }
 }
 
 void tmq_print_filter_inorder(tmq_filter_expr_t* filter)

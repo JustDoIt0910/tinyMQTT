@@ -163,6 +163,17 @@ tmq_str_t tmq_str_parse_int(int64_t v, int base)
     return str;
 }
 
+int tmq_str_to_int(tmq_str_t s, int64_t* v)
+{
+    char* failed_ptr = NULL;
+    int64_t integer = strtoll(s, &failed_ptr, 10);
+    if(failed_ptr && *failed_ptr)
+        return 0;
+    if(v)
+        *v = integer;
+    return 1;
+}
+
 char tmq_str_at(tmq_str_t s, size_t index)
 {
     tmq_ds_t* hdr = TMQ_DS_HDR(s);
@@ -181,6 +192,12 @@ int tmq_str_startswith(tmq_str_t s, const char* prefix)
     size_t len = strlen(s);
     size_t pre_len = strlen(prefix);
     return len < pre_len ? 0 : (strncmp(s, prefix, pre_len) == 0);
+}
+
+int tmq_str_is_string(tmq_str_t s)
+{
+    return (tmq_str_at(s, 0) == '\'' && tmq_str_at(s, tmq_str_len(s) - 1) == '\'') ||
+    (tmq_str_at(s, 0) == '\"' && tmq_str_at(s, tmq_str_len(s) - 1) == '\"');
 }
 
 tmq_str_t tmq_str_substr(tmq_str_t s, size_t start, size_t len)

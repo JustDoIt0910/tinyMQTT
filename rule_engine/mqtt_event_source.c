@@ -46,8 +46,10 @@ void register_event_source_(tmq_event_type event_source, char* source_name, ...)
     event_source_info_t* event_source_info = tmq_map_get(event_sources_g, source_name);
     if(!event_source_info)
     {
-        event_source_info_t info;
-        info.source = event_source;
+        event_source_info_t info = {
+                .source = event_source,
+                .name = tmq_str_new(source_name)
+        };
         tmq_map_str_init(&info.fields_meta, event_data_field_meta_t, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
         tmq_map_put(event_sources_g, source_name, info);
         event_source_info = tmq_map_get(event_sources_g, source_name);

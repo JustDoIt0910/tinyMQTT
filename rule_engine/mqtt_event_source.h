@@ -40,6 +40,7 @@ typedef tmq_map(char*, event_data_field_meta_t*) event_data_field_map;
 typedef struct event_source_info_s
 {
     tmq_event_type source;
+    tmq_str_t name;
     event_data_field_map fields_meta;
 } event_source_info_t;
 

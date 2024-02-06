@@ -638,7 +638,8 @@ int tmq_broker_init(tmq_broker_t* broker, tmq_config_t* cfg, tmq_cmd_t* cmd, tmq
     tmq_topics_init(&broker->topics_tree, broker, mqtt_broadcast, mqtt_tun_publish);
 
     tmq_cluster_init(broker, &broker->cluster, "127.0.0.1", 6379, "127.0.0.1", tmq_cmd_get_number(cmd, "cluster-port"));
-    tmq_rule_parser_init(&broker->rule_parser, broker);
+    tmq_rule_engine_init(&broker->rule_engine, broker);
+
     /* ignore SIGPIPE signal */
     signal(SIGPIPE, SIG_IGN);
     return 0;

@@ -6,8 +6,9 @@
 
 static void register_parameters(adaptor_parameter_map* parameter_map)
 {
-    tmq_map_put(*parameter_map, "exchange", PARAMETER_STR);
-    tmq_map_put(*parameter_map, "routingKey", PARAMETER_STR);
+    add_parameter(*parameter_map, "exchange", PARAMETER_STR);
+    add_parameter(*parameter_map, "routingKey", PARAMETER_STR);
+    add_parameter(*parameter_map, "exchage", PARAMETER_STR);
 }
 
 static void handle_event(adaptor_value_map* parameters, adaptor_value_map* payload)

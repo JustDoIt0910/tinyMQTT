@@ -105,10 +105,6 @@ typedef struct tmq_event_listener_s
     handle_event_f on_event;
 } tmq_event_listener_t;
 
-typedef struct tmq_rule_parser_s tmq_rule_parser_t;
-tmq_event_listener_t* tmq_make_event_listener(tmq_rule_parser_t* parser, const char* rule, tmq_event_type* event_source);
-void tmq_publish_event(tmq_event_listener_t* listener, void* event_data);
-
 tmq_filter_expr_t* tmq_value_expr_new(event_data_field_meta_t* field_meta, const char* payload_field);
 tmq_filter_expr_t* tmq_const_expr_new(tmq_str_t value);
 tmq_filter_expr_t* tmq_binary_expr_new(tmq_binary_expr_op op, uint8_t priority);
