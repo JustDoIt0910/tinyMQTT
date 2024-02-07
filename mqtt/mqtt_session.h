@@ -42,6 +42,7 @@ typedef struct tmq_session_s
     uint8_t inflight_packets;
     uint8_t will_qos;
     uint8_t will_retain;
+    uint8_t io_context_idx;
 
     subscription_map subscriptions;
     packet_id_set qos2_packet_ids;
@@ -55,7 +56,8 @@ tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message, cl
                                char* will_topic, char* will_message, uint8_t will_qos, uint8_t will_retain,
                                uint8_t max_inflight, message_store_t* message_store);
 void tmq_session_close(tmq_session_t* session, int force_clean);
-void tmq_session_publish(tmq_session_t* session, tmq_str_t topic, tmq_str_t payload, uint8_t qos, uint8_t retain);
+void tmq_session_publish(tmq_session_t* session, tmq_str_t topic, tmq_str_t payload, uint8_t qos,
+                         uint8_t retain, int store_only);
 void tmq_session_subscribe(tmq_session_t* session, const char* topic_filter, uint8_t qos);
 void tmq_session_unsubscribe(tmq_session_t* session, const char* topic_filter);
 void tmq_session_send_packet(tmq_session_t* session, tmq_any_packet_t* pkt, int queue);

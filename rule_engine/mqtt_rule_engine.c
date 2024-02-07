@@ -5,7 +5,8 @@
 #include "mqtt/mqtt_broker.h"
 #include "adaptors/mqtt_adaptors.h"
 
-static tmq_event_listener_t* make_event_listener(tmq_rule_parser_t* parser, const char* rule, tmq_event_type* event_source)
+static tmq_event_listener_t* make_event_listener(tmq_rule_parser_t* parser, const char* rule,
+                                                 tmq_event_type* event_source, tmq_str_t* source_topic)
 {
     tmq_event_listener_t* listener = malloc(sizeof(tmq_event_listener_t));
     bzero(listener, sizeof(tmq_event_listener_t));
@@ -16,14 +17,17 @@ static tmq_event_listener_t* make_event_listener(tmq_rule_parser_t* parser, cons
     listener->filter = result->filter;
     listener->adaptor = result->adaptor;
     listener->on_event = result->adaptor->handle_event;
+    listener->need_json_payload = result->need_json_payload;
     *event_source = result->event_source;
+    if(result->event_source == MESSAGE)
+        *source_topic = tmq_str_new(result->source_topic);
     tmq_vec_init(&listener->mappings, schema_mapping_item_t);
     tmq_vec_swap(listener->mappings, result->mappings);
     tmq_rule_parse_result_free(result);
     return listener;
 }
 
-static void publish_event(tmq_event_listener_t* listener, void* event_data)
+void tmq_listener_publish_event(tmq_event_listener_t* listener, void* event_data)
 {
     if(listener->filter && !listener->filter->evaluate(listener->filter, event_data).boolean)
         return;
@@ -71,7 +75,8 @@ void tmq_rule_engine_init(tmq_rule_engine_t* engine, tmq_broker_t* broker)
 void tmq_rule_engine_add_rule(tmq_rule_engine_t* engine, const char* rule)
 {
     tmq_event_type event_source;
-    tmq_event_listener_t* listener = make_event_listener(&engine->parser, rule, &event_source);
+    tmq_str_t source_topic = NULL;
+    tmq_event_listener_t* listener = make_event_listener(&engine->parser, rule, &event_source, &source_topic);
     if(listener)
     {
         if(event_source != MESSAGE)
@@ -87,7 +92,8 @@ void tmq_rule_engine_add_rule(tmq_rule_engine_t* engine, const char* rule)
         }
         else
         {
-
+            tmq_topics_add_listener(engine->topic_tree, source_topic, listener);
+            tmq_str_free(source_topic);
         }
     }
     else
@@ -109,7 +115,7 @@ void tmq_rule_engine_publish_event(tmq_rule_engine_t* engine, tmq_event_t event)
         tmq_event_listener_t* listener = *listeners;
         while(listener)
         {
-            publish_event(listener, event.data);
+            tmq_listener_publish_event(listener, event.data);
             listener = listener->next;
         }
     }

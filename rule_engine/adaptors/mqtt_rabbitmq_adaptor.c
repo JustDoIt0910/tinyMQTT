@@ -63,6 +63,7 @@ static void handle_event(tmq_adaptor_t* adaptor, adaptor_value_map* parameters, 
     amqp_basic_publish(rabbitmq->conn, 1, amqp_cstring_bytes(exchange),
                        amqp_cstring_bytes(routing_key), 0, 0,
                        &props, amqp_cstring_bytes(body));
+    free(body);
     cJSON_Delete(payload);
 }
 

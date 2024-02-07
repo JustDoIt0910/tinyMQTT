@@ -17,6 +17,7 @@ typedef struct tmq_rule_engine_s
 
 void tmq_rule_engine_init(tmq_rule_engine_t* engine, tmq_broker_t* broker);
 void tmq_rule_engine_add_rule(tmq_rule_engine_t* engine, const char* rule);
+void tmq_listener_publish_event(tmq_event_listener_t* listener, void* event_data);
 void tmq_rule_engine_publish_event(tmq_rule_engine_t* engine, tmq_event_t event);
 
 #endif //TINYMQTT_MQTT_RULE_ENGINE_H

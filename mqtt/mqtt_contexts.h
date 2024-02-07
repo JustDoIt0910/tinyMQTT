@@ -71,6 +71,8 @@ typedef struct publish_req
     mqtt_message message;
     uint8_t retain;
     uint8_t is_tunneled_pub;
+    tmq_str_t publisher_username;
+    tmq_str_t publisher_client_id;
 } publish_req;
 
 typedef struct publish_ctx_s

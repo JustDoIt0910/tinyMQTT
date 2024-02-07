@@ -171,7 +171,13 @@ static void broadcast_handler(void* owner, tmq_mail_t mail)
     {
         tmq_session_t* session = info->session;
         uint8_t qos = info->qos < message->qos ? info->qos : message->qos;
-        tmq_session_publish(session, broadcast_task->topic, message->message, qos, broadcast_task->retain);
+        if(!info->is_session_closed)
+        {
+            tmq_session_publish(session, broadcast_task->topic, message->message, qos, broadcast_task->retain, 0);
+            TCP_CONN_RELEASE(session->conn);
+        }
+        else
+            tmq_session_publish(session, broadcast_task->topic, message->message, qos, broadcast_task->retain, 1);
         SESSION_RELEASE(session);
     }
     tmq_str_free(broadcast_task->topic);

@@ -4,6 +4,7 @@
 #include "mqtt_topic.h"
 #include "mqtt_broker.h"
 #include "mqtt_session.h"
+#include "mqtt_contexts.h"
 #include "base/mqtt_util.h"
 #include <stdlib.h>
 #include <string.h>
@@ -227,6 +228,14 @@ retain_message_list_t tmq_topics_add_subscription(tmq_topics_t* topics, char* to
     return retain_messages;
 }
 
+void tmq_topics_add_listener(tmq_topics_t* topics, char* topic_filter, tmq_event_listener_t* listener)
+{
+    topic_tree_node_t* node = add_topic_or_find(topics, topic_filter, 1, NULL);
+    assert(node != NULL);
+    listener->next = node->listeners;
+    node->listeners = listener;
+}
+
 void tmq_topics_add_route(tmq_topics_t* topics, char* topic_filter, char* member_addr, topic_tree_node_t** end_node)
 {
     topic_tree_node_t* node = add_topic_or_find(topics, topic_filter, 1, NULL);
@@ -270,6 +279,33 @@ void tmq_topics_remove_subscription(tmq_topics_t* topics, char* topic_filter, ch
     try_remove_topic(topics, node);
 }
 
+static void trigger_event(topic_tree_node_t* node, publish_req* req)
+{
+    tmq_event_listener_t* listener = node->listeners;
+    while(listener)
+    {
+        tmq_pub_event_data_t pub_event = {
+                .username = req->publisher_username,
+                .client_id = req->publisher_client_id,
+                .qos = req->message.qos,
+                .payload_as_json = NULL
+        };
+        if(listener->need_json_payload)
+        {
+            pub_event.payload_as_json = cJSON_Parse(req->message.message);
+            if(!pub_event.payload_as_json)
+            {
+                listener = listener->next;
+                continue;
+            }
+        }
+        tmq_listener_publish_event(listener, &pub_event);
+        if(listener->need_json_payload)
+            cJSON_Delete(pub_event.payload_as_json);
+        listener = listener->next;
+    }
+}
+
 /**
  * @brief Try to match a given topic recursively in the topic tree.
  *
@@ -279,17 +315,17 @@ void tmq_topics_remove_subscription(tmq_topics_t* topics, char* topic_filter, ch
  * @param levels level names of the publish topic that need to match
  *               e.g. topic = "/match/this/topic", levels = ["", "match", "this", "topic"]
  * @param n the index of level that need to be matched
- * @param topic the publish topic that need to be matched
- * @param message mqtt message to publish
  * @param retain set to 1 if this is a retained message
+ * @param ctx publish information
  * */
 static void match(tmq_topics_t* topics, topic_tree_node_t* node, int is_multi_wildcard,
-                  str_vec* levels, int n, char* topic, mqtt_message* message, int retain)
+                  str_vec* levels, int n, int retain, publish_req* req)
 {
     if(n == tmq_vec_size(*levels) || is_multi_wildcard)
     {
+        trigger_event(node, req);
         if(node->subscribers)
-            topics->client_on_match(topics->broker, topic, message, node->subscribers);
+            topics->client_on_match(topics->broker, req->topic, &req->message, node->subscribers);
         member_sub_info_t* member_sub = node->subscribe_members;
         while(member_sub)
         {
@@ -308,17 +344,20 @@ static void match(tmq_topics_t* topics, topic_tree_node_t* node, int is_multi_wi
                     node->retain_message->retain_topic = tmq_str_empty();
                 }
                 node->retain_message->retain_msg.message = tmq_str_assign(node->retain_message->retain_msg.message,
-                                                                          message->message);
-                node->retain_message->retain_msg.qos = message->qos;
-                node->retain_message->retain_topic = tmq_str_assign(node->retain_message->retain_topic, topic);
+                                                                          req->message.message);
+                node->retain_message->retain_msg.qos = req->message.qos;
+                node->retain_message->retain_topic = tmq_str_assign(node->retain_message->retain_topic, req->topic);
             }
-            /* "#" includes the parent. e.g. publish topic "sport/tennis/player1" can match
-             * topic filter "sport/tennis/player1/#" */
+            /*
+             * "#" includes the parent. e.g. publish topic "sport/tennis/player1" can match
+             * topic filter "sport/tennis/player1/#"
+             * */
             topic_tree_node_t** next = tmq_map_get(node->children, "#");
             if(next)
             {
+                trigger_event(*next, req);
                 if((*next)->subscribers)
-                    topics->client_on_match(topics->broker, topic, message, (*next)->subscribers);
+                    topics->client_on_match(topics->broker, req->topic, &req->message, (*next)->subscribers);
                 member_sub = (*next)->subscribe_members;
                 while(member_sub)
                 {
@@ -332,28 +371,28 @@ static void match(tmq_topics_t* topics, topic_tree_node_t* node, int is_multi_wi
     topic_tree_node_t** next;
     char* level = *tmq_vec_at(*levels, n);
     if((next = tmq_map_get(node->children, level)) != NULL)
-        match(topics, *next, 0, levels, n + 1, topic, message, retain);
+        match(topics, *next, 0, levels, n + 1, retain, req);
     else if(retain)
     {
         topic_tree_node_t* new_next = topic_tree_node_new(node, level);
         tmq_map_put(node->children, level, new_next);
-        match(topics, new_next, 0, levels, n + 1, topic, message, retain);
+        match(topics, new_next, 0, levels, n + 1, retain, req);
     }
     if((next = tmq_map_get(node->children, "+")) != NULL)
-        match(topics, *next, 0, levels, n + 1, topic, message, 0);
+        match(topics, *next, 0, levels, n + 1, 0, req);
     if((next = tmq_map_get(node->children, "#")) != NULL)
-        match(topics, *next, 1, levels, n + 1, topic, message, 0);
+        match(topics, *next, 1, levels, n + 1, 0, req);
 }
 
-void tmq_topics_publish(tmq_topics_t* topics, char* topic, mqtt_message* message, int retain, int is_tunneled)
+void tmq_topics_publish(tmq_topics_t* topics, publish_req* req)
 {
     str_vec levels = tmq_vec_make(tmq_str_t);
-    tmq_topic_split(topic, &levels);
-    match(topics, topics->root, 0, &levels, 0, topic, message, retain);
+    tmq_topic_split(req->topic, &levels);
+    match(topics, topics->root, 0, &levels, 0, req->retain, req);
     if(tmq_map_size(topics->matched_members) > 0)
     {
-        if(!is_tunneled)
-            topics->route_on_match(&topics->broker->cluster, topic, message, &topics->matched_members);
+        if(!req->is_tunneled_pub)
+            topics->route_on_match(&topics->broker->cluster, req->topic, &req->message, &topics->matched_members);
         tmq_map_clear(topics->matched_members);
     }
     for(tmq_str_t* it = tmq_vec_begin(levels); it != tmq_vec_end(levels); it++)

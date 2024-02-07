@@ -87,6 +87,7 @@ tmq_session_t* tmq_session_new(void* upstream, new_message_cb on_new_message, cl
     session->keep_alive = keep_alive;
     session->last_pkt_ts = time_now();
     session->inflight_window_size = max_inflight;
+    session->io_context_idx = conn->io_context->index;
     if(will_topic)
     {
         session->will_topic = tmq_str_new(will_topic);
@@ -256,7 +257,8 @@ void tmq_session_send_packet(tmq_session_t* session, tmq_any_packet_t* pkt, int 
     }
 }
 
-void tmq_session_publish(tmq_session_t* session, tmq_str_t topic, tmq_str_t payload, uint8_t qos, uint8_t retain)
+void tmq_session_publish(tmq_session_t* session, tmq_str_t topic, tmq_str_t payload, uint8_t qos,
+                         uint8_t retain, int store_only)
 {
     tmq_publish_pkt* publish_pkt = malloc(sizeof(tmq_publish_pkt));
     bzero(publish_pkt, sizeof(tmq_publish_pkt));
@@ -284,7 +286,8 @@ void tmq_session_publish(tmq_session_t* session, tmq_str_t topic, tmq_str_t payl
         if(send_now) sending_pkt->send_time = time_now();
     }
 
-    if(send_now) tmq_session_send_packet(session, &pkt, 0);
+    if(send_now && !store_only)
+        tmq_session_send_packet(session, &pkt, 0);
     else tmq_publish_pkt_cleanup(publish_pkt);
 }
 

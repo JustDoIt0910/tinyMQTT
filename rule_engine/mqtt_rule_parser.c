@@ -42,7 +42,8 @@ static void set_error_info(tmq_rule_parser_t* parser, size_t pos, const char* fo
     parser->error_info = tmq_str_new(reason);
 }
 
-static tmq_filter_expr_t* parse_filter_expression(tmq_rule_parser_t* parser, const char* expr)
+static tmq_filter_expr_t* parse_filter_expression(tmq_rule_parser_t* parser, const char* expr,
+                                                  tmq_rule_parse_result_t* result)
 {
     tmq_filter_expr_t* root = NULL;
     tmq_vec(tmq_filter_expr_t*) operand_stack = tmq_vec_make(tmq_filter_expr_t*);
@@ -118,6 +119,7 @@ static tmq_filter_expr_t* parse_filter_expression(tmq_rule_parser_t* parser, con
                     goto failed;
                 }
                 operand_expr = tmq_value_expr_new(*meta, value + 8);
+                result->need_json_payload = true;
             }
             else if((meta = tmq_map_get(parser->event_source->fields_meta, value)) != NULL)
                 operand_expr = tmq_value_expr_new(*meta, NULL);
@@ -233,7 +235,10 @@ static int interpret_schema(tmq_rule_parser_t* parser, tmq_rule_parse_result_t* 
         else
         {
             if(tmq_str_startswith(source_col, "payload."))
+            {
                 meta = tmq_map_get(parser->event_source->fields_meta, "payload");
+                result->need_json_payload = true;
+            }
             else
                 meta = tmq_map_get(parser->event_source->fields_meta, source_col);
             if(!meta)
@@ -417,7 +422,7 @@ tmq_rule_parse_result_t* tmq_rule_parse(tmq_rule_parser_t* parser, const char* r
             goto failed;
         }
         ptr = skip_blank(ptr + 6);
-        result->filter = parse_filter_expression(parser, ptr);
+        result->filter = parse_filter_expression(parser, ptr, result);
         if(!result->filter)
             goto failed;
     }

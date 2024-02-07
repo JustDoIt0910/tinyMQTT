@@ -195,7 +195,7 @@ static void handle_async_operations(void* arg)
         else if(op->type == ASYNC_PUBLISH)
         {
             struct publish_args* args = op->arg;
-            tmq_session_publish(mqtt->session, args->topic, args->message, args->qos, args->retain);
+            tmq_session_publish(mqtt->session, args->topic, args->message, args->qos, args->retain, 0);
             tmq_str_free(args->message);
             tmq_str_free(args->topic);
             free(args);
@@ -337,7 +337,7 @@ void tinymqtt_publish(tiny_mqtt* mqtt, char* topic, char* message, uint8_t qos, 
         mqtt->conn->on_write_complete = on_qos0_publish_finished;
         mqtt->conn->cb_arg = mqtt;
     }
-    tmq_session_publish(mqtt->session, topic, message, qos, retain);
+    tmq_session_publish(mqtt->session, topic, message, qos, retain, 0);
     tmq_event_loop_run(&mqtt->loop);
 }
 

@@ -6,6 +6,7 @@
 #define TINYMQTT_MQTT_TOPIC_H
 #include "base/mqtt_str.h"
 #include "base/mqtt_map.h"
+#include "rule_engine/mqtt_events.h"
 #include "mqtt_types.h"
 
 typedef struct retain_message_s
@@ -19,6 +20,7 @@ typedef struct subscribe_info_s
 {
     tmq_session_t* session;
     uint8_t qos;
+    int is_session_closed;
 } subscribe_info_t;
 typedef tmq_map(char*, subscribe_info_t) subscribe_map_t;
 
@@ -36,8 +38,10 @@ typedef struct topic_tree_node_s
     struct topic_tree_node_s* parent;
     /* next level */
     child_map children;
-    /* the subscriber's client_id and max qos */
+    /* mqtt clients that subscribe this topic */
     subscribe_map_t* subscribers;
+    /* event listeners that listen this topic */
+    tmq_event_listener_t* listeners;
     /* cluster members that subscribe this topic */
     member_sub_info_t* subscribe_members;
     /* used to quickly delete route item in route table when removing
@@ -60,13 +64,16 @@ typedef struct tmq_topics_s
     member_addr_set matched_members;
 } tmq_topics_t;
 
+typedef struct publish_req publish_req;
+
 void tmq_topics_init(tmq_topics_t* topics, tmq_broker_t* broker, client_match_cb client_on_match,
                      route_match_cb route_on_match);
 retain_message_list_t tmq_topics_add_subscription(tmq_topics_t* topics, char* topic_filter, tmq_session_t* session,
                                                   uint8_t qos, int* topic_exist, topic_tree_node_t** end_node);
 void tmq_topics_add_route(tmq_topics_t* topics, char* topic_filter, char* member_addr, topic_tree_node_t** end_node);
+void tmq_topics_add_listener(tmq_topics_t* topics, char* topic_filter, tmq_event_listener_t* listener);
 void tmq_topics_remove_subscription(tmq_topics_t* topics, char* topic_filter, char* client_id);
-void tmq_topics_publish(tmq_topics_t* topics, char* topic, mqtt_message* message, int retain, int is_tunneled);
+void tmq_topics_publish(tmq_topics_t* topics, publish_req* req);
 void tmq_topic_split(char* str, str_vec* levels);
 void tmq_topics_info(tmq_topics_t* topics);
 

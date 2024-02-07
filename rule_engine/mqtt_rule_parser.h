@@ -15,6 +15,7 @@ typedef struct tmq_rule_parse_result_s
     tmq_event_type event_source;
     tmq_str_t source_topic;
     tmq_filter_expr_t* filter;
+    bool need_json_payload;
 } tmq_rule_parse_result_t;
 
 typedef struct tmq_broker_s tmq_broker_t;

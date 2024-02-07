@@ -184,8 +184,15 @@ void handle_session_req(void* arg)
                         .qos = session->will_qos,
                         .message = tmq_str_new(session->will_message)
                 };
-                tmq_topics_publish(&broker->topics_tree, session->will_topic,
-                                   &will_msg, session->will_retain, 0);
+                publish_req will_pub_req = {
+                        .topic = session->will_topic,
+                        .message = will_msg,
+                        .retain = session->will_retain,
+                        .publisher_username = tmq_str_new(session->username),
+                        .publisher_client_id = tmq_str_new(session->client_id),
+                        .is_tunneled_pub = (session == NULL)
+                };
+                tmq_topics_publish(&broker->topics_tree, &will_pub_req);
             }
             tlog_info("session[%s] closed forcely", session->client_id);
         }
@@ -252,9 +259,11 @@ static void handle_topic_req(void* arg)
             broadcast_task->message.message = tmq_str_new(retain_msg->retain_msg.message);
             broadcast_task->message.qos = retain_msg->retain_msg.qos;
             broadcast_task->retain = 1;
+            TCP_CONN_SHARE((*session)->conn);
             subscribe_info_t info = {
                     .session = SESSION_SHARE(*session),
-                    .qos = tf->qos
+                    .qos = tf->qos,
+                    .is_session_closed = 0
             };
             tmq_vec_push_back(broadcast_task->subscribers, info);
             tmq_io_context_t* context = (*session)->conn->io_context;
@@ -290,9 +299,11 @@ static void handle_publish_req(void* arg)
     tmq_broker_t* broker = operation->broker;
     publish_req* req = &operation->req;
 
-    tmq_topics_publish(&broker->topics_tree, req->topic, &req->message, req->retain, req->is_tunneled_pub);
+    tmq_topics_publish(&broker->topics_tree, req);
     tmq_str_free(req->topic);
     tmq_str_free(req->message.message);
+    tmq_str_free(req->publisher_username);
+    tmq_str_free(req->publisher_client_id);
     free(arg);
 }
 
@@ -490,6 +501,8 @@ void mqtt_publish(void* arg, tmq_session_t* session, char* topic, mqtt_message* 
             .topic = topic,
             .message = *message,
             .retain = retain,
+            .publisher_username = tmq_str_new(session->username),
+            .publisher_client_id = tmq_str_new(session->client_id),
             .is_tunneled_pub = (session == NULL)
     };
     publish_ctx_t* ctx = malloc(sizeof(publish_ctx_t));
@@ -514,8 +527,15 @@ static void mqtt_broadcast(tmq_broker_t* broker, char* topic, mqtt_message* mess
     for(; tmq_map_has_next(iter); tmq_map_next(*subscribers, iter))
     {
         subscribe_info_t* info = iter.second;
+        if(info->session->state == CLOSED)
+            info->is_session_closed = 1;
+        else
+        {
+            info->is_session_closed = 0;
+            TCP_CONN_SHARE(info->session->conn);
+        }
         SESSION_SHARE(info->session);
-        int io_context_idx = info->session->conn->io_context->index;
+        int io_context_idx = info->session->io_context_idx;
         tmq_vec_push_back(broadcast_tasks[io_context_idx]->subscribers, *info);
     }
     for(int i = 0; i < broker->io_threads; i++)
@@ -673,10 +693,6 @@ int tmq_broker_init(tmq_broker_t* broker, tmq_config_t* cfg, tmq_cmd_t* cmd, tmq
 
     tmq_cluster_init(broker, &broker->cluster, "127.0.0.1", 6379, "127.0.0.1", tmq_cmd_get_number(cmd, "cluster-port"));
     tmq_rule_engine_init(&broker->rule_engine, broker);
-
-    tmq_rule_engine_add_rule(&broker->rule_engine, "select 'adaptor_test' as {rabbitmq.exchange}, action, client_id "
-                                                   "from {device} "
-                                                   "where username == zr");
 
     /* ignore SIGPIPE signal */
     signal(SIGPIPE, SIG_IGN);
