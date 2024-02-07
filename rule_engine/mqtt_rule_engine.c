@@ -14,6 +14,7 @@ static tmq_event_listener_t* make_event_listener(tmq_rule_parser_t* parser, cons
         return NULL;
     //tmq_rule_parse_result_print(result);
     listener->filter = result->filter;
+    listener->adaptor = result->adaptor;
     listener->on_event = result->adaptor->handle_event;
     *event_source = result->event_source;
     tmq_vec_init(&listener->mappings, schema_mapping_item_t);
@@ -44,7 +45,7 @@ static void publish_event(tmq_event_listener_t* listener, void* event_data)
             tmq_vec_push_back(payload_values, item);
         }
     }
-    listener->on_event(&parameters, &payload_values);
+    listener->on_event(listener->adaptor, &parameters, &payload_values);
     for(tmq_map_iter_t iter = tmq_map_iter(parameters); tmq_map_has_next(iter); tmq_map_next(parameters, iter))
     {
         adaptor_value_t* value = iter.second;

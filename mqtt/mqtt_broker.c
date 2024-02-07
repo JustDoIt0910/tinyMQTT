@@ -674,13 +674,9 @@ int tmq_broker_init(tmq_broker_t* broker, tmq_config_t* cfg, tmq_cmd_t* cmd, tmq
     tmq_cluster_init(broker, &broker->cluster, "127.0.0.1", 6379, "127.0.0.1", tmq_cmd_get_number(cmd, "cluster-port"));
     tmq_rule_engine_init(&broker->rule_engine, broker);
 
-    tmq_rule_engine_add_rule(&broker->rule_engine, "select 'exchange1' as {rabbitmq.exchange}, action, client_id "
+    tmq_rule_engine_add_rule(&broker->rule_engine, "select 'adaptor_test' as {rabbitmq.exchange}, action, client_id "
                                                    "from {device} "
                                                    "where username == zr");
-
-    tmq_rule_engine_add_rule(&broker->rule_engine, "select 'exchange2' as {rabbitmq.exchange}, action as a, client_id as cid "
-                                                   "from {device} "
-                                                   "where username == zrz");
 
     /* ignore SIGPIPE signal */
     signal(SIGPIPE, SIG_IGN);

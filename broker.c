@@ -71,7 +71,17 @@ int main(int argc, char* argv[])
                         tlog_error("initializer %s not found in %s", init_sym_name, so_name);
                     else
                     {
-                        tmq_adaptor_t* adaptor = init(&cfg);
+                        tmq_str_t error = NULL;
+                        tmq_adaptor_t* adaptor = init(&cfg, &error);
+                        if(!adaptor)
+                        {
+                            if(error)
+                            {
+                                tlog_info("initialize %s adaptor failed: %s", *name, error);
+                                tmq_str_free(error);
+                            }
+                            continue;
+                        }
                         tmq_plugin_handle_t plugin_handle = {
                                 .adaptor = adaptor,
                                 .so_handle = handle

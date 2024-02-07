@@ -38,7 +38,10 @@ typedef tmq_map(char*, adaptor_value_t) adaptor_value_map;
 typedef tmq_vec(adaptor_value_item_t) adaptor_value_list;
 
 typedef void(*register_parameters_f)(adaptor_parameter_map*);
-typedef void(*handle_event_f)(adaptor_value_map* parameters, adaptor_value_list* payload);
+
+typedef struct tmq_adaptor_s tmq_adaptor_t;
+
+typedef void(*handle_event_f)(tmq_adaptor_t* adaptor, adaptor_value_map* parameters, adaptor_value_list* payload);
 
 #define add_parameter(m, name, type)   tmq_map_put((m), name, type)
 
@@ -51,6 +54,6 @@ typedef struct tmq_adaptor_s
     ADAPTOR_PUBLIC_MEMBER
 } tmq_adaptor_t;
 
-typedef tmq_adaptor_t*(*adaptor_getter_f)(tmq_config_t*);
+typedef tmq_adaptor_t*(*adaptor_getter_f)(tmq_config_t*, tmq_str_t* error);
 
 #endif //TINYMQTT_MQTT_ADAPTORS_H

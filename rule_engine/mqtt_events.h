@@ -102,6 +102,7 @@ typedef struct tmq_event_listener_s
     struct tmq_event_listener_s* next;
     schema_mapping_list mappings;
     tmq_filter_expr_t* filter;
+    tmq_adaptor_t* adaptor;
     handle_event_f on_event;
 } tmq_event_listener_t;
 
