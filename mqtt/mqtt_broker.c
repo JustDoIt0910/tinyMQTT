@@ -8,6 +8,7 @@
 #include "mqtt_contexts.h"
 #include "db/mqtt_db.h"
 #include "thrdpool/thrdpool.h"
+#include "rule_engine/mqtt_event_source.h"
 #include <string.h>
 #include <assert.h>
 #include <signal.h>
@@ -99,13 +100,35 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
                                                          broker->inflight_window_size, get_message_store(broker));
             tmq_map_put(broker->sessions, connect_pkt->client_id, SESSION_SHARE(new_session));
             make_connect_respond(conn->io_context, conn, CONNECTION_ACCEPTED, new_session, 1);
+
+            tmq_device_event_data_t event_data = {
+                    .action = DEVICE_EVENT_ONLINE,
+                    .username = new_session->username,
+                    .client_id = new_session->client_id
+            };
+            tmq_event_t event = {
+                    .type = DEVICE,
+                    .data = &event_data
+            };
+            tmq_rule_engine_publish_event(&broker->rule_engine, event);
         }
         /* otherwise, resume the old session's state */
         else
         {
-            tmq_session_resume(*session, conn, connect_pkt->keep_alive,
+            tmq_session_resume(*session, conn, connect_pkt->username, connect_pkt->keep_alive,
                                will_topic, will_message, will_qos, will_retain);
             make_connect_respond(conn->io_context, conn, CONNECTION_ACCEPTED, *session, 1);
+
+            tmq_device_event_data_t event_data = {
+                    .action = DEVICE_EVENT_ONLINE,
+                    .username = (*session)->username,
+                    .client_id = (*session)->client_id
+            };
+            tmq_event_t event = {
+                    .type = DEVICE,
+                    .data = &event_data
+            };
+            tmq_rule_engine_publish_event(&broker->rule_engine, event);
         }
     }
     /* if no stored session in the broker, just create a new one */
@@ -118,6 +141,17 @@ static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connec
                                                      broker->inflight_window_size, get_message_store(broker));
         tmq_map_put(broker->sessions, connect_pkt->client_id, SESSION_SHARE(new_session));
         make_connect_respond(conn->io_context, conn, CONNECTION_ACCEPTED, new_session, 0);
+
+        tmq_device_event_data_t event_data = {
+                .action = DEVICE_EVENT_ONLINE,
+                .username = new_session->username,
+                .client_id = new_session->client_id
+        };
+        tmq_event_t event = {
+                .type = DEVICE,
+                .data = &event_data
+        };
+        tmq_rule_engine_publish_event(&broker->rule_engine, event);
     }
     tmq_connect_pkt_cleanup(connect_pkt);
     free(connect_pkt);
@@ -639,6 +673,14 @@ int tmq_broker_init(tmq_broker_t* broker, tmq_config_t* cfg, tmq_cmd_t* cmd, tmq
 
     tmq_cluster_init(broker, &broker->cluster, "127.0.0.1", 6379, "127.0.0.1", tmq_cmd_get_number(cmd, "cluster-port"));
     tmq_rule_engine_init(&broker->rule_engine, broker);
+
+    tmq_rule_engine_add_rule(&broker->rule_engine, "select 'exchange1' as {rabbitmq.exchange}, action, client_id "
+                                                   "from {device} "
+                                                   "where username == zr");
+
+    tmq_rule_engine_add_rule(&broker->rule_engine, "select 'exchange2' as {rabbitmq.exchange}, action as a, client_id as cid "
+                                                   "from {device} "
+                                                   "where username == zrz");
 
     /* ignore SIGPIPE signal */
     signal(SIGPIPE, SIG_IGN);

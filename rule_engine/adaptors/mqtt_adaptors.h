@@ -9,7 +9,12 @@
 #include "base/mqtt_config.h"
 #include <stdbool.h>
 
-typedef enum {PARAMETER_STR, PARAMETER_INTEGER, PARAMETER_BOOL} adaptor_value_type;
+typedef enum
+{
+    ADAPTOR_VALUE_STR,
+    ADAPTOR_VALUE_INTEGER,
+    ADAPTOR_VALUE_BOOL
+} adaptor_value_type;
 
 typedef struct
 {
@@ -22,10 +27,18 @@ typedef struct
     };
 } adaptor_value_t;
 
+typedef struct
+{
+    char* value_name;
+    adaptor_value_t value;
+} adaptor_value_item_t;
+
 typedef tmq_map(char*, adaptor_value_type) adaptor_parameter_map;
 typedef tmq_map(char*, adaptor_value_t) adaptor_value_map;
+typedef tmq_vec(adaptor_value_item_t) adaptor_value_list;
+
 typedef void(*register_parameters_f)(adaptor_parameter_map*);
-typedef void(*handle_event_f)(adaptor_value_map* parameters, adaptor_value_map* payload);
+typedef void(*handle_event_f)(adaptor_value_map* parameters, adaptor_value_list* payload);
 
 #define add_parameter(m, name, type)   tmq_map_put((m), name, type)
 

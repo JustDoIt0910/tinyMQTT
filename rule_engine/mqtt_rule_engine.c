@@ -3,6 +3,7 @@
 //
 #include "mqtt_rule_engine.h"
 #include "mqtt/mqtt_broker.h"
+#include "adaptors/mqtt_adaptors.h"
 
 static tmq_event_listener_t* make_event_listener(tmq_rule_parser_t* parser, const char* rule, tmq_event_type* event_source)
 {
@@ -23,10 +24,40 @@ static tmq_event_listener_t* make_event_listener(tmq_rule_parser_t* parser, cons
 
 static void publish_event(tmq_event_listener_t* listener, void* event_data)
 {
-    if(listener->filter->evaluate(listener->filter, event_data).boolean)
+    if(listener->filter && !listener->filter->evaluate(listener->filter, event_data).boolean)
+        return;
+    adaptor_value_map parameters;
+    adaptor_value_list payload_values = tmq_vec_make(adaptor_value_item_t);
+    tmq_map_str_init(&parameters, adaptor_value_t, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
+    schema_mapping_item_t* select = tmq_vec_begin(listener->mappings);
+    for(; select != tmq_vec_end(listener->mappings); select++)
     {
-
+        filter_expr_value_t value = select->value_expr->evaluate(select->value_expr, event_data);
+        if(select->map_to_parameter)
+            tmq_map_put(parameters, select->mapping_name, *(adaptor_value_t*)&value);
+        else
+        {
+            adaptor_value_item_t item = {
+                    .value_name = select->mapping_name,
+                    .value = *(adaptor_value_t*)&value
+            };
+            tmq_vec_push_back(payload_values, item);
+        }
     }
+    listener->on_event(&parameters, &payload_values);
+    for(tmq_map_iter_t iter = tmq_map_iter(parameters); tmq_map_has_next(iter); tmq_map_next(parameters, iter))
+    {
+        adaptor_value_t* value = iter.second;
+        if(value->value_type == ADAPTOR_VALUE_STR)
+            tmq_str_free(value->str);
+    }
+    for(adaptor_value_item_t* it = tmq_vec_begin(payload_values); it != tmq_vec_end(payload_values); it++)
+    {
+        if(it->value.value_type == ADAPTOR_VALUE_STR)
+            tmq_str_free(it->value.str);
+    }
+    tmq_map_free(parameters);
+    tmq_vec_free(payload_values);
 }
 
 void tmq_rule_engine_init(tmq_rule_engine_t* engine, tmq_broker_t* broker)
@@ -65,4 +96,20 @@ void tmq_rule_engine_add_rule(tmq_rule_engine_t* engine, const char* rule)
     tmq_str_free(engine->parser.error_info);
     engine->parser.error_pos = 0;
     engine->parser.event_source = NULL;
+}
+
+void tmq_rule_engine_publish_event(tmq_rule_engine_t* engine, tmq_event_t event)
+{
+    if(event.type != MESSAGE)
+    {
+        tmq_event_listener_t** listeners = tmq_map_get(engine->listeners, event.type);
+        if(!listeners)
+            return;
+        tmq_event_listener_t* listener = *listeners;
+        while(listener)
+        {
+            publish_event(listener, event.data);
+            listener = listener->next;
+        }
+    }
 }

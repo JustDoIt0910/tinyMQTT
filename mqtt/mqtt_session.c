@@ -120,11 +120,12 @@ void tmq_session_close(tmq_session_t* session, int force_clean)
         session->on_close(session->upstream, session, force_clean);
 }
 
-void tmq_session_resume(tmq_session_t* session, tmq_tcp_conn_t* conn, uint16_t keep_alive, char* will_topic,
+void tmq_session_resume(tmq_session_t* session, tmq_tcp_conn_t* conn, tmq_str_t username, uint16_t keep_alive, char* will_topic,
                         char* will_message, uint8_t will_qos, uint8_t will_retain)
 {
     session->conn = TCP_CONN_SHARE(conn);
     session->state = OPEN;
+    session->username = tmq_str_assign(session->username, username);
     session->last_pkt_ts = time_now();
     session->keep_alive = keep_alive;
     session->will_topic = NULL;

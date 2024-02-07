@@ -60,7 +60,7 @@ void tmq_session_subscribe(tmq_session_t* session, const char* topic_filter, uin
 void tmq_session_unsubscribe(tmq_session_t* session, const char* topic_filter);
 void tmq_session_send_packet(tmq_session_t* session, tmq_any_packet_t* pkt, int queue);
 void tmq_session_start(tmq_session_t* session);
-void tmq_session_resume(tmq_session_t* session, tmq_tcp_conn_t* conn, uint16_t keep_alive, char* will_topic,
+void tmq_session_resume(tmq_session_t* session, tmq_tcp_conn_t* conn, tmq_str_t username, uint16_t keep_alive, char* will_topic,
                         char* will_message, uint8_t will_qos, uint8_t will_retain);
 void tmq_session_set_publish_finish_callback(tmq_session_t* session, publish_finish_cb cb);
 void tmq_session_free(tmq_session_t* session);
