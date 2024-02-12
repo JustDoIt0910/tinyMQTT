@@ -54,6 +54,6 @@ typedef struct tmq_adaptor_s
     ADAPTOR_PUBLIC_MEMBER
 } tmq_adaptor_t;
 
-typedef tmq_adaptor_t*(*adaptor_getter_f)(tmq_config_t*, tmq_str_t* error);
+typedef tmq_adaptor_t*(*adaptor_getter_f)(tmq_config_t*, void* arg, tmq_str_t* error);
 
 #endif //TINYMQTT_MQTT_ADAPTORS_H

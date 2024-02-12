@@ -730,18 +730,6 @@ int tmq_broker_init(tmq_broker_t* broker, tmq_config_t* cfg, tmq_cmd_t* cmd, tmq
     tmq_cluster_init(broker, &broker->cluster, "127.0.0.1", 6379, "127.0.0.1", tmq_cmd_get_number(cmd, "cluster-port"));
     tmq_rule_engine_init(&broker->rule_engine, broker);
 
-    tmq_str_t delay_message_enable = tmq_config_get(cfg, "delay_message_enable");
-    if(delay_message_enable && tmq_str_equal(delay_message_enable, "true"))
-        tmq_rule_engine_add_rule(&broker->rule_engine, "select "
-                                                       "'adaptor_test' as {delay_message.exchange}, "
-                                                       "'key1' as {delay_message.routingKey}, "
-                                                       "payload.delay as {delay_message.delayMS},"
-                                                       "payload.topic, payload.message, "
-                                                       "client_id, username, qos, retain "
-                                                       "from "
-                                                       "$delay");
-    tmq_str_free(delay_message_enable);
-
     /* ignore SIGPIPE signal */
     signal(SIGPIPE, SIG_IGN);
     return 0;

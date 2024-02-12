@@ -19,7 +19,7 @@ typedef struct
     ADAPTOR_PUBLIC_MEMBER
 } mysql_adaptor;
 
-tmq_adaptor_t* get_mysql_adaptor(tmq_config_t* cfg)
+tmq_adaptor_t* get_mysql_adaptor(tmq_config_t* cfg, void* arg, tmq_str_t* error)
 {
     mysql_adaptor* adaptor = malloc(sizeof(mysql_adaptor));
     adaptor->register_parameters = register_parameters;

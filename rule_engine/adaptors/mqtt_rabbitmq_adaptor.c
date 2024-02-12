@@ -67,7 +67,7 @@ static void handle_event(tmq_adaptor_t* adaptor, adaptor_value_map* parameters, 
     cJSON_Delete(payload);
 }
 
-tmq_adaptor_t* get_rabbitmq_adaptor(tmq_config_t* cfg, tmq_str_t* error)
+tmq_adaptor_t* get_rabbitmq_adaptor(tmq_config_t* cfg, void* arg, tmq_str_t* error)
 {
     tmq_str_t host = NULL;
     tmq_str_t port_s = NULL;

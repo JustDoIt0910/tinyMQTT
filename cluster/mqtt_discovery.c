@@ -17,13 +17,7 @@ void tmq_redis_lock_init(tmq_redis_lock_t* lock, const char* redis_addr, uint16_
         fatal_error("connect to redis %s:%hd failed: %s", redis_addr, redis_port, lock->context->errstr);
     lock->lock_name = tmq_str_new(lock_name);
     lock->lock_ttl = lock_ttl;
-    uuid_t uuid;
-    bzero(uuid, sizeof(uuid));
-    uuid_generate(uuid);
-    if(uuid_is_null(uuid))
-        fatal_error("failed to generate UUID");
-    lock->node_id = tmq_str_new_len(NULL, 36);
-    uuid_unparse(uuid, lock->node_id);
+    lock->node_id = get_uuid();
 }
 
 int tmq_redis_lock_acquire(tmq_redis_lock_t* lock)

@@ -1,21 +1,12 @@
 //
 // Created by just do it on 2024/2/12.
 //
-#include "mqtt_adaptors.h"
+#include "mqtt_delay_message_adaptor.h"
 #include <stdlib.h>
-#include <rabbitmq-c/amqp.h>
 #include <rabbitmq-c/tcp_socket.h>
+#include <rabbitmq-c/amqp.h>
 #include <cjson/cJSON.h>
 #include <pthread.h>
-
-typedef struct
-{
-    ADAPTOR_PUBLIC_MEMBER
-    amqp_socket_t *socket;
-    amqp_connection_state_t conn;
-    void* broker;
-    void(*message_cb)(void*, tmq_str_t);
-} delay_message_adaptor;
 
 static void register_parameters(adaptor_parameter_map* parameter_map)
 {
@@ -97,7 +88,7 @@ static void* listen_routine(void* arg)
     }
 }
 
-tmq_adaptor_t* get_delay_message_adaptor(tmq_config_t* cfg, tmq_str_t* error)
+tmq_adaptor_t* get_delay_message_adaptor(tmq_config_t* cfg, void* arg, tmq_str_t* error)
 {
     tmq_str_t host = NULL;
     tmq_str_t port_s = NULL;
@@ -160,7 +151,33 @@ tmq_adaptor_t* get_delay_message_adaptor(tmq_config_t* cfg, tmq_str_t* error)
         *error = tmq_str_new("create channel failed");
         goto end;
     }
-    amqp_basic_consume(conn, 2, amqp_cstring_bytes("dead_letter_queue"), amqp_empty_bytes,
+    amqp_exchange_declare(conn, 1, amqp_cstring_bytes("delay-message-exchange"),
+                          amqp_cstring_bytes("fanout"), 0, 0, 0, 0,
+                          amqp_empty_table);
+    amqp_exchange_declare(conn, 1, amqp_cstring_bytes("timeout-exchange"),
+                          amqp_cstring_bytes("direct"), 0, 0, 0, 0,
+                          amqp_empty_table);
+    amqp_table_t args;
+    amqp_table_entry_t entry = {
+            .key = amqp_cstring_bytes("x-dead-letter-exchange"),
+            .value = {
+                    .kind = AMQP_FIELD_KIND_UTF8,
+                    .value.bytes = amqp_cstring_bytes("timeout-exchange")
+            }
+    };
+    args.num_entries = 1;
+    args.entries = &entry;
+    amqp_queue_declare(conn, 1, amqp_cstring_bytes("delay_message-queue"), 0, 0, 0, 0, args);
+    amqp_queue_bind(conn, 1, amqp_cstring_bytes("delay_message-queue"), amqp_cstring_bytes("delay-message-exchange"),
+                    amqp_cstring_bytes(""), amqp_empty_table);
+
+    char dead_letter_queue_name[100] = {0};
+    sprintf(dead_letter_queue_name, "dead-letter-queue-%s", (char*)arg);
+    amqp_queue_declare(conn, 1, amqp_cstring_bytes(dead_letter_queue_name), 0, 0, 0, 1, amqp_empty_table);
+    amqp_queue_bind(conn, 1, amqp_cstring_bytes(dead_letter_queue_name), amqp_cstring_bytes("timeout-exchange"),
+                    amqp_cstring_bytes((char*)arg), amqp_empty_table);
+
+    amqp_basic_consume(conn, 2, amqp_cstring_bytes(dead_letter_queue_name), amqp_empty_bytes,
                        0, 0, 0, amqp_empty_table);
     reply = amqp_get_rpc_reply(conn);
     if(reply.reply_type != AMQP_RESPONSE_NORMAL)
@@ -185,11 +202,4 @@ tmq_adaptor_t* get_delay_message_adaptor(tmq_config_t* cfg, tmq_str_t* error)
     tmq_str_free(username);
     tmq_str_free(password);
     return (tmq_adaptor_t*)adaptor;
-}
-
-void set_message_callback(tmq_adaptor_t* adaptor, void* broker, void(*message_cb)(void*, tmq_str_t))
-{
-    delay_message_adaptor* delay_message = (delay_message_adaptor*)adaptor;
-    delay_message->broker = broker;
-    delay_message->message_cb = message_cb;
 }

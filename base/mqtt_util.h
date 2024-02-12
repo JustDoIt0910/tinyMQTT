@@ -5,6 +5,7 @@
 #ifndef TINYMQTT_MQTT_UTIL_H
 #define TINYMQTT_MQTT_UTIL_H
 #include "tlog.h"
+#include "mqtt_str.h"
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/syscall.h>
@@ -28,5 +29,7 @@ do {                                    \
 }while(0)
 
 char* password_encode(char* pwd);
+
+tmq_str_t get_uuid();
 
 #endif //TINYMQTT_MQTT_UTIL_H
