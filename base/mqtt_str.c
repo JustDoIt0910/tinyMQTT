@@ -73,7 +73,7 @@ tmq_str_t tmq_str_append_char(tmq_str_t s, char c)
 
 tmq_str_t tmq_str_append_str(tmq_str_t s, const char* str)
 {
-    if(!s) return NULL;
+    if(!s || !str) return s;
     return tmq_str_append_data_n(s, str, strlen(str));
 }
 

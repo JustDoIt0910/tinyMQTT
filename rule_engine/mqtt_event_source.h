@@ -84,6 +84,7 @@ typedef struct tmq_pub_event_data_s
     tmq_str_t client_id;
     tmq_str_t username;
     uint8_t qos;
+    int retain;
     cJSON* payload_as_json;
 } tmq_pub_event_data_t;
 

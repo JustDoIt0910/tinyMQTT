@@ -36,7 +36,16 @@ static filter_expr_value_t value_expr_evaluate(tmq_filter_expr_t* expr, void* ev
         }
     }
     else if(meta->value_type == STR_VALUE)
-        result.str = tmq_str_new(get_as(char*, event_data, meta->offset));
+    {
+        char* str = get_as(char*, event_data, meta->offset);
+        if(!str)
+        {
+            result.str = NULL;
+            result.value_type = NULL_VALUE;
+        }
+        else
+            result.str = tmq_str_new(str);
+    }
     else if(meta->value_type == JSON_VALUE)
     {
         cJSON* json = get_as(cJSON*, event_data, meta->offset);

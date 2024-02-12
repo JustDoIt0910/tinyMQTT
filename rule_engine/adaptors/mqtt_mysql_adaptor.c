@@ -6,10 +6,10 @@
 
 static void register_parameters(adaptor_parameter_map* parameter_map)
 {
-    tmq_map_put(*parameter_map, "table", PARAMETER_STR);
+    add_parameter(parameter_map, "table", ADAPTOR_VALUE_STR);
 }
 
-static void handle_event(adaptor_value_map* parameters, adaptor_value_map* payload)
+static void handle_event(tmq_adaptor_t* adaptor, adaptor_value_map* parameters, adaptor_value_list* payload_kvs)
 {
 
 }

@@ -57,7 +57,8 @@ static message_store_t* get_message_store(tmq_broker_t* broker)
     return tmq_message_store_memory_new();
 }
 
-void mqtt_publish(void* arg, tmq_session_t* session, char* topic, mqtt_message* message, uint8_t retain);
+void mqtt_publish(void* arg, tmq_session_t* session, char* topic, mqtt_message* message,
+                  uint8_t retain, char* username, char* client_id, int is_tunneled_pub);
 static void start_session(tmq_broker_t* broker, tmq_tcp_conn_t* conn, tmq_connect_pkt* connect_pkt)
 {
     char* will_topic = NULL, *will_message = NULL;
@@ -492,7 +493,8 @@ void mqtt_unsubscribe(tmq_broker_t* broker, tmq_str_t client_id,
     tmq_executor_post(&broker->executor, handle_topic_req, ctx, 1);
 }
 
-void mqtt_publish(void* arg, tmq_session_t* session, char* topic, mqtt_message* message, uint8_t retain)
+void mqtt_publish(void* arg, tmq_session_t* session, char* topic, mqtt_message* message,
+                  uint8_t retain, char* username, char* client_id, int is_tunneled_pub)
 {
     tmq_broker_t* broker = arg;
     if(session && broker->acl_enabled && tmq_acl_auth(&broker->acl, session, topic, PUB) == DENY)
@@ -501,9 +503,9 @@ void mqtt_publish(void* arg, tmq_session_t* session, char* topic, mqtt_message* 
             .topic = topic,
             .message = *message,
             .retain = retain,
-            .publisher_username = tmq_str_new(session->username),
-            .publisher_client_id = tmq_str_new(session->client_id),
-            .is_tunneled_pub = (session == NULL)
+            .publisher_username = tmq_str_new(username),
+            .publisher_client_id = tmq_str_new(client_id),
+            .is_tunneled_pub = is_tunneled_pub
     };
     publish_ctx_t* ctx = malloc(sizeof(publish_ctx_t));
     ctx->broker = broker;
@@ -541,6 +543,40 @@ static void mqtt_broadcast(tmq_broker_t* broker, char* topic, mqtt_message* mess
     for(int i = 0; i < broker->io_threads; i++)
         tmq_mailbox_push(&broker->io_contexts[i].broadcast_tasks, broadcast_tasks[i]);
     free(broadcast_tasks);
+}
+
+void mqtt_delay_message(void* broker_, tmq_str_t payload_)
+{
+    cJSON* payload = cJSON_Parse(payload_);
+    if(!payload)
+        return;
+    char* topic, *message, *username, *client_id;
+    cJSON* topic_item = cJSON_GetObjectItemCaseSensitive(payload, "topic");
+    if(!topic_item || !(topic = cJSON_GetStringValue(topic_item)))
+        goto end;
+    cJSON* message_item = cJSON_GetObjectItemCaseSensitive(payload, "message");
+    if(!message_item || !(message = cJSON_GetStringValue(message_item)))
+        goto end;
+    cJSON* qos_item = cJSON_GetObjectItemCaseSensitive(payload, "qos");
+    int qos = (int)cJSON_GetNumberValue(qos_item);
+    cJSON* retain_item = cJSON_GetObjectItemCaseSensitive(payload, "retain");
+    int retain = (int) cJSON_GetNumberValue(retain_item);
+    cJSON* username_item = cJSON_GetObjectItemCaseSensitive(payload, "username");
+    username = (username_item && cJSON_IsString(username_item)) ?
+            cJSON_GetStringValue(username_item) :
+            NULL;
+    cJSON* client_id_item = cJSON_GetObjectItemCaseSensitive(payload, "client_id");
+    client_id = cJSON_GetStringValue(client_id_item);
+
+    mqtt_message msg = {
+            .message = tmq_str_new(message),
+            .qos = qos
+    };
+    mqtt_publish(broker_, NULL, tmq_str_new(topic), &msg, retain, username, client_id, 0);
+
+    end:
+    tmq_str_free(payload_);
+    cJSON_Delete(payload);
 }
 
 void add_user(tmq_broker_t* broker, tmq_tcp_conn_t* conn, const char* username, const char* password)
@@ -693,6 +729,18 @@ int tmq_broker_init(tmq_broker_t* broker, tmq_config_t* cfg, tmq_cmd_t* cmd, tmq
 
     tmq_cluster_init(broker, &broker->cluster, "127.0.0.1", 6379, "127.0.0.1", tmq_cmd_get_number(cmd, "cluster-port"));
     tmq_rule_engine_init(&broker->rule_engine, broker);
+
+    tmq_str_t delay_message_enable = tmq_config_get(cfg, "delay_message_enable");
+    if(delay_message_enable && tmq_str_equal(delay_message_enable, "true"))
+        tmq_rule_engine_add_rule(&broker->rule_engine, "select "
+                                                       "'adaptor_test' as {delay_message.exchange}, "
+                                                       "'key1' as {delay_message.routingKey}, "
+                                                       "payload.delay as {delay_message.delayMS},"
+                                                       "payload.topic, payload.message, "
+                                                       "client_id, username, qos, retain "
+                                                       "from "
+                                                       "$delay");
+    tmq_str_free(delay_message_enable);
 
     /* ignore SIGPIPE signal */
     signal(SIGPIPE, SIG_IGN);

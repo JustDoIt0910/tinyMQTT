@@ -62,7 +62,8 @@ typedef struct cluster_publish_msg
 
 static void handle_cluster_member_operation(void* arg);
 static void handle_cluster_route_operation(void* arg);
-extern void mqtt_publish(void* arg, tmq_session_t* session, char* topic, mqtt_message* message, uint8_t retain);
+extern void mqtt_publish(void* arg, tmq_session_t* session, char* topic, mqtt_message* message,
+                         uint8_t retain, char* username, char* client_id, int is_tunneled_pub);
 /*********************************************************************************************/
 /* Handlers below are called in broker's main IO thread */
 static void new_conn_handler(void* owner, tmq_mail_t mail)
@@ -100,7 +101,8 @@ void receive_tunnel_publish_handler(tmq_broker_t* broker, tmq_publish_pkt* publi
             .qos = PUBLISH_QOS(publish_pkt->flags),
             .message = publish_pkt->payload
     };
-    mqtt_publish(broker, NULL, publish_pkt->topic, &message, PUBLISH_RETAIN(publish_pkt->flags));
+    mqtt_publish(broker, NULL, publish_pkt->topic, &message, PUBLISH_RETAIN(publish_pkt->flags),
+                 NULL, NULL, 1);
 }
 
 static void send_message_handler(void* owner, tmq_mail_t mail)

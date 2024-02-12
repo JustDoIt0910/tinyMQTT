@@ -27,6 +27,7 @@ void tmq_event_sources_init()
                           event_data_field(tmq_pub_event_data_t, client_id, "client_id", STR_VALUE),
                           event_data_field(tmq_pub_event_data_t, username, "username", STR_VALUE),
                           event_data_field(tmq_pub_event_data_t, qos, "qos", INT_VALUE),
+                          event_data_field(tmq_pub_event_data_t, retain, "retain", INT_VALUE),
                           event_data_field(tmq_pub_event_data_t, payload_as_json, "payload", JSON_VALUE));
 }
 

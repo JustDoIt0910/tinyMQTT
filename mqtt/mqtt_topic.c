@@ -288,6 +288,7 @@ static void trigger_event(topic_tree_node_t* node, publish_req* req)
                 .username = req->publisher_username,
                 .client_id = req->publisher_client_id,
                 .qos = req->message.qos,
+                .retain = req->retain,
                 .payload_as_json = NULL
         };
         if(listener->need_json_payload)
@@ -323,7 +324,8 @@ static void match(tmq_topics_t* topics, topic_tree_node_t* node, int is_multi_wi
 {
     if(n == tmq_vec_size(*levels) || is_multi_wildcard)
     {
-        trigger_event(node, req);
+        if(!req->is_tunneled_pub)
+            trigger_event(node, req);
         if(node->subscribers)
             topics->client_on_match(topics->broker, req->topic, &req->message, node->subscribers);
         member_sub_info_t* member_sub = node->subscribe_members;
@@ -355,7 +357,8 @@ static void match(tmq_topics_t* topics, topic_tree_node_t* node, int is_multi_wi
             topic_tree_node_t** next = tmq_map_get(node->children, "#");
             if(next)
             {
-                trigger_event(*next, req);
+                if(!req->is_tunneled_pub)
+                    trigger_event(*next, req);
                 if((*next)->subscribers)
                     topics->client_on_match(topics->broker, req->topic, &req->message, (*next)->subscribers);
                 member_sub = (*next)->subscribe_members;

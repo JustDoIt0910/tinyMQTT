@@ -43,7 +43,7 @@ typedef struct tmq_adaptor_s tmq_adaptor_t;
 
 typedef void(*handle_event_f)(tmq_adaptor_t* adaptor, adaptor_value_map* parameters, adaptor_value_list* payload);
 
-#define add_parameter(m, name, type)   tmq_map_put((m), name, type)
+#define add_parameter(m, name, type)   tmq_map_put((*m), name, type)
 
 #define ADAPTOR_PUBLIC_MEMBER                           \
 register_parameters_f register_parameters;     \

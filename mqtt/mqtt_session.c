@@ -195,7 +195,7 @@ void tmq_session_handle_publish(tmq_session_t* session, tmq_publish_pkt* publish
         }
     }
     session->on_new_message(session->upstream, session, publish_pkt->topic, &message,
-                            PUBLISH_RETAIN(publish_pkt->flags));
+                            PUBLISH_RETAIN(publish_pkt->flags), session->username, session->client_id, 0);
 }
 
 void tmq_session_handle_pingreq(tmq_session_t* session) {session->last_pkt_ts = time_now();}

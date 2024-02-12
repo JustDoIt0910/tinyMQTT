@@ -6,10 +6,15 @@
 #include "base/mqtt_cmd.h"
 #include <stdio.h>
 #include <dlfcn.h>
+#include <assert.h>
+
+extern void mqtt_delay_message(void* broker_, tmq_str_t payload);
+typedef void(*callback_setter_f)(tmq_adaptor_t*, void*, void(*message_cb)(void*, tmq_str_t));
 
 int main(int argc, char* argv[])
 {
     tlog_init("broker.log", 1024 * 1024, 10, 0, TLOG_SCREEN);
+    tmq_broker_t broker;
     printf("   __                            __  ___   ____   ______  ______\n"
            "  / /_   (_)   ____    __  __   /  |/  /  / __ \\ /_  __/ /_  __/\n"
            " / __/  / /   / __ \\  / / / /  / /|_/ /  / / / /  / /     / /   \n"
@@ -60,36 +65,42 @@ int main(int argc, char* argv[])
                 sprintf(so_name, "lib%s_plugin.so", *name);
                 void* handle = dlopen(so_name, RTLD_LAZY);
                 if(!handle)
+                {
                     tlog_warn("%s not found", so_name);
+                    continue;
+                }
+                tlog_info("load %s success", so_name);
+                char init_sym_name[100] = {0};
+                sprintf(init_sym_name, "get_%s_adaptor", *name);
+                adaptor_getter_f init = dlsym(handle, init_sym_name);
+                if(!init)
+                    tlog_error("initializer %s not found in %s", init_sym_name, so_name);
                 else
                 {
-                    tlog_info("load %s success", so_name);
-                    char init_sym_name[100] = {0};
-                    sprintf(init_sym_name, "get_%s_adaptor", *name);
-                    adaptor_getter_f init = dlsym(handle, init_sym_name);
-                    if(!init)
-                        tlog_error("initializer %s not found in %s", init_sym_name, so_name);
-                    else
+                    tmq_str_t error = NULL;
+                    tmq_adaptor_t* adaptor = init(&cfg, &error);
+                    if(!adaptor)
                     {
-                        tmq_str_t error = NULL;
-                        tmq_adaptor_t* adaptor = init(&cfg, &error);
-                        if(!adaptor)
+                        if(error)
                         {
-                            if(error)
-                            {
-                                tlog_info("initialize %s adaptor failed: %s", *name, error);
-                                tmq_str_free(error);
-                            }
-                            continue;
+                            tlog_info("initialize %s adaptor failed: %s", *name, error);
+                            tmq_str_free(error);
                         }
-                        tmq_plugin_handle_t plugin_handle = {
-                                .adaptor = adaptor,
-                                .so_handle = handle
-                        };
-                        tmq_map_str_init(&plugin_handle.adaptor_parameters, adaptor_value_type,
-                                         MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
-                        tmq_map_put(plugins, *name, plugin_handle);
+                        continue;
                     }
+                    if(tmq_str_equal(*name, "delay_message"))
+                    {
+                        callback_setter_f cb_setter = dlsym(handle, "set_message_callback");
+                        assert(cb_setter != NULL);
+                        cb_setter(adaptor, &broker, mqtt_delay_message);
+                    }
+                    tmq_plugin_handle_t plugin_handle = {
+                            .adaptor = adaptor,
+                            .so_handle = handle
+                    };
+                    tmq_map_str_init(&plugin_handle.adaptor_parameters, adaptor_value_type,
+                                     MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
+                    tmq_map_put(plugins, *name, plugin_handle);
                 }
             }
             for(tmq_str_t* name = tmq_vec_begin(plugin_names); name != tmq_vec_end(plugin_names); name++)
@@ -99,7 +110,6 @@ int main(int argc, char* argv[])
         }
         tmq_str_free(plugins_conf_);
     }
-    tmq_broker_t broker;
     if(tmq_broker_init(&broker, &cfg, &cmd, &plugins) == 0)
         tmq_broker_run(&broker);
     tmq_map_free(plugins);
