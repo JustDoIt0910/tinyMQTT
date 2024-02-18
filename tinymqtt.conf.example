@@ -10,7 +10,7 @@ allow_anonymous=true
 # enable acl
 acl_enable=false
 
-# the maximum number of unacknowledged publish packet
+# the maximum number of unacknowalegded publish packet
 inflight_window=1
 
 # the number of io thread
@@ -21,21 +21,39 @@ mysql_enable=true
 mysql_host=localhost
 mysql_port=3306
 mysql_username=root
-mysql_password=xxxxxxxx
+mysql_password=xxxxxxxxx
 mysql_db=tinymqtt_db
 mysql_pool_size=50
 
 # mongodb message store configuration
 mongodb_uri=mongodb://localhost:27017
 
-# unacknowledged messages will be stored into mongodb
+# unacknowalegded messages will be stored into mongodb 
 # after reaching mongodb_store_trigger
 mongodb_store_trigger=100
 
 # cluster configuration
 cluster_enable=true
 # using redis for cluster member automatic discovery
-redis_host=localhost
+redis_host=127.0.0.1
 redis_port=6379
-# ip address of node
-node_addr=127.0.0.1
+node_ip=127.0.0.1
+
+
+#plugins=[rabbitmq, delay_message]
+
+rabbitmq_ip=192.168.2.3
+rabbitmq_port=5672
+rabbitmq_vhost=/
+rabbitmq_username=guest
+rabbitmq_password=xxxxxx
+
+delay_message_enable=true
+
+# SSL/TLS configuration
+ssl_enable=true
+
+certfile=ca/server-cert.pem
+
+keyfile=ca/server-key.pem
+
