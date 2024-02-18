@@ -7,11 +7,8 @@
 #include "base/mqtt_cmd.h"
 #include <stdio.h>
 #include <dlfcn.h>
-#include <assert.h>
-#include <uuid/uuid.h>
 
 extern void mqtt_delay_message(void* broker_, tmq_str_t payload);
-typedef void(*callback_setter_f)(tmq_adaptor_t*, void*, void(*message_cb)(void*, tmq_str_t));
 static tmq_str_t delay_message_routing_key = NULL;
 
 tmq_adaptor_t* init_plugin(tmq_config_t* cfg, tmq_broker_t* broker, char* so_name, void* handle, char* name)
@@ -64,6 +61,7 @@ int main(int argc, char* argv[])
     tmq_cmd_t cmd;
     tmq_cmd_init(&cmd);
     tmq_cmd_add_number(&cmd, "port", "p", "server port", 0, 1883);
+    tmq_cmd_add_number(&cmd, "ssl-port", "s", "mqtts port", 0, 8883);
     tmq_cmd_add_number(&cmd, "cluster-port", "P", "cluster port", 0, 11883);
     tmq_cmd_add_string(&cmd, "config", "c", "config file path", 0, "tinymqtt.conf");
     if(tmq_cmd_parse(&cmd, argc, argv) < 0)
@@ -136,13 +134,13 @@ int main(int argc, char* argv[])
         if(delay_message_enable && tmq_str_equal(delay_message_enable, "true"))
         {
             char select_rule[256] = {0};
-            sprintf(select_rule, "select "
-                                 "'delay-message-exchange' as {delay_message.exchange}, "
-                                 "'%s' as {delay_message.routingKey}, "
-                                 "payload.delay as {delay_message.delayMS},"
+            sprintf(select_rule, "SELECT "
+                                 "'delay-message-exchange' AS {delay_message.exchange}, "
+                                 "'%s' AS {delay_message.routingKey}, "
+                                 "payload.delay AS {delay_message.delayMS},"
                                  "payload.topic, payload.message, "
                                  "client_id, username, qos, retain "
-                                 "from "
+                                 "FROM "
                                  "$delay", delay_message_routing_key);
             tmq_rule_engine_add_rule(&broker.rule_engine, select_rule);
         }

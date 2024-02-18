@@ -79,6 +79,7 @@ target_link_libraries (mqtt_core PRIVATE
 
 link_directories(${CMAKE_BINARY_DIR})
 link_libraries(mqtt_core mqtt_base pthread)
+target_link_libraries(mqtt_core PRIVATE ssl crypto)
 
 add_subdirectory(test)
 add_subdirectory(example)

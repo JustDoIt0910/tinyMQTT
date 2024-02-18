@@ -34,7 +34,7 @@ void tcp_conn_close_cb(tmq_tcp_conn_t* conn, void* arg)
 static void on_tcp_connected(void* arg, tmq_socket_t sock)
 {
     tiny_mqtt* mqtt = arg;
-    mqtt->conn = tmq_tcp_conn_new(&mqtt->loop, NULL, sock, (tmq_codec_t*)&mqtt->codec);
+    mqtt->conn = tmq_tcp_conn_new(&mqtt->loop, NULL, sock, 0, (tmq_codec_t*)&mqtt->codec);
     TCP_CONN_SHARE(mqtt->conn);
     mqtt->conn->on_close = tcp_conn_close_cb;
     mqtt->conn->cb_arg = mqtt;

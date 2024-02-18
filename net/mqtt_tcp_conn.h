@@ -9,6 +9,7 @@
 #include "ev/mqtt_event.h"
 #include "codec/mqtt_codec.h"
 #include <pthread.h>
+#include <openssl/ssl.h>
 
 typedef struct tmq_io_context_s tmq_io_context_t;
 typedef struct tmq_tcp_conn_s tmq_tcp_conn_t;
@@ -18,9 +19,10 @@ typedef void(*write_complete_cb)(void* arg);
 
 typedef enum tmq_tcp_conn_state_e
 {
-   CONNECTED,
-   DISCONNECTING,
-   DISCONNECTED
+    SSL_HANDSHAKING,
+    CONNECTED,
+    DISCONNECTING,
+    DISCONNECTED
 } tmq_tcp_conn_state;
 
 typedef struct tmq_tcp_conn_s
@@ -31,6 +33,7 @@ typedef struct tmq_tcp_conn_s
     tmq_event_loop_t* loop;
     tmq_io_context_t* io_context;
     tmq_codec_t* codec;
+    SSL* ssl;
 
     tmq_socket_addr_t local_addr, peer_addr;
     tmq_buffer_t in_buffer, out_buffer;
@@ -51,7 +54,7 @@ typedef struct tmq_tcp_conn_s
 #define TCP_CONN_RELEASE(conn) release_ref((tmq_ref_counted_t*) (conn))
 
 tmq_tcp_conn_t* tmq_tcp_conn_new(tmq_event_loop_t* loop, tmq_io_context_t* io_context,
-                                 tmq_socket_t fd, tmq_codec_t* codec);
+                                 tmq_socket_t fd, int is_ssl, tmq_codec_t* codec);
 
 /* functions below must be called only in the io thread of the connection */
 void tmq_tcp_conn_write(tmq_tcp_conn_t* conn, char* data, size_t size);

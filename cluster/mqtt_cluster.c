@@ -70,7 +70,7 @@ static void new_conn_handler(void* owner, tmq_mail_t mail)
 {
     tmq_cluster_t* cluster = owner;
     tmq_socket_t sock = (tmq_socket_t)(intptr_t)(mail);
-    tmq_tcp_conn_t* conn = tmq_tcp_conn_new(&cluster->broker->loop, NULL, sock, (tmq_codec_t*)&cluster->codec);
+    tmq_tcp_conn_t* conn = tmq_tcp_conn_new(&cluster->broker->loop, NULL, sock, 0, (tmq_codec_t*)&cluster->codec);
     tcp_conn_simple_ctx_t* ctx = malloc(sizeof(tcp_conn_simple_ctx_t));
     ctx->broker = cluster->broker;
     ctx->parsing_ctx.state = PARSING_HEADER;

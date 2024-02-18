@@ -42,6 +42,7 @@ typedef struct tmq_broker_s
 {
     tmq_event_loop_t loop;
     tmq_acceptor_t acceptor;
+    tmq_acceptor_t ssl_acceptor;
     tmq_acceptor_t console_acceptor;
     tmq_mqtt_codec_t mqtt_codec;
     tmq_console_codec_t console_codec;
@@ -58,11 +59,14 @@ typedef struct tmq_broker_s
     tmq_plugin_info_map plugins_info;
     tmq_rule_engine_t rule_engine;
     int next_io_context;
-    uint8_t inflight_window_size;
+
     int io_threads;
     int mysql_enabled;
     int acl_enabled;
+    int cluster_enabled;
+    int ssl_enabled;
     int allow_anonymous;
+    uint8_t inflight_window_size;
     int mongodb_store_trigger;
 } tmq_broker_t;
 

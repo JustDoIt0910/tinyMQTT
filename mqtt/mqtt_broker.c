@@ -13,14 +13,51 @@
 #include <assert.h>
 #include <signal.h>
 
-static void dispatch_new_connection(tmq_socket_t conn, void* arg)
+SSL_CTX* g_ssl_ctx;
+
+void init_ssl_ctx(const char* cert, const char* private_key)
 {
-    tmq_broker_t* broker = arg;
+    SSL_load_error_strings();
+    int r = SSL_library_init();
+    if(!r)
+        fatal_error("SSL_library_init() failed");
+    g_ssl_ctx = SSL_CTX_new(SSLv23_method());
+    if(!g_ssl_ctx)
+        fatal_error("SSL_CTX_new() failed");
+    r = SSL_CTX_use_certificate_file(g_ssl_ctx, cert, SSL_FILETYPE_PEM);
+    if(r <= 0)
+        fatal_error("SSL_CTX_use_certificate_file() failed");
+    r = SSL_CTX_use_PrivateKey_file(g_ssl_ctx, private_key, SSL_FILETYPE_PEM);
+    if(r <= 0)
+        fatal_error("SSL_CTX_use_PrivateKey_file() failed");
+    r = SSL_CTX_check_private_key(g_ssl_ctx);
+    if(!r)
+        fatal_error("SSL_CTX_check_private_key() failed");
+}
+
+static tmq_io_context_t* get_next_io_context(tmq_broker_t* broker)
+{
     /* dispatch tcp connection using round-robin */
     tmq_io_context_t* next_context = &broker->io_contexts[broker->next_io_context++];
     if(broker->next_io_context >=  broker->io_threads)
         broker->next_io_context = 0;
-    tmq_mailbox_push(&next_context->pending_tcp_connections, (tmq_mail_t)(intptr_t)(conn));
+    return next_context;
+}
+
+static void dispatch_new_connection(tmq_socket_t conn, void* arg)
+{
+    tmq_broker_t* broker = arg;
+    tmq_io_context_t* io_context = get_next_io_context(broker);
+    tmq_mailbox_push(&io_context->pending_tcp_connections, (tmq_mail_t)(uintptr_t)(conn));
+}
+
+static void dispatch_ssl_connection(tmq_socket_t conn, void* arg)
+{
+    tmq_broker_t* broker = arg;
+    tmq_io_context_t* io_context = get_next_io_context(broker);
+    uintptr_t ssl_conn = conn;
+    ssl_conn |= (1ull << 63);
+    tmq_mailbox_push(&io_context->pending_tcp_connections, (tmq_mail_t)(ssl_conn));
 }
 
 /* Construct a result of connecting request and notify the corresponding io thread.
@@ -244,7 +281,7 @@ static void handle_topic_req(void* arg)
             tmq_vec_push_back(sub_ack->return_codes, tf->qos);
             /* if client subscribes a new topic that doesn't exist before, update the local route table
              * and synchronize to other cluster members */
-            if(!topic_exist)
+            if(broker->cluster_enabled && !topic_exist)
                 tmq_cluster_add_route(&broker->cluster, tf->topic_filter, topic_node);
         }
         tmq_subscribe_pkt_cleanup(&req->subscribe_pkt);
@@ -597,37 +634,8 @@ void add_user(tmq_broker_t* broker, tmq_tcp_conn_t* conn, const char* username, 
     thrdpool_schedule(&task, broker->thread_pool);
 }
 
-extern void mqtt_tun_publish(tmq_cluster_t* cluster, char* topic, mqtt_message* message, member_addr_set* matched_members);
-int tmq_broker_init(tmq_broker_t* broker, tmq_config_t* cfg, tmq_cmd_t* cmd, tmq_plugin_info_map* plugins)
+static int init_mysql(tmq_broker_t* broker, tmq_config_t* cfg, tmq_cmd_t* cmd)
 {
-    if(!broker) return -1;
-    bzero(broker, sizeof(tmq_broker_t));
-
-    broker->acl_enabled = 0;
-    tmq_str_t acl_enable = tmq_config_get(cfg, "acl_enable");
-    if(acl_enable && tmq_str_equal(acl_enable, "true"))
-        broker->acl_enabled = 1;
-    tmq_str_free(acl_enable);
-
-    tmq_str_t allow_anonymous = tmq_config_get(cfg, "allow_anonymous");
-    if(allow_anonymous && tmq_str_equal(allow_anonymous, "true"))
-        broker->allow_anonymous = 1;
-    tmq_str_free(allow_anonymous);
-
-    tmq_str_t mongodb_store_trigger = tmq_config_get(cfg, "mongodb_store_trigger");
-    broker->mongodb_store_trigger = mongodb_store_trigger ? atoi(mongodb_store_trigger): DEFAULT_MONGODB_STORE_TRIGGER;
-    tmq_str_free(mongodb_store_trigger);
-
-    /* initialize adaptor plugins */
-    tmq_map_str_init(&broker->plugins_info, tmq_plugin_handle_t, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
-    tmq_map_swap(broker->plugins_info, *plugins);
-    tmq_map_iter_t iter = tmq_map_iter(broker->plugins_info);
-    for(; tmq_map_has_next(iter); tmq_map_next(broker->plugins_info, iter))
-    {
-        tmq_plugin_handle_t* handle = (tmq_plugin_handle_t*)(iter.second);
-        handle->adaptor->register_parameters(&handle->adaptor_parameters);
-    }
-
     /* if mysql is configured, initialize mysql connection pool and load acl rules */
     tmq_str_t mysql_enable = tmq_config_get(cfg, "mysql_enable");
     if(mysql_enable && tmq_str_equal(mysql_enable, "true"))
@@ -663,7 +671,7 @@ int tmq_broker_init(tmq_broker_t* broker, tmq_config_t* cfg, tmq_cmd_t* cmd, tmq
         tmq_str_free(mysql_db);
         tmq_str_free(mysql_pool_size);
     }
-    /* otherwise, use password file and disable acl */
+        /* otherwise, use password file and disable acl */
     else
     {
         tmq_str_t pwd_file_path = tmq_config_get(cfg, "password_file");
@@ -681,7 +689,11 @@ int tmq_broker_init(tmq_broker_t* broker, tmq_config_t* cfg, tmq_cmd_t* cmd, tmq
         broker->acl_enabled = 0;
     }
     tmq_str_free(mysql_enable);
+    return 0;
+}
 
+static void init_mongodb(tmq_broker_t* broker, tmq_config_t* cfg, tmq_cmd_t* cmd)
+{
     tmq_str_t mongodb_uri = tmq_config_get(cfg, "mongodb_uri");
     if(mongodb_uri)
     {
@@ -694,13 +706,105 @@ int tmq_broker_init(tmq_broker_t* broker, tmq_config_t* cfg, tmq_cmd_t* cmd, tmq
         mongoc_client_pool_set_error_api(broker->mongodb_pool, 2);
     }
     tmq_str_free(mongodb_uri);
+}
+
+static void init_ssl(tmq_broker_t* broker, tmq_config_t* cfg, tmq_cmd_t* cmd)
+{
+    tmq_str_t ssl_enable = tmq_config_get(cfg, "ssl_enable");
+    tmq_str_t certfile = NULL;
+    tmq_str_t keyfile = NULL;
+    if(ssl_enable && tmq_str_equal(ssl_enable, "true"))
+    {
+        certfile = tmq_config_get(cfg, "certfile");
+        keyfile = tmq_config_get(cfg, "keyfile");
+        if(!certfile || !keyfile)
+        {
+            tlog_error("SSL Certificate file/Private file configuration is missing");
+            goto end;
+        }
+        init_ssl_ctx(certfile, keyfile);
+        broker->ssl_enabled = 1;
+        int ssl_port = (int)tmq_cmd_get_number(cmd, "ssl-port");
+        tmq_acceptor_init(&broker->ssl_acceptor, &broker->loop, ssl_port);
+        tmq_acceptor_set_cb(&broker->ssl_acceptor, dispatch_ssl_connection, broker);
+        tlog_info("MQTTS listening on port %u", ssl_port);
+    }
+    end:
+    tmq_str_free(ssl_enable);
+    tmq_str_free(certfile);
+    tmq_str_free(keyfile);
+}
+
+void init_cluster(tmq_broker_t* broker, tmq_config_t* cfg, tmq_cmd_t* cmd)
+{
+    tmq_str_t cluster_enable = tmq_config_get(cfg, "cluster_enable");
+    tmq_str_t registry_ip = NULL;
+    tmq_str_t registry_port = NULL;
+    tmq_str_t node_ip = NULL;
+    if(cluster_enable && tmq_str_equal(cluster_enable, "true"))
+    {
+        broker->cluster_enabled = 1;
+        registry_ip = tmq_config_get(cfg, "redis_host");
+        registry_port = tmq_config_get(cfg, "redis_port");
+        if(registry_ip)
+            registry_ip = tmq_str_new("127.0.0.1");
+        int port = 6379;
+        if(registry_port)
+            port = (int)strtol(registry_port, NULL, 10);
+        node_ip = tmq_config_get(cfg, "node_ip");
+        if(!node_ip)
+            node_ip = tmq_str_new("127.0.0.1");
+        tmq_cluster_init(broker, &broker->cluster, registry_ip, port, node_ip, tmq_cmd_get_number(cmd, "cluster-port"));
+    }
+    tmq_str_free(cluster_enable);
+    tmq_str_free(registry_ip);
+    tmq_str_free(registry_port);
+    tmq_str_free(node_ip);
+}
+
+extern void mqtt_tun_publish(tmq_cluster_t* cluster, char* topic, mqtt_message* message, member_addr_set* matched_members);
+
+int tmq_broker_init(tmq_broker_t* broker, tmq_config_t* cfg, tmq_cmd_t* cmd, tmq_plugin_info_map* plugins)
+{
+    if(!broker) return -1;
+    bzero(broker, sizeof(tmq_broker_t));
+
+    broker->acl_enabled = 0;
+    tmq_str_t acl_enable = tmq_config_get(cfg, "acl_enable");
+    if(acl_enable && tmq_str_equal(acl_enable, "true"))
+        broker->acl_enabled = 1;
+    tmq_str_free(acl_enable);
+
+    tmq_str_t allow_anonymous = tmq_config_get(cfg, "allow_anonymous");
+    if(allow_anonymous && tmq_str_equal(allow_anonymous, "true"))
+        broker->allow_anonymous = 1;
+    tmq_str_free(allow_anonymous);
+
+    tmq_str_t mongodb_store_trigger = tmq_config_get(cfg, "mongodb_store_trigger");
+    broker->mongodb_store_trigger = mongodb_store_trigger ? atoi(mongodb_store_trigger): DEFAULT_MONGODB_STORE_TRIGGER;
+    tmq_str_free(mongodb_store_trigger);
+
+    /* initialize adaptor plugins */
+    tmq_map_str_init(&broker->plugins_info, tmq_plugin_handle_t, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
+    tmq_map_swap(broker->plugins_info, *plugins);
+    tmq_map_iter_t iter = tmq_map_iter(broker->plugins_info);
+    for(; tmq_map_has_next(iter); tmq_map_next(broker->plugins_info, iter))
+    {
+        tmq_plugin_handle_t* handle = (tmq_plugin_handle_t*)(iter.second);
+        handle->adaptor->register_parameters(&handle->adaptor_parameters);
+    }
+
+    if(init_mysql(broker, cfg, cmd) < 0)
+        return -1;
+
+    init_mongodb(broker, cfg, cmd);
 
     tmq_event_loop_init(&broker->loop);
     tmq_mqtt_codec_init(&broker->mqtt_codec, SERVER_CODEC);
     tmq_console_codec_init(&broker->console_codec);
 
     int port = (int)tmq_cmd_get_number(cmd, "port");
-    tlog_info("listening on port %u", port);
+    tlog_info("MQTT listening on port %u", port);
 
     tmq_str_t inflight_window_str = tmq_config_get(cfg, "inflight_window");
     broker->inflight_window_size = inflight_window_str ? strtoul(inflight_window_str, NULL, 10): 1;
@@ -710,6 +814,8 @@ int tmq_broker_init(tmq_broker_t* broker, tmq_config_t* cfg, tmq_cmd_t* cmd, tmq
     tmq_unix_acceptor_init(&broker->console_acceptor, &broker->loop, "/tmp/tinymqtt_console.path");
     tmq_acceptor_set_cb(&broker->acceptor, dispatch_new_connection, broker);
     tmq_acceptor_set_cb(&broker->console_acceptor, dispatch_new_connection, broker);
+
+    init_ssl(broker, cfg, cmd);
 
     /* initialize io contexts */
     tmq_str_t io_group_num_str = tmq_config_get(cfg, "io_threads");
@@ -727,8 +833,9 @@ int tmq_broker_init(tmq_broker_t* broker, tmq_config_t* cfg, tmq_cmd_t* cmd, tmq
     tmq_map_str_init(&broker->sessions, tmq_session_t*, MAP_DEFAULT_CAP, MAP_DEFAULT_LOAD_FACTOR);
     tmq_topics_init(&broker->topics_tree, broker, mqtt_broadcast, mqtt_tun_publish);
 
-    tmq_cluster_init(broker, &broker->cluster, "127.0.0.1", 6379, "127.0.0.1", tmq_cmd_get_number(cmd, "cluster-port"));
     tmq_rule_engine_init(&broker->rule_engine, broker);
+
+    init_cluster(broker, cfg, cmd);
 
     /* ignore SIGPIPE signal */
     signal(SIGPIPE, SIG_IGN);
@@ -744,6 +851,8 @@ void tmq_broker_run(tmq_broker_t* broker)
         tmq_io_context_run(&broker->io_contexts[i]);
 
     tmq_acceptor_listen(&broker->acceptor);
+    if(broker->ssl_enabled)
+        tmq_acceptor_listen(&broker->ssl_acceptor);
     tmq_acceptor_listen(&broker->console_acceptor);
     tmq_event_loop_run(&broker->loop);
 

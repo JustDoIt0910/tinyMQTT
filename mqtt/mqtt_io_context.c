@@ -79,9 +79,17 @@ static void mqtt_keepalive(void* arg)
 static void new_tcp_connection_handler(void* owner, tmq_mail_t mail)
 {
     tmq_io_context_t* io_context = owner;
-    tmq_socket_t sock = (tmq_socket_t)(intptr_t)mail;
-
-    tmq_tcp_conn_t* conn = tmq_tcp_conn_new(&io_context->loop, io_context, sock, (tmq_codec_t*)&io_context->broker->mqtt_codec);
+    tmq_socket_t sock;
+    int is_ssl = 0;
+    if((uintptr_t)mail & (1ull << 63))
+    {
+        is_ssl = 1;
+        sock = (tmq_socket_t)((uintptr_t)mail & ~(1ull << 63));
+    }
+    else
+        sock = (tmq_socket_t)(uintptr_t)mail;
+    tmq_tcp_conn_t* conn = tmq_tcp_conn_new(&io_context->loop, io_context, sock, is_ssl,
+                                            (tmq_codec_t*)&io_context->broker->mqtt_codec);
     if(tmq_tcp_conn_family(conn) == AF_LOCAL)
     {
         tcp_conn_simple_ctx_t* ctx = malloc(sizeof(tcp_conn_simple_ctx_t));
@@ -99,7 +107,6 @@ static void new_tcp_connection_handler(void* owner, tmq_mail_t mail)
         tmq_tcp_conn_set_context(conn, conn_ctx, NULL);
         conn->on_close = tcp_conn_close_callback;
     }
-    conn->state = CONNECTED;
     char conn_name[50];
     tmq_tcp_conn_id(conn, conn_name, sizeof(conn_name));
     TCP_CONN_SHARE(conn);
